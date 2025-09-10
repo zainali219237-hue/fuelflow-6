@@ -1,0 +1,362 @@
+import { sql } from "drizzle-orm";
+import { pgTable, text, varchar, decimal, integer, timestamp, boolean, jsonb, pgEnum } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// Enums
+export const userRoleEnum = pgEnum('user_role', ['admin', 'manager', 'cashier']);
+export const paymentMethodEnum = pgEnum('payment_method', ['cash', 'card', 'credit', 'fleet']);
+export const transactionTypeEnum = pgEnum('transaction_type', ['sale', 'purchase', 'expense', 'payment']);
+export const tankStatusEnum = pgEnum('tank_status', ['normal', 'low', 'critical', 'maintenance']);
+export const customerTypeEnum = pgEnum('customer_type', ['walk-in', 'credit', 'fleet']);
+
+// Users table
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  fullName: text("full_name").notNull(),
+  role: userRoleEnum("role").notNull().default('cashier'),
+  stationId: varchar("station_id"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Stations table
+export const stations = pgTable("stations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  address: text("address"),
+  gstNumber: text("gst_number"),
+  licenseNumber: text("license_number"),
+  contactPhone: text("contact_phone"),
+  contactEmail: text("contact_email"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Products table
+export const products = pgTable("products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  category: text("category").notNull(), // fuel, lubricant, additive
+  unit: text("unit").notNull().default('litre'),
+  currentPrice: decimal("current_price", { precision: 10, scale: 2 }).notNull(),
+  density: decimal("density", { precision: 5, scale: 3 }),
+  hsnCode: text("hsn_code"),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default('0'),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Tanks table
+export const tanks = pgTable("tanks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  stationId: varchar("station_id").notNull(),
+  name: text("name").notNull(),
+  productId: varchar("product_id").notNull(),
+  capacity: decimal("capacity", { precision: 10, scale: 2 }).notNull(),
+  currentStock: decimal("current_stock", { precision: 10, scale: 2 }).default('0'),
+  minimumLevel: decimal("minimum_level", { precision: 10, scale: 2 }).default('500'),
+  status: tankStatusEnum("status").default('normal'),
+  lastRefillDate: timestamp("last_refill_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Customers table
+export const customers = pgTable("customers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: customerTypeEnum("type").notNull().default('walk-in'),
+  contactPhone: text("contact_phone"),
+  contactEmail: text("contact_email"),
+  address: text("address"),
+  gstNumber: text("gst_number"),
+  creditLimit: decimal("credit_limit", { precision: 10, scale: 2 }).default('0'),
+  outstandingAmount: decimal("outstanding_amount", { precision: 10, scale: 2 }).default('0'),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Suppliers table
+export const suppliers = pgTable("suppliers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  contactPerson: text("contact_person"),
+  contactPhone: text("contact_phone"),
+  contactEmail: text("contact_email"),
+  address: text("address"),
+  gstNumber: text("gst_number"),
+  paymentTerms: text("payment_terms"),
+  outstandingAmount: decimal("outstanding_amount", { precision: 10, scale: 2 }).default('0'),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Sales transactions table
+export const salesTransactions = pgTable("sales_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceNumber: text("invoice_number").notNull().unique(),
+  stationId: varchar("station_id").notNull(),
+  customerId: varchar("customer_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  transactionDate: timestamp("transaction_date").defaultNow(),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default('0'),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0'),
+  outstandingAmount: decimal("outstanding_amount", { precision: 10, scale: 2 }).default('0'),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Sales transaction items table
+export const salesTransactionItems = pgTable("sales_transaction_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  transactionId: varchar("transaction_id").notNull(),
+  productId: varchar("product_id").notNull(),
+  tankId: varchar("tank_id"),
+  quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Purchase orders table
+export const purchaseOrders = pgTable("purchase_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderNumber: text("order_number").notNull().unique(),
+  stationId: varchar("station_id").notNull(),
+  supplierId: varchar("supplier_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  orderDate: timestamp("order_date").defaultNow(),
+  expectedDeliveryDate: timestamp("expected_delivery_date"),
+  actualDeliveryDate: timestamp("actual_delivery_date"),
+  status: text("status").default('pending'), // pending, delivered, cancelled
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default('0'),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default('0'),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Purchase order items table
+export const purchaseOrderItems = pgTable("purchase_order_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull(),
+  productId: varchar("product_id").notNull(),
+  tankId: varchar("tank_id"),
+  quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  receivedQuantity: decimal("received_quantity", { precision: 10, scale: 3 }).default('0'),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Expenses table
+export const expenses = pgTable("expenses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  stationId: varchar("station_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  category: text("category").notNull(), // salary, utilities, maintenance, insurance, etc.
+  description: text("description").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  expenseDate: timestamp("expense_date").defaultNow(),
+  receiptNumber: text("receipt_number"),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  vendorName: text("vendor_name"),
+  isRecurring: boolean("is_recurring").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Payments table
+export const payments = pgTable("payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  stationId: varchar("station_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  customerId: varchar("customer_id"),
+  supplierId: varchar("supplier_id"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentDate: timestamp("payment_date").defaultNow(),
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  referenceNumber: text("reference_number"),
+  notes: text("notes"),
+  type: text("type").notNull(), // receivable, payable
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Stock movements table
+export const stockMovements = pgTable("stock_movements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tankId: varchar("tank_id").notNull(),
+  stationId: varchar("station_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  movementType: text("movement_type").notNull(), // in, out, adjustment
+  quantity: decimal("quantity", { precision: 10, scale: 3 }).notNull(),
+  previousStock: decimal("previous_stock", { precision: 10, scale: 3 }).notNull(),
+  newStock: decimal("new_stock", { precision: 10, scale: 3 }).notNull(),
+  referenceId: varchar("reference_id"), // Links to sales_transactions, purchase_orders, etc.
+  referenceType: text("reference_type"), // sale, purchase, adjustment
+  notes: text("notes"),
+  movementDate: timestamp("movement_date").defaultNow(),
+});
+
+// Price history table
+export const priceHistory = pgTable("price_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").notNull(),
+  stationId: varchar("station_id").notNull(),
+  oldPrice: decimal("old_price", { precision: 10, scale: 2 }).notNull(),
+  newPrice: decimal("new_price", { precision: 10, scale: 2 }).notNull(),
+  effectiveDate: timestamp("effective_date").defaultNow(),
+  userId: varchar("user_id").notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Relations
+export const usersRelations = relations(users, ({ one, many }) => ({
+  station: one(stations, { fields: [users.stationId], references: [stations.id] }),
+  salesTransactions: many(salesTransactions),
+  purchaseOrders: many(purchaseOrders),
+  expenses: many(expenses),
+  payments: many(payments),
+  stockMovements: many(stockMovements),
+  priceHistory: many(priceHistory),
+}));
+
+export const stationsRelations = relations(stations, ({ many }) => ({
+  users: many(users),
+  tanks: many(tanks),
+  salesTransactions: many(salesTransactions),
+  purchaseOrders: many(purchaseOrders),
+  expenses: many(expenses),
+  payments: many(payments),
+  stockMovements: many(stockMovements),
+  priceHistory: many(priceHistory),
+}));
+
+export const productsRelations = relations(products, ({ many }) => ({
+  tanks: many(tanks),
+  salesTransactionItems: many(salesTransactionItems),
+  purchaseOrderItems: many(purchaseOrderItems),
+  priceHistory: many(priceHistory),
+}));
+
+export const tanksRelations = relations(tanks, ({ one, many }) => ({
+  station: one(stations, { fields: [tanks.stationId], references: [stations.id] }),
+  product: one(products, { fields: [tanks.productId], references: [products.id] }),
+  salesTransactionItems: many(salesTransactionItems),
+  purchaseOrderItems: many(purchaseOrderItems),
+  stockMovements: many(stockMovements),
+}));
+
+export const customersRelations = relations(customers, ({ many }) => ({
+  salesTransactions: many(salesTransactions),
+  payments: many(payments),
+}));
+
+export const suppliersRelations = relations(suppliers, ({ many }) => ({
+  purchaseOrders: many(purchaseOrders),
+  payments: many(payments),
+}));
+
+export const salesTransactionsRelations = relations(salesTransactions, ({ one, many }) => ({
+  station: one(stations, { fields: [salesTransactions.stationId], references: [stations.id] }),
+  customer: one(customers, { fields: [salesTransactions.customerId], references: [customers.id] }),
+  user: one(users, { fields: [salesTransactions.userId], references: [users.id] }),
+  items: many(salesTransactionItems),
+}));
+
+export const salesTransactionItemsRelations = relations(salesTransactionItems, ({ one }) => ({
+  transaction: one(salesTransactions, { fields: [salesTransactionItems.transactionId], references: [salesTransactions.id] }),
+  product: one(products, { fields: [salesTransactionItems.productId], references: [products.id] }),
+  tank: one(tanks, { fields: [salesTransactionItems.tankId], references: [tanks.id] }),
+}));
+
+export const purchaseOrdersRelations = relations(purchaseOrders, ({ one, many }) => ({
+  station: one(stations, { fields: [purchaseOrders.stationId], references: [stations.id] }),
+  supplier: one(suppliers, { fields: [purchaseOrders.supplierId], references: [suppliers.id] }),
+  user: one(users, { fields: [purchaseOrders.userId], references: [users.id] }),
+  items: many(purchaseOrderItems),
+}));
+
+export const purchaseOrderItemsRelations = relations(purchaseOrderItems, ({ one }) => ({
+  order: one(purchaseOrders, { fields: [purchaseOrderItems.orderId], references: [purchaseOrders.id] }),
+  product: one(products, { fields: [purchaseOrderItems.productId], references: [products.id] }),
+  tank: one(tanks, { fields: [purchaseOrderItems.tankId], references: [tanks.id] }),
+}));
+
+export const expensesRelations = relations(expenses, ({ one }) => ({
+  station: one(stations, { fields: [expenses.stationId], references: [stations.id] }),
+  user: one(users, { fields: [expenses.userId], references: [users.id] }),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  station: one(stations, { fields: [payments.stationId], references: [stations.id] }),
+  user: one(users, { fields: [payments.userId], references: [users.id] }),
+  customer: one(customers, { fields: [payments.customerId], references: [customers.id] }),
+  supplier: one(suppliers, { fields: [payments.supplierId], references: [suppliers.id] }),
+}));
+
+export const stockMovementsRelations = relations(stockMovements, ({ one }) => ({
+  tank: one(tanks, { fields: [stockMovements.tankId], references: [tanks.id] }),
+  station: one(stations, { fields: [stockMovements.stationId], references: [stations.id] }),
+  user: one(users, { fields: [stockMovements.userId], references: [users.id] }),
+}));
+
+export const priceHistoryRelations = relations(priceHistory, ({ one }) => ({
+  product: one(products, { fields: [priceHistory.productId], references: [products.id] }),
+  station: one(stations, { fields: [priceHistory.stationId], references: [stations.id] }),
+  user: one(users, { fields: [priceHistory.userId], references: [users.id] }),
+}));
+
+// Insert schemas
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertStationSchema = createInsertSchema(stations).omit({ id: true, createdAt: true });
+export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
+export const insertTankSchema = createInsertSchema(tanks).omit({ id: true, createdAt: true });
+export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true });
+export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true, createdAt: true });
+export const insertSalesTransactionSchema = createInsertSchema(salesTransactions).omit({ id: true, createdAt: true });
+export const insertSalesTransactionItemSchema = createInsertSchema(salesTransactionItems).omit({ id: true, createdAt: true });
+export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({ id: true, createdAt: true });
+export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderItems).omit({ id: true, createdAt: true });
+export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
+export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });
+export const insertStockMovementSchema = createInsertSchema(stockMovements);
+export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({ id: true, createdAt: true });
+
+// Types
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type Station = typeof stations.$inferSelect;
+export type InsertStation = z.infer<typeof insertStationSchema>;
+export type Product = typeof products.$inferSelect;
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type Tank = typeof tanks.$inferSelect;
+export type InsertTank = z.infer<typeof insertTankSchema>;
+export type Customer = typeof customers.$inferSelect;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type Supplier = typeof suppliers.$inferSelect;
+export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
+export type SalesTransaction = typeof salesTransactions.$inferSelect;
+export type InsertSalesTransaction = z.infer<typeof insertSalesTransactionSchema>;
+export type SalesTransactionItem = typeof salesTransactionItems.$inferSelect;
+export type InsertSalesTransactionItem = z.infer<typeof insertSalesTransactionItemSchema>;
+export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
+export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
+export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;
+export type InsertPurchaseOrderItem = z.infer<typeof insertPurchaseOrderItemSchema>;
+export type Expense = typeof expenses.$inferSelect;
+export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type StockMovement = typeof stockMovements.$inferSelect;
+export type InsertStockMovement = z.infer<typeof insertStockMovementSchema>;
+export type PriceHistory = typeof priceHistory.$inferSelect;
+export type InsertPriceHistory = z.infer<typeof insertPriceHistorySchema>;
