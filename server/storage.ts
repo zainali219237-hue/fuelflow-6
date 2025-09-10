@@ -44,6 +44,7 @@ export interface IStorage {
   getCustomer(id: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, customer: Partial<InsertCustomer>): Promise<Customer>;
+  updateCustomerOutstanding(customerId: string, additionalAmount: number): Promise<void>;
   
   // Suppliers
   getSuppliers(): Promise<Supplier[]>;
@@ -178,6 +179,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(customers.id, id))
       .returning();
     return customer;
+  }
+
+  async updateCustomerOutstanding(customerId: string, additionalAmount: number): Promise<void> {
+    await db.update(customers)
+      .set({ 
+        outstandingAmount: sql`${customers.outstandingAmount} + ${additionalAmount}` 
+      })
+      .where(eq(customers.id, customerId));
   }
 
   async getSuppliers(): Promise<Supplier[]> {

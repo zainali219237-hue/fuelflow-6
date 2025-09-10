@@ -46,8 +46,10 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-green-100 text-sm font-medium">Today's Sales</p>
-                <p className="text-3xl font-bold" data-testid="todays-sales">₹45,250</p>
-                <p className="text-green-100 text-sm">2,150 L sold</p>
+                <p className="text-3xl font-bold" data-testid="todays-sales">
+                  ₹{dashboardStats?.todaysSales?.totalAmount ? parseFloat(dashboardStats.todaysSales.totalAmount).toLocaleString() : '0'}
+                </p>
+                <p className="text-green-100 text-sm">{dashboardStats?.todaysSales?.count || 0} transactions</p>
               </div>
               <div className="text-4xl opacity-80">💰</div>
             </div>
@@ -62,8 +64,10 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-100 text-sm font-medium">Monthly Revenue</p>
-                <p className="text-3xl font-bold" data-testid="monthly-revenue">₹12.5L</p>
-                <p className="text-blue-100 text-sm">62,450 L total</p>
+                <p className="text-3xl font-bold" data-testid="monthly-revenue">
+                  ₹{dashboardStats?.monthlySales?.totalAmount ? parseFloat(dashboardStats.monthlySales.totalAmount).toLocaleString() : '0'}
+                </p>
+                <p className="text-blue-100 text-sm">{dashboardStats?.monthlySales?.count || 0} transactions total</p>
               </div>
               <div className="text-4xl opacity-80">📈</div>
             </div>
@@ -94,7 +98,9 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-orange-100 text-sm font-medium">Outstanding</p>
-                <p className="text-3xl font-bold" data-testid="outstanding-amount">₹1.8L</p>
+                <p className="text-3xl font-bold" data-testid="outstanding-amount">
+                  ₹{dashboardStats?.outstanding?.totalOutstanding ? (parseFloat(dashboardStats.outstanding.totalOutstanding) / 100000).toFixed(1) + 'L' : '0L'}
+                </p>
                 <p className="text-orange-100 text-sm">Credit customers</p>
               </div>
               <div className="text-4xl opacity-80">⏰</div>

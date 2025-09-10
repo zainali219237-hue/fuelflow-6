@@ -64,26 +64,26 @@ export default function PointOfSale() {
     },
   });
 
-  const addProduct = (productType: "petrol" | "diesel") => {
-    const product = products.find(p => 
-      p.name.toLowerCase().includes(productType)
-    );
-    
-    if (!product) return;
-
-    const availableTank = tanks.find(t => t.productId === product.id);
-    if (!availableTank) return;
+  const addProduct = (product: Product) => {
+    // For now, we'll create a mock tank since tank management is not fully implemented
+    // In a real system, you'd check for available tanks for this product
+    const mockTankId = `tank-${product.id}`;
 
     const newItem: POSItem = {
       productId: product.id,
       productName: product.name,
-      tankId: availableTank.id,
+      tankId: mockTankId,
       quantity: 25,
       unitPrice: parseFloat(product.currentPrice),
       totalPrice: 25 * parseFloat(product.currentPrice),
     };
 
     setTransactionItems([...transactionItems, newItem]);
+    
+    toast({
+      title: "Product added",
+      description: `${product.name} added to transaction`,
+    });
   };
 
   const removeItem = (index: number) => {
@@ -161,7 +161,7 @@ export default function PointOfSale() {
                     <SelectValue placeholder="Walk-in Customer" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Walk-in Customer</SelectItem>
+                    <SelectItem value="walk-in">Walk-in Customer</SelectItem>
                     {customers.filter(c => c.type !== 'walk-in').map((customer) => (
                       <SelectItem key={customer.id} value={customer.id}>
                         {customer.name} ({customer.type})
@@ -175,43 +175,27 @@ export default function PointOfSale() {
 
             {/* Product Selection */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card 
-                className="hover:shadow-md cursor-pointer transition-shadow border-2 border-transparent hover:border-green-200"
-                onClick={() => addProduct('petrol')}
-                data-testid="card-product-petrol"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold text-green-600">Petrol</h4>
-                      <p className="text-sm text-muted-foreground">Regular Unleaded</p>
+              {products.map((product) => (
+                <Card 
+                  key={product.id}
+                  className="hover:shadow-md cursor-pointer transition-shadow border-2 border-transparent hover:border-primary/20"
+                  onClick={() => addProduct(product)}
+                  data-testid={`card-product-${product.name.toLowerCase().replace(/\s+/g, '-')}`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-primary">{product.name}</h4>
+                        <p className="text-sm text-muted-foreground">{product.category}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold">₹{parseFloat(product.currentPrice).toFixed(2)}</div>
+                        <div className="text-xs text-muted-foreground">per {product.unit}</div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold">₹110.50</div>
-                      <div className="text-xs text-muted-foreground">per liter</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card 
-                className="hover:shadow-md cursor-pointer transition-shadow border-2 border-transparent hover:border-blue-200"
-                onClick={() => addProduct('diesel')}
-                data-testid="card-product-diesel"
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold text-blue-600">Diesel</h4>
-                      <p className="text-sm text-muted-foreground">High Speed</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold">₹84.25</div>
-                      <div className="text-xs text-muted-foreground">per liter</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
 
             {/* Transaction Items */}

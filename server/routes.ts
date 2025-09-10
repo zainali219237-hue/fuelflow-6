@@ -202,6 +202,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Update customer outstanding amount for credit sales
+      if (validatedTransaction.paymentMethod === 'credit' && validatedTransaction.customerId) {
+        await storage.updateCustomerOutstanding(
+          validatedTransaction.customerId, 
+          parseFloat(validatedTransaction.outstandingAmount)
+        );
+      }
+      
       res.status(201).json({ transaction: createdTransaction, items: createdItems });
     } catch (error) {
       res.status(400).json({ message: "Invalid sales data" });
@@ -289,6 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { stationId } = req.params;
       const stats = await storage.getDashboardStats(stationId);
+      console.log('Dashboard stats:', JSON.stringify(stats, null, 2));
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
