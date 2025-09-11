@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Combobox, ComboboxOption } from "@/components/ui/combobox";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
@@ -156,19 +157,29 @@ export default function PointOfSale() {
             <div>
               <label className="block text-sm font-medium text-card-foreground mb-2">Customer</label>
               <div className="flex space-x-2">
-                <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
-                  <SelectTrigger className="flex-1" data-testid="select-customer">
-                    <SelectValue placeholder="Walk-in Customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="walk-in">Walk-in Customer</SelectItem>
-                    {customers.filter(c => c.type !== 'walk-in').map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name} ({customer.type})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={[
+                    { value: "walk-in", label: "Walk-in Customer", searchTerms: ["walk", "cash", "retail"] },
+                    ...customers.filter(c => c.type !== 'walk-in').map((customer): ComboboxOption => ({
+                      value: customer.id,
+                      label: `${customer.name} (${customer.type})`,
+                      searchTerms: [
+                        customer.name,
+                        customer.type,
+                        customer.contactPhone || '',
+                        customer.gstNumber || '',
+                        customer.contactEmail || ''
+                      ].filter(Boolean)
+                    }))
+                  ]}
+                  value={selectedCustomerId}
+                  onValueChange={setSelectedCustomerId}
+                  placeholder="Search or select customer..."
+                  searchPlaceholder="Search customers by name, phone, GST..."
+                  emptyMessage="No customers found. Try different search terms."
+                  className="flex-1"
+                  data-testid="combobox-customer"
+                />
                 <Button variant="secondary" data-testid="button-add-customer">+ Add</Button>
               </div>
             </div>
