@@ -276,7 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (validatedTransaction.paymentMethod === 'credit' && validatedTransaction.customerId) {
         await storage.updateCustomerOutstanding(
           validatedTransaction.customerId, 
-          parseFloat(validatedTransaction.outstandingAmount)
+          parseFloat(validatedTransaction.outstandingAmount || '0')
         );
       }
       
