@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { apiRequest } from "@/lib/api";
+import { signInWithGoogle, handleGoogleRedirect, auth } from "@/lib/firebase";
+import { onAuthStateChanged, getIdToken } from "firebase/auth";
 
 interface User {
   id: string;
@@ -7,26 +9,88 @@ interface User {
   fullName: string;
   role: string;
   stationId?: string;
+  email?: string;
+  photoURL?: string | null;
+  isGoogleAuth?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored user data on app load
-    const storedUser = localStorage.getItem("fuelflow_user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    // Check for stored token and validate with server
+    const token = localStorage.getItem("fuelflow_token");
+    
+    if (token) {
+      // Validate token with server
+      apiRequest("GET", "/api/auth/me")
+        .then(response => response.json())
+        .then(data => {
+          setUser(data.user);
+          setIsLoading(false);
+        })
+        .catch(() => {
+          // Token is invalid, clear it
+          localStorage.removeItem("fuelflow_token");
+          localStorage.removeItem("fuelflow_user");
+          setIsLoading(false);
+        });
+    } else {
+      setIsLoading(false);
     }
+    
+    // Handle Google Auth redirect result
+    handleGoogleRedirect().then(async (result) => {
+      if (result) {
+        try {
+          // Get Firebase ID token
+          const idToken = await getIdToken(result.user);
+          
+          // Send to backend for verification
+          const response = await apiRequest("POST", "/api/auth/google", { idToken });
+          const data = await response.json();
+          
+          setUser(data.user);
+          localStorage.setItem("fuelflow_token", data.token);
+          localStorage.setItem("fuelflow_user", JSON.stringify(data.user));
+        } catch (error) {
+          console.error('Google auth error:', error);
+        }
+      }
+    }).catch(console.error);
+    
+    // Listen to Firebase auth state changes for Google users
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser && !user) {
+        try {
+          // Get Firebase ID token and verify with backend
+          const idToken = await getIdToken(firebaseUser);
+          const response = await apiRequest("POST", "/api/auth/google", { idToken });
+          const data = await response.json();
+          
+          setUser(data.user);
+          localStorage.setItem("fuelflow_token", data.token);
+          localStorage.setItem("fuelflow_user", JSON.stringify(data.user));
+        } catch (error) {
+          console.error('Firebase auth verification error:', error);
+        }
+      }
+      setIsLoading(false);
+    });
+    
+    return () => unsubscribe();
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -35,21 +99,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       
       setUser(data.user);
+      localStorage.setItem("fuelflow_token", data.token);
       localStorage.setItem("fuelflow_user", JSON.stringify(data.user));
     } catch (error) {
       throw new Error("Login failed");
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("fuelflow_user");
+  const loginWithGoogle = async () => {
+    try {
+      await signInWithGoogle();
+      // User will be set via the redirect handler
+    } catch (error) {
+      console.error('Google sign-in error:', error);
+      throw new Error("Google sign-in failed");
+    }
+  };
+
+  const logout = async () => {
+    try {
+      // Sign out from Firebase if it's a Google auth user
+      if (user?.isGoogleAuth) {
+        await auth.signOut();
+      }
+      setUser(null);
+      localStorage.removeItem("fuelflow_token");
+      localStorage.removeItem("fuelflow_user");
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const isAuthenticated = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, login, loginWithGoogle, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
