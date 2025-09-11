@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
+import { isFirebaseConfigured } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 
 export default function LoginForm() {
@@ -139,7 +140,7 @@ export default function LoginForm() {
               variant="outline"
               className="w-full mt-4"
               onClick={handleGoogleSignIn}
-              disabled={isLoading}
+              disabled={isLoading || !isFirebaseConfigured}
               data-testid="google-signin-button"
             >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">

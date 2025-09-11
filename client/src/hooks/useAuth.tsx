@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { apiRequest } from "@/lib/api";
-import { signInWithGoogle, handleGoogleRedirect, auth } from "@/lib/firebase";
+import { signInWithGoogle, handleGoogleRedirect, auth, isFirebaseConfigured } from "@/lib/firebase";
 import { onAuthStateChanged, getIdToken } from "firebase/auth";
 
 interface User {
@@ -49,6 +49,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
     } else {
       setIsLoading(false);
+    }
+    
+    // Only handle Firebase auth if configured
+    if (!isFirebaseConfigured) {
+      return; // Skip Firebase auth handling
     }
     
     // Handle Google Auth redirect result

@@ -2,25 +2,47 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, signInWithRedirect, GoogleAuthProvider, getRedirectResult, User as FirebaseUser } from "firebase/auth";
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebasestorage.app`,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
+// Check if Firebase environment variables are configured
+const isFirebaseConfigured = !!
+  (import.meta.env.VITE_FIREBASE_API_KEY &&
+   import.meta.env.VITE_FIREBASE_PROJECT_ID &&
+   import.meta.env.VITE_FIREBASE_APP_ID);
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
+let auth: any = null;
+let googleProvider: any = null;
+
+// Only initialize Firebase if configured
+if (isFirebaseConfigured) {
+  const firebaseConfig = {
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebasestorage.app`,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  };
+
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  googleProvider = new GoogleAuthProvider();
+}
+
+export { auth, googleProvider };
+export { isFirebaseConfigured };
 
 // Google Sign In function
 export function signInWithGoogle() {
+  if (!isFirebaseConfigured || !auth || !googleProvider) {
+    throw new Error('Firebase is not configured. Please set up Firebase environment variables.');
+  }
   signInWithRedirect(auth, googleProvider);
 }
 
 // Handle redirect result after Google sign-in
 export async function handleGoogleRedirect() {
+  if (!isFirebaseConfigured || !auth) {
+    return null; // Firebase not configured, skip Google auth handling
+  }
+  
   try {
     const result = await getRedirectResult(auth);
     if (result) {
@@ -35,7 +57,7 @@ export async function handleGoogleRedirect() {
     return null;
   } catch (error: any) {
     console.error('Google Sign-In error:', error);
-    throw error;
+    return null; // Return null instead of throwing to prevent blocking local auth
   }
 }
 
