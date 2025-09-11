@@ -61,7 +61,7 @@ export default function PriceManagement() {
     createProductMutation.mutate(data);
   };
 
-  const { data: products = [], isLoading } = useQuery({
+  const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
 
@@ -266,7 +266,7 @@ export default function PriceManagement() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {products.slice(0, 3).map((product: any, index: number) => {
+            {products.slice(0, 3).map((product: Product, index: number) => {
               const colors = [
                 { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-600', label: 'text-green-700', change: 'text-green-600' },
                 { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600', label: 'text-blue-700', change: 'text-blue-600' },
@@ -311,7 +311,7 @@ export default function PriceManagement() {
                 </tr>
               </thead>
               <tbody>
-                {products.length > 0 ? products.map((product: any, index: number) => {
+                {products.length > 0 ? products.map((product: Product, index: number) => {
                   const currentPrice = parseFloat(product.currentPrice || '0');
                   const estimatedCost = currentPrice * 0.95; // Estimated cost is 95% of selling price
                   const marginPercentage = ((currentPrice - estimatedCost) / estimatedCost * 100).toFixed(2);

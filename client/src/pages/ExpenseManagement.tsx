@@ -61,7 +61,13 @@ export default function ExpenseManagement() {
   });
 
   const onSubmit = (data: any) => {
-    createExpenseMutation.mutate(data);
+    // Ensure current user IDs are used in case user loaded after form initialization
+    const expenseData = {
+      ...data,
+      stationId: user?.stationId || data.stationId,
+      userId: user?.id || data.userId,
+    };
+    createExpenseMutation.mutate(expenseData);
   };
 
   const { data: expenses = [], isLoading } = useQuery<Expense[]>({
