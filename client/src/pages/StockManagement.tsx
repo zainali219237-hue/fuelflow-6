@@ -1,17 +1,76 @@
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Tank, Product, StockMovement } from "@shared/schema";
+import { insertStockMovementSchema } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
+import { Combobox } from "@/components/ui/combobox";
 
 export default function StockManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  const form = useForm({
+    resolver: zodResolver(insertStockMovementSchema.omit({ id: true })),
+    defaultValues: {
+      tankId: "",
+      movementType: "in",
+      quantity: "0",
+      previousStock: "0",
+      newStock: "0",
+      referenceType: "adjustment",
+      notes: "",
+      stationId: user?.stationId || "",
+      userId: user?.id || "",
+    },
+  });
+
+  const createStockMovementMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const movementData = {
+        ...data,
+        stationId: user?.stationId || data.stationId,
+        userId: user?.id || data.userId,
+      };
+      const response = await apiRequest("POST", "/api/stock-movements", movementData);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Stock entry recorded",
+        description: "Stock movement has been recorded successfully",
+      });
+      setOpen(false);
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/stock-movements", user?.stationId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tanks", user?.stationId] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to record stock movement",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: any) => {
+    createStockMovementMutation.mutate(data);
+  };
 
   const { data: tanks = [], isLoading: tanksLoading } = useQuery<Tank[]>({
     queryKey: ["/api/tanks", user?.stationId],
@@ -64,9 +123,150 @@ export default function StockManagement() {
           <p className="text-muted-foreground">Real-time tank monitoring and inventory control</p>
         </div>
         <div className="flex items-center space-x-3">
-          <Button data-testid="button-new-stock-entry">
-            + New Stock Entry
-          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-new-stock-entry">
+                + New Stock Entry
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add Stock Movement</DialogTitle>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="tankId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tank *</FormLabel>
+                        <FormControl>
+                          <Combobox
+                            options={tanks.map(t => ({ value: t.id, label: `${t.name} - ${getProductName(t.productId)}` }))}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Select tank"
+                            emptyMessage="No tanks found"
+                            data-testid="select-tank"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="movementType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Movement Type *</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-movement-type">
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="in">Stock In</SelectItem>
+                              <SelectItem value="out">Stock Out</SelectItem>
+                              <SelectItem value="adjustment">Adjustment</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="quantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Quantity (L) *</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.001" placeholder="0.000" {...field} data-testid="input-quantity" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="previousStock"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Previous Stock (L) *</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.001" placeholder="0.000" {...field} data-testid="input-previous-stock" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="newStock"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>New Stock (L) *</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.001" placeholder="0.000" {...field} data-testid="input-new-stock" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="referenceType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Reference Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-reference-type">
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="sale">Sale</SelectItem>
+                            <SelectItem value="purchase">Purchase</SelectItem>
+                            <SelectItem value="adjustment">Adjustment</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notes</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Additional details about the stock movement" {...field} data-testid="input-stock-notes" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel">
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={createStockMovementMutation.isPending} data-testid="button-submit-stock">
+                      {createStockMovementMutation.isPending ? "Recording..." : "Record Stock Movement"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
           <Button variant="outline" data-testid="button-stock-report">
             📊 Stock Report
           </Button>
@@ -153,7 +353,7 @@ export default function StockManagement() {
                   const product = products.find(p => p.id === tank?.productId);
                   const isPositive = movement.movementType === 'in';
                   const quantity = parseFloat(movement.quantity || '0');
-                  const timeAgo = new Date(movement.movementDate).toLocaleString('en-GB');
+                  const timeAgo = movement.movementDate ? new Date(movement.movementDate).toLocaleString('en-GB') : 'Unknown';
                   
                   return (
                     <div key={movement.id} className="p-4 border border-border rounded-md">

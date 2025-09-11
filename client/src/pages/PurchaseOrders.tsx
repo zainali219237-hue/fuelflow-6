@@ -1,14 +1,21 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import type { PurchaseOrder, Supplier, Product } from "@shared/schema";
+import { insertPurchaseOrderSchema } from "@shared/schema";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
+import { Combobox } from "@/components/ui/combobox";
 
 export default function PurchaseOrders() {
   const { user } = useAuth();
@@ -16,6 +23,58 @@ export default function PurchaseOrders() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [open, setOpen] = useState(false);
+
+  const form = useForm({
+    resolver: zodResolver(insertPurchaseOrderSchema.extend({
+      orderDate: insertPurchaseOrderSchema.shape.orderDate.optional(),
+      expectedDeliveryDate: insertPurchaseOrderSchema.shape.expectedDeliveryDate.optional(),
+    })),
+    defaultValues: {
+      orderNumber: `PO-${Date.now()}`,
+      supplierId: "",
+      expectedDeliveryDate: "",
+      status: "pending",
+      subtotal: "0",
+      taxAmount: "0",
+      totalAmount: "0",
+      notes: "",
+      stationId: user?.stationId || "",
+      userId: user?.id || "",
+    },
+  });
+
+  const createPurchaseOrderMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const orderData = {
+        ...data,
+        stationId: user?.stationId || data.stationId,
+        userId: user?.id || data.userId,
+      };
+      const response = await apiRequest("POST", "/api/purchase-orders", orderData);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Purchase order created",
+        description: "Purchase order has been created successfully",
+      });
+      setOpen(false);
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders", user?.stationId] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create purchase order",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: any) => {
+    createPurchaseOrderMutation.mutate(data);
+  };
 
   const { data: purchaseOrders = [], isLoading } = useQuery<PurchaseOrder[]>({
     queryKey: ["/api/purchase-orders", user?.stationId],
@@ -60,9 +119,132 @@ export default function PurchaseOrders() {
           <h3 className="text-2xl font-semibold text-card-foreground">Purchase Orders</h3>
           <p className="text-muted-foreground">Manage fuel procurement and supplier orders</p>
         </div>
-        <Button data-testid="button-new-purchase-order">
-          + New Purchase Order
-        </Button>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-new-purchase-order">
+              + New Purchase Order
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Purchase Order</DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="orderNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Order Number *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="PO-123456" {...field} data-testid="input-order-number" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="supplierId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Supplier *</FormLabel>
+                        <FormControl>
+                          <Combobox
+                            options={suppliers.map(s => ({ value: s.id, label: s.name }))}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Select supplier"
+                            emptyMessage="No suppliers found"
+                            data-testid="select-supplier"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="expectedDeliveryDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Expected Delivery Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-delivery-date" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="subtotal"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Subtotal (₹) *</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-subtotal" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="taxAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tax Amount (₹)</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-tax-amount" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="totalAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Total Amount (₹) *</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-total-amount" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Order details and special instructions" {...field} data-testid="input-order-notes" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={createPurchaseOrderMutation.isPending} data-testid="button-submit-order">
+                    {createPurchaseOrderMutation.isPending ? "Creating..." : "Create Purchase Order"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Purchase Order Stats */}
@@ -163,7 +345,7 @@ export default function PurchaseOrders() {
                         ₹{parseFloat(order.totalAmount || '0').toLocaleString()}
                       </td>
                       <td className="p-3 text-center text-sm">
-                        {new Date(order.orderDate).toLocaleDateString('en-GB')}
+                        {order.orderDate ? new Date(order.orderDate).toLocaleDateString('en-GB') : 'N/A'}
                       </td>
                       <td className="p-3 text-center text-sm">
                         {order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toLocaleDateString('en-GB') : 'TBD'}
