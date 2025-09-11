@@ -19,7 +19,19 @@ export default function AccountsPayable() {
 
   const filteredSuppliers = suppliers.filter((supplier: Supplier) => {
     const matchesSearch = supplier.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+    
+    // Status filtering
+    const outstanding = parseFloat(supplier.outstandingAmount || '0');
+    let matchesStatus = true;
+    if (statusFilter === "current") {
+      matchesStatus = outstanding <= 100000;
+    } else if (statusFilter === "overdue") {
+      matchesStatus = outstanding > 100000;
+    } else if (statusFilter === "paid") {
+      matchesStatus = outstanding === 0;
+    }
+    
+    return matchesSearch && matchesStatus;
   });
 
   if (isLoading) {
@@ -139,100 +151,78 @@ export default function AccountsPayable() {
                 </tr>
               </thead>
               <tbody>
-                {/* Sample supplier payables */}
-                {[
-                  {
-                    name: "Bharat Petroleum Corporation",
-                    contact: "Ramesh Kumar",
-                    gst: "27AABCB1234L1Z8",
-                    paymentTerms: "Net 30",
-                    outstanding: "5,52,500",
-                    lastPayment: "20 Dec 2023",
-                    dueDate: "25 Jan 2024",
-                    daysOverdue: 0,
-                    status: "current"
-                  },
-                  {
-                    name: "Indian Oil Corporation",
-                    contact: "Suresh Patel",
-                    gst: "27AABCI5678M1Z2",
-                    paymentTerms: "Net 15",
-                    outstanding: "2,52,750",
-                    lastPayment: "15 Dec 2023",
-                    dueDate: "20 Jan 2024",
-                    daysOverdue: 5,
-                    status: "overdue"
-                  },
-                  {
-                    name: "Hindustan Petroleum",
-                    contact: "Ajay Singh",
-                    gst: "27AABCH9012N1Z5",
-                    paymentTerms: "Net 30",
-                    outstanding: "1,85,000",
-                    lastPayment: "10 Jan 2024",
-                    dueDate: "28 Jan 2024",
-                    daysOverdue: 0,
-                    status: "current"
-                  }
-                ].map((supplier, index) => (
-                  <tr key={index} className="border-b border-border hover:bg-muted/50">
-                    <td className="p-3">
-                      <div className="font-medium text-card-foreground" data-testid={`supplier-name-ap-${index}`}>
-                        {supplier.name}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Contact: {supplier.contact}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        GST: {supplier.gst}
-                      </div>
-                    </td>
-                    <td className="p-3">{supplier.paymentTerms}</td>
-                    <td className="p-3 text-right">
-                      <span className="font-semibold text-red-600" data-testid={`outstanding-ap-${index}`}>
-                        ₹{supplier.outstanding}
-                      </span>
-                    </td>
-                    <td className="p-3 text-center text-sm">{supplier.lastPayment}</td>
-                    <td className="p-3 text-center text-sm">{supplier.dueDate}</td>
-                    <td className="p-3 text-center">
-                      <span className={supplier.daysOverdue > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}>
-                        {supplier.daysOverdue > 0 ? `${supplier.daysOverdue} days` : 'On time'}
-                      </span>
-                    </td>
-                    <td className="p-3 text-center">
-                      <Badge
-                        variant={supplier.status === 'current' ? 'default' : 'destructive'}
-                        className={supplier.status === 'current' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
-                        data-testid={`status-ap-${index}`}
-                      >
-                        {supplier.status === 'current' ? 'Current' : 'Overdue'}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-center">
-                      <div className="flex items-center justify-center space-x-2">
-                        <button 
-                          className="text-blue-600 hover:text-blue-800"
-                          data-testid={`button-view-ap-${index}`}
+                {filteredSuppliers.length > 0 ? filteredSuppliers.map((supplier: Supplier, index: number) => {
+                  const outstanding = parseFloat(supplier.outstandingAmount || '0');
+                  const isOverdue = outstanding > 100000;
+                  
+                  return (
+                    <tr key={supplier.id} className="border-b border-border hover:bg-muted/50">
+                      <td className="p-3">
+                        <div className="font-medium text-card-foreground" data-testid={`supplier-name-ap-${index}`}>
+                          {supplier.name}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Contact: {supplier.contactPerson || 'N/A'}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          GST: {supplier.gstNumber || 'N/A'}
+                        </div>
+                      </td>
+                      <td className="p-3">{supplier.paymentTerms || 'Net 30'}</td>
+                      <td className="p-3 text-right">
+                        <span className="font-semibold text-red-600" data-testid={`outstanding-ap-${index}`}>
+                          ₹{outstanding.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center text-sm">
+                        {supplier.createdAt ? new Date(supplier.createdAt).toLocaleDateString('en-GB') : 'N/A'}
+                      </td>
+                      <td className="p-3 text-center text-sm">N/A</td>
+                      <td className="p-3 text-center">
+                        <span className={isOverdue ? 'text-red-600 font-semibold' : 'text-green-600'}>
+                          {isOverdue ? '30+ days' : 'On time'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <Badge
+                          variant={isOverdue ? 'destructive' : 'default'}
+                          className={isOverdue ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}
+                          data-testid={`status-ap-${index}`}
                         >
-                          👁️
-                        </button>
-                        <button 
-                          className="text-green-600 hover:text-green-800"
-                          data-testid={`button-pay-ap-${index}`}
-                        >
-                          💰
-                        </button>
-                        <button 
-                          className="text-purple-600 hover:text-purple-800"
-                          data-testid={`button-history-ap-${index}`}
-                        >
-                          📄
-                        </button>
-                      </div>
+                          {isOverdue ? 'Overdue' : 'Current'}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-center">
+                        <div className="flex items-center justify-center space-x-2">
+                          <button 
+                            className="text-blue-600 hover:text-blue-800"
+                            data-testid={`button-view-ap-${index}`}
+                          >
+                            👁️
+                          </button>
+                          <button 
+                            className="text-green-600 hover:text-green-800"
+                            data-testid={`button-pay-ap-${index}`}
+                          >
+                            💰
+                          </button>
+                          <button 
+                            className="text-purple-600 hover:text-purple-800"
+                            data-testid={`button-history-ap-${index}`}
+                          >
+                            📄
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }) : (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                      No supplier payment data found for the selected criteria
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

@@ -146,88 +146,70 @@ export default function PurchaseOrders() {
                 </tr>
               </thead>
               <tbody>
-                {/* Sample purchase orders */}
-                {[
-                  {
-                    poNumber: "PO-2024-001",
-                    supplier: "Bharat Petroleum",
-                    product: "Petrol",
-                    quantity: "5,000",
-                    amount: "5,52,500",
-                    orderDate: "15 Jan 2024",
-                    deliveryDate: "17 Jan 2024",
-                    status: "delivered"
-                  },
-                  {
-                    poNumber: "PO-2024-002",
-                    supplier: "Indian Oil Corporation",
-                    product: "Diesel",
-                    quantity: "3,000",
-                    amount: "2,52,750",
-                    orderDate: "16 Jan 2024",
-                    deliveryDate: "18 Jan 2024",
-                    status: "pending"
-                  },
-                  {
-                    poNumber: "PO-2024-003",
-                    supplier: "Hindustan Petroleum",
-                    product: "Premium Petrol",
-                    quantity: "2,000",
-                    amount: "2,31,000",
-                    orderDate: "17 Jan 2024",
-                    deliveryDate: "19 Jan 2024",
-                    status: "pending"
-                  }
-                ].map((order, index) => (
-                  <tr key={index} className="border-b border-border hover:bg-muted/50">
-                    <td className="p-3">
-                      <span className="font-medium text-primary" data-testid={`po-number-${index}`}>
-                        {order.poNumber}
-                      </span>
-                    </td>
-                    <td className="p-3">{order.supplier}</td>
-                    <td className="p-3">{order.product}</td>
-                    <td className="p-3 text-right">{order.quantity} L</td>
-                    <td className="p-3 text-right font-semibold" data-testid={`amount-${index}`}>
-                      ₹{order.amount}
-                    </td>
-                    <td className="p-3 text-center text-sm">{order.orderDate}</td>
-                    <td className="p-3 text-center text-sm">{order.deliveryDate}</td>
-                    <td className="p-3 text-center">
-                      <Badge
-                        variant={order.status === 'delivered' ? 'default' : 
-                                order.status === 'pending' ? 'secondary' : 'destructive'}
-                        className={order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                                  order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : ''}
-                        data-testid={`status-${index}`}
-                      >
-                        {order.status}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-center">
-                      <div className="flex items-center justify-center space-x-2">
-                        <button 
-                          className="text-blue-600 hover:text-blue-800"
-                          data-testid={`button-view-${index}`}
+                {filteredOrders.length > 0 ? filteredOrders.map((order: PurchaseOrder, index: number) => {
+                  const supplier = suppliers.find(s => s.id === order.supplierId);
+                  
+                  return (
+                    <tr key={order.id} className="border-b border-border hover:bg-muted/50">
+                      <td className="p-3">
+                        <span className="font-medium text-primary" data-testid={`po-number-${index}`}>
+                          {order.orderNumber}
+                        </span>
+                      </td>
+                      <td className="p-3">{supplier?.name || 'Unknown Supplier'}</td>
+                      <td className="p-3">Mixed Products</td>
+                      <td className="p-3 text-right">-</td>
+                      <td className="p-3 text-right font-semibold" data-testid={`amount-${index}`}>
+                        ₹{parseFloat(order.totalAmount || '0').toLocaleString()}
+                      </td>
+                      <td className="p-3 text-center text-sm">
+                        {new Date(order.orderDate).toLocaleDateString('en-GB')}
+                      </td>
+                      <td className="p-3 text-center text-sm">
+                        {order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toLocaleDateString('en-GB') : 'TBD'}
+                      </td>
+                      <td className="p-3 text-center">
+                        <Badge
+                          variant={order.status === 'delivered' ? 'default' : 
+                                  order.status === 'pending' ? 'secondary' : 'destructive'}
+                          className={order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                                    order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : ''}
+                          data-testid={`status-${index}`}
                         >
-                          👁️
-                        </button>
-                        <button 
-                          className="text-green-600 hover:text-green-800"
-                          data-testid={`button-edit-${index}`}
-                        >
-                          ✏️
-                        </button>
-                        <button 
-                          className="text-purple-600 hover:text-purple-800"
-                          data-testid={`button-print-${index}`}
-                        >
-                          🖨️
-                        </button>
-                      </div>
+                          {order.status}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-center">
+                        <div className="flex items-center justify-center space-x-2">
+                          <button 
+                            className="text-blue-600 hover:text-blue-800"
+                            data-testid={`button-view-${index}`}
+                          >
+                            👁️
+                          </button>
+                          <button 
+                            className="text-green-600 hover:text-green-800"
+                            data-testid={`button-edit-${index}`}
+                          >
+                            ✏️
+                          </button>
+                          <button 
+                            className="text-purple-600 hover:text-purple-800"
+                            data-testid={`button-print-${index}`}
+                          >
+                            🖨️
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }) : (
+                  <tr>
+                    <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                      No purchase orders found for the selected criteria
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

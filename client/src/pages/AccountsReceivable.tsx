@@ -21,7 +21,21 @@ export default function AccountsReceivable() {
   
   const filteredCustomers = creditCustomers.filter((customer: Customer) => {
     const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+    
+    // Aging filter logic
+    const outstanding = parseFloat(customer.outstandingAmount || '0');
+    let matchesAging = true;
+    if (agingFilter === "current") {
+      matchesAging = outstanding <= 50000;
+    } else if (agingFilter === "30-60") {
+      matchesAging = outstanding > 50000 && outstanding <= 100000;
+    } else if (agingFilter === "60-90") {
+      matchesAging = outstanding > 100000 && outstanding <= 150000;
+    } else if (agingFilter === "90+") {
+      matchesAging = outstanding > 150000;
+    }
+    
+    return matchesSearch && matchesAging;
   });
 
   if (isLoading) {
@@ -142,92 +156,81 @@ export default function AccountsReceivable() {
                 </tr>
               </thead>
               <tbody>
-                {/* Sample outstanding accounts */}
-                {[
-                  {
-                    name: "Rajesh Transport Co.",
-                    gst: "27AABCT1234M1Z5",
-                    creditLimit: "2,00,000",
-                    outstanding: "45,000",
-                    availableCredit: "1,55,000",
-                    daysOutstanding: 15,
-                    lastPayment: "5 Jan 2024",
-                    status: "current"
-                  },
-                  {
-                    name: "City Logistics Ltd.",
-                    gst: "27AABCT5678N1Z9", 
-                    creditLimit: "1,50,000",
-                    outstanding: "75,000",
-                    availableCredit: "75,000",
-                    daysOutstanding: 45,
-                    lastPayment: "2 Jan 2024",
-                    status: "overdue"
-                  },
-                  {
-                    name: "Maharashtra Travels",
-                    gst: "27AABCT9012P1Z3",
-                    creditLimit: "1,00,000",
-                    outstanding: "25,000",
-                    availableCredit: "75,000", 
-                    daysOutstanding: 8,
-                    lastPayment: "10 Jan 2024",
-                    status: "current"
-                  }
-                ].map((customer, index) => (
-                  <tr key={index} className="border-b border-border hover:bg-muted/50">
-                    <td className="p-3">
-                      <div className="font-medium text-card-foreground" data-testid={`customer-name-ar-${index}`}>
-                        {customer.name}
-                      </div>
-                      <div className="text-sm text-muted-foreground">GST: {customer.gst}</div>
-                    </td>
-                    <td className="p-3 text-right">₹{customer.creditLimit}</td>
-                    <td className="p-3 text-right">
-                      <span className="font-semibold text-red-600" data-testid={`outstanding-ar-${index}`}>
-                        ₹{customer.outstanding}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right text-green-600">₹{customer.availableCredit}</td>
-                    <td className="p-3 text-center">
-                      <span className={customer.daysOutstanding > 30 ? 'text-red-600 font-semibold' : ''}>
-                        {customer.daysOutstanding} days
-                      </span>
-                    </td>
-                    <td className="p-3 text-center text-sm">{customer.lastPayment}</td>
-                    <td className="p-3 text-center">
-                      <Badge
-                        variant={customer.status === 'current' ? 'default' : 'destructive'}
-                        className={customer.status === 'current' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
-                        data-testid={`status-ar-${index}`}
-                      >
-                        {customer.status === 'current' ? 'Current' : 'Overdue'}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-center">
-                      <div className="flex items-center justify-center space-x-2">
-                        <button 
-                          className="text-blue-600 hover:text-blue-800"
-                          data-testid={`button-view-ar-${index}`}
+                {filteredCustomers.length > 0 ? filteredCustomers.map((customer: Customer, index: number) => {
+                  const creditLimit = parseFloat(customer.creditLimit || '0');
+                  const outstanding = parseFloat(customer.outstandingAmount || '0');
+                  const availableCredit = creditLimit - outstanding;
+                  const isOverdue = outstanding > 50000;
+                  
+                  return (
+                    <tr key={customer.id} className="border-b border-border hover:bg-muted/50">
+                      <td className="p-3">
+                        <div className="font-medium text-card-foreground" data-testid={`customer-name-ar-${index}`}>
+                          {customer.name}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          GST: {customer.gstNumber || 'N/A'}
+                        </div>
+                      </td>
+                      <td className="p-3 text-right">
+                        ₹{creditLimit.toLocaleString()}
+                      </td>
+                      <td className="p-3 text-right">
+                        <span className="font-semibold text-red-600" data-testid={`outstanding-ar-${index}`}>
+                          ₹{outstanding.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right text-green-600">
+                        ₹{Math.max(0, availableCredit).toLocaleString()}
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={isOverdue ? 'text-red-600 font-semibold' : ''}>
+                          {isOverdue ? '30+' : '<30'} days
+                        </span>
+                      </td>
+                      <td className="p-3 text-center text-sm">
+                        {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString('en-GB') : 'N/A'}
+                      </td>
+                      <td className="p-3 text-center">
+                        <Badge
+                          variant={isOverdue ? 'destructive' : 'default'}
+                          className={isOverdue ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}
+                          data-testid={`status-ar-${index}`}
                         >
-                          👁️
-                        </button>
-                        <button 
-                          className="text-green-600 hover:text-green-800"
-                          data-testid={`button-payment-ar-${index}`}
-                        >
-                          💰
-                        </button>
-                        <button 
-                          className="text-purple-600 hover:text-purple-800"
-                          data-testid={`button-statement-${index}`}
-                        >
-                          📄
-                        </button>
-                      </div>
+                          {isOverdue ? 'Overdue' : 'Current'}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-center">
+                        <div className="flex items-center justify-center space-x-2">
+                          <button 
+                            className="text-blue-600 hover:text-blue-800"
+                            data-testid={`button-view-ar-${index}`}
+                          >
+                            👁️
+                          </button>
+                          <button 
+                            className="text-green-600 hover:text-green-800"
+                            data-testid={`button-payment-ar-${index}`}
+                          >
+                            💰
+                          </button>
+                          <button 
+                            className="text-purple-600 hover:text-purple-800"
+                            data-testid={`button-statement-${index}`}
+                          >
+                            📄
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }) : (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                      No outstanding accounts found for the selected criteria
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

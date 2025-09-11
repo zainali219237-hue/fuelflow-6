@@ -147,42 +147,26 @@ export default function ExpenseManagement() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {[
-                {
-                  description: "Electricity Bill - January",
-                  category: "utilities",
-                  amount: "8,500",
-                  date: "18 Jan 2024",
-                  vendor: "MSEB"
-                },
-                {
-                  description: "Pump Maintenance",
-                  category: "maintenance",
-                  amount: "12,000",
-                  date: "17 Jan 2024",
-                  vendor: "Tech Services"
-                },
-                {
-                  description: "Staff Salary - January",
-                  category: "salary",
-                  amount: "35,000",
-                  date: "15 Jan 2024",
-                  vendor: "Payroll"
-                }
-              ].map((expense, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border border-border rounded-md">
+              {filteredExpenses.slice(0, 3).length > 0 ? filteredExpenses.slice(0, 3).map((expense: Expense, index: number) => (
+                <div key={expense.id} className="flex items-center justify-between p-3 border border-border rounded-md">
                   <div>
                     <div className="font-medium text-card-foreground">{expense.description}</div>
-                    <div className="text-sm text-muted-foreground">{expense.vendor} • {expense.date}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {expense.vendorName || 'N/A'} • {new Date(expense.expenseDate).toLocaleDateString('en-GB')}
+                    </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-red-600">₹{expense.amount}</div>
+                    <div className="font-semibold text-red-600">₹{parseFloat(expense.amount || '0').toLocaleString()}</div>
                     <Badge variant="secondary" className="text-xs">
                       {expense.category}
                     </Badge>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="text-center text-muted-foreground py-4">
+                  No recent expenses
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -235,37 +219,9 @@ export default function ExpenseManagement() {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  {
-                    date: "18 Jan 2024",
-                    description: "Electricity Bill - January 2024",
-                    category: "utilities",
-                    vendor: "MSEB - Maharashtra State Electricity Board",
-                    amount: "8,500",
-                    paymentMethod: "bank",
-                    receiptNo: "REC-001"
-                  },
-                  {
-                    date: "17 Jan 2024", 
-                    description: "Pump Maintenance & Repair",
-                    category: "maintenance",
-                    vendor: "Tech Services Pvt Ltd",
-                    amount: "12,000",
-                    paymentMethod: "cash",
-                    receiptNo: "REC-002"
-                  },
-                  {
-                    date: "15 Jan 2024",
-                    description: "Staff Salary - January 2024",
-                    category: "salary",
-                    vendor: "Payroll Processing",
-                    amount: "35,000",
-                    paymentMethod: "bank",
-                    receiptNo: "SAL-001"
-                  }
-                ].map((expense, index) => (
-                  <tr key={index} className="border-b border-border hover:bg-muted/50">
-                    <td className="p-3 text-sm">{expense.date}</td>
+                {filteredExpenses.length > 0 ? filteredExpenses.map((expense: Expense, index: number) => (
+                  <tr key={expense.id} className="border-b border-border hover:bg-muted/50">
+                    <td className="p-3 text-sm">{new Date(expense.expenseDate).toLocaleDateString('en-GB')}</td>
                     <td className="p-3">
                       <div className="font-medium text-card-foreground">{expense.description}</div>
                     </td>
@@ -274,16 +230,16 @@ export default function ExpenseManagement() {
                         {expense.category}
                       </Badge>
                     </td>
-                    <td className="p-3 text-sm">{expense.vendor}</td>
+                    <td className="p-3 text-sm">{expense.vendorName || 'N/A'}</td>
                     <td className="p-3 text-right font-semibold text-red-600" data-testid={`expense-amount-${index}`}>
-                      ₹{expense.amount}
+                      ₹{parseFloat(expense.amount || '0').toLocaleString()}
                     </td>
                     <td className="p-3 text-center">
                       <Badge variant="outline">
                         {expense.paymentMethod}
                       </Badge>
                     </td>
-                    <td className="p-3 text-center text-sm">{expense.receiptNo}</td>
+                    <td className="p-3 text-center text-sm">{expense.receiptNumber || 'N/A'}</td>
                     <td className="p-3 text-center">
                       <div className="flex items-center justify-center space-x-2">
                         <button 
@@ -307,7 +263,13 @@ export default function ExpenseManagement() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                      No expenses found for the selected criteria
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

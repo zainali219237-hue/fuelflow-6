@@ -32,9 +32,12 @@ export default function PointOfSale() {
     queryKey: ["/api/products"],
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
+  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
   });
+
+  // Find walk-in customer for fallback
+  const walkInCustomer = customers.find(c => c.type === 'walk-in');
 
   const { data: tanks = [] } = useQuery<Tank[]>({
     queryKey: ["/api/tanks", user?.stationId],
@@ -42,7 +45,7 @@ export default function PointOfSale() {
   });
 
   const createSaleMutation = useMutation({
-    mutationFn: async (saleData: { customerId?: string; paymentMethod: string; items: Array<{ productId: string; quantity: number; price: number }> }) => {
+    mutationFn: async (saleData: { transaction: any; items: any[] }) => {
       const response = await apiRequest("POST", "/api/sales", saleData);
       return response.json();
     },
@@ -115,7 +118,7 @@ export default function PointOfSale() {
     const transaction = {
       invoiceNumber: `INV-${Date.now()}`,
       stationId: user?.stationId,
-      customerId: selectedCustomerId || customers.find(c => c.type === 'walk-in')?.id,
+      customerId: selectedCustomerId || walkInCustomer?.id,
       userId: user?.id,
       paymentMethod,
       subtotal: subtotal.toFixed(2),
@@ -159,7 +162,11 @@ export default function PointOfSale() {
               <div className="flex space-x-2">
                 <Combobox
                   options={[
-                    { value: "walk-in", label: "Walk-in Customer", searchTerms: ["walk", "cash", "retail"] },
+                    ...(walkInCustomer ? [{ 
+                      value: walkInCustomer.id, 
+                      label: "Walk-in Customer", 
+                      searchTerms: ["walk", "cash", "retail", "walk-in"] 
+                    }] : []),
                     ...customers.filter(c => c.type !== 'walk-in').map((customer): ComboboxOption => ({
                       value: customer.id,
                       label: `${customer.name} (${customer.type})`,
@@ -178,6 +185,7 @@ export default function PointOfSale() {
                   searchPlaceholder="Search customers by name, phone, GST..."
                   emptyMessage="No customers found. Try different search terms."
                   className="flex-1"
+                  disabled={customersLoading}
                   data-testid="combobox-customer"
                 />
                 <Button variant="secondary" data-testid="button-add-customer">+ Add</Button>

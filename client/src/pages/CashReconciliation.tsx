@@ -1,37 +1,130 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { SalesTransaction, Expense } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 export default function CashReconciliation() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [shift, setShift] = useState("day");
   const [reconciliationDate, setReconciliationDate] = useState(new Date().toISOString().split('T')[0]);
-
-  // Sample data for demonstration
-  const cashData = {
-    openingBalance: 5000,
-    expectedCash: 45750,
-    actualCash: 45500,
-    difference: -250,
-    cardSales: 28500,
-    creditSales: 18200,
-    expenses: 1200
-  };
-
-  const denominations = [
-    { value: 2000, count: 15, total: 30000 },
-    { value: 500, count: 20, total: 10000 },
-    { value: 200, count: 15, total: 3000 },
-    { value: 100, count: 20, total: 2000 },
-    { value: 50, count: 6, total: 300 },
-    { value: 20, count: 5, total: 100 },
-    { value: 10, count: 10, total: 100 },
+  const [denominations, setDenominations] = useState([
+    { value: 2000, count: 0, total: 0 },
+    { value: 500, count: 0, total: 0 },
+    { value: 200, count: 0, total: 0 },
+    { value: 100, count: 0, total: 0 },
+    { value: 50, count: 0, total: 0 },
+    { value: 20, count: 0, total: 0 },
+    { value: 10, count: 0, total: 0 },
     { value: 5, count: 0, total: 0 },
     { value: 2, count: 0, total: 0 },
     { value: 1, count: 0, total: 0 }
-  ];
+  ]);
+
+  // Calculate shift time range
+  const getShiftDateRange = () => {
+    const baseDate = new Date(reconciliationDate);
+    let startTime, endTime;
+    
+    if (shift === 'day') {
+      startTime = new Date(baseDate);
+      startTime.setHours(6, 0, 0, 0);
+      endTime = new Date(baseDate);
+      endTime.setHours(18, 0, 0, 0);
+    } else if (shift === 'night') {
+      startTime = new Date(baseDate);
+      startTime.setHours(18, 0, 0, 0);
+      endTime = new Date(baseDate);
+      endTime.setDate(endTime.getDate() + 1);
+      endTime.setHours(6, 0, 0, 0);
+    } else {
+      startTime = new Date(baseDate);
+      startTime.setHours(0, 0, 0, 0);
+      endTime = new Date(baseDate);
+      endTime.setHours(23, 59, 59, 999);
+    }
+    
+    return { startTime: startTime.toISOString(), endTime: endTime.toISOString() };
+  };
+
+  const { startTime, endTime } = getShiftDateRange();
+
+  // Fetch sales data for the selected shift
+  const { data: salesTransactions = [], isLoading: salesLoading } = useQuery<SalesTransaction[]>({
+    queryKey: ["/api/sales", user?.stationId, startTime, endTime],
+    enabled: !!user?.stationId,
+  });
+
+  // Fetch expenses data for the selected shift  
+  const { data: expenses = [], isLoading: expensesLoading } = useQuery<Expense[]>({
+    queryKey: ["/api/expenses", user?.stationId, startTime, endTime],
+    enabled: !!user?.stationId,
+  });
+
+  const isLoading = salesLoading || expensesLoading;
+
+  // Calculate real cash data based on transactions
+  const cashSales = salesTransactions
+    .filter((t: SalesTransaction) => t.paymentMethod === 'cash')
+    .reduce((sum: number, t: SalesTransaction) => sum + parseFloat(t.totalAmount || '0'), 0);
+
+  const cardSales = salesTransactions
+    .filter((t: SalesTransaction) => ['card', 'credit_card', 'debit_card'].includes(t.paymentMethod || ''))
+    .reduce((sum: number, t: SalesTransaction) => sum + parseFloat(t.totalAmount || '0'), 0);
+
+  const creditSales = salesTransactions
+    .filter((t: SalesTransaction) => t.paymentMethod === 'credit')
+    .reduce((sum: number, t: SalesTransaction) => sum + parseFloat(t.totalAmount || '0'), 0);
+
+  const totalExpenses = expenses
+    .reduce((sum: number, e: Expense) => sum + parseFloat(e.amount || '0'), 0);
+
+  const openingBalance = 5000; // This could be from previous day's closing or a settings table
+  const expectedCash = openingBalance + cashSales - totalExpenses;
+  const actualCash = denominations.reduce((sum, d) => sum + d.total, 0);
+  const difference = actualCash - expectedCash;
+
+  const cashData = {
+    openingBalance,
+    expectedCash,
+    actualCash,
+    difference,
+    cashSales,
+    cardSales,
+    creditSales,
+    expenses: totalExpenses
+  };
+
+  // Handle denomination count changes
+  const updateDenomination = (index: number, count: number) => {
+    const newDenominations = [...denominations];
+    newDenominations[index].count = Math.max(0, count);
+    newDenominations[index].total = newDenominations[index].value * newDenominations[index].count;
+    setDenominations(newDenominations);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-muted rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-24 bg-muted rounded"></div>
+            ))}
+          </div>
+          <div className="h-96 bg-muted rounded"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 fade-in">
@@ -138,7 +231,8 @@ export default function CashReconciliation() {
                   <div className="text-center">×</div>
                   <Input
                     type="number"
-                    defaultValue={denom.count}
+                    value={denom.count}
+                    onChange={(e) => updateDenomination(index, parseInt(e.target.value) || 0)}
                     className="text-center"
                     data-testid={`denom-count-${denom.value}`}
                   />
@@ -171,7 +265,7 @@ export default function CashReconciliation() {
               <div className="flex justify-between items-center p-3 bg-green-50 rounded-md">
                 <span className="font-medium">Cash Sales</span>
                 <span className="text-lg font-bold text-green-600" data-testid="cash-sales">
-                  ₹{cashData.expectedCash.toLocaleString()}
+                  ₹{cashData.cashSales.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between items-center p-3 bg-blue-50 rounded-md">
@@ -197,7 +291,7 @@ export default function CashReconciliation() {
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">Net Cash Movement:</span>
                   <span className="text-xl font-bold text-primary" data-testid="net-cash-movement">
-                    ₹{(cashData.expectedCash - cashData.expenses).toLocaleString()}
+                    ₹{(cashData.cashSales - cashData.expenses).toLocaleString()}
                   </span>
                 </div>
               </div>

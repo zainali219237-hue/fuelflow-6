@@ -77,27 +77,26 @@ export default function PriceManagement() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600" data-testid="market-petrol-price">₹110.50</div>
-                <div className="text-sm text-green-700">Petrol - Market Rate</div>
-                <div className="text-xs text-green-600 mt-1">↑ +0.50 from yesterday</div>
-              </div>
-            </div>
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600" data-testid="market-diesel-price">₹84.25</div>
-                <div className="text-sm text-blue-700">Diesel - Market Rate</div>
-                <div className="text-xs text-blue-600 mt-1">↓ -0.25 from yesterday</div>
-              </div>
-            </div>
-            <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600" data-testid="market-premium-price">₹115.75</div>
-                <div className="text-sm text-purple-700">Premium - Market Rate</div>
-                <div className="text-xs text-purple-600 mt-1">→ No change</div>
-              </div>
-            </div>
+            {products.slice(0, 3).map((product: any, index: number) => {
+              const colors = [
+                { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-600', label: 'text-green-700', change: 'text-green-600' },
+                { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600', label: 'text-blue-700', change: 'text-blue-600' },
+                { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-600', label: 'text-purple-700', change: 'text-purple-600' }
+              ];
+              const color = colors[index % colors.length];
+              
+              return (
+                <div key={product.id} className={`p-4 ${color.bg} rounded-lg border ${color.border}`}>
+                  <div className="text-center">
+                    <div className={`text-2xl font-bold ${color.text}`} data-testid={`market-${product.name.toLowerCase()}-price`}>
+                      ₹{parseFloat(product.currentPrice || '0').toFixed(2)}
+                    </div>
+                    <div className={`text-sm ${color.label}`}>{product.name} - Current Rate</div>
+                    <div className={`text-xs ${color.change} mt-1`}>→ Market rate</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -123,55 +122,13 @@ export default function PriceManagement() {
                 </tr>
               </thead>
               <tbody>
-                {/* Sample product pricing data */}
-                {[
-                  {
-                    name: "Petrol (Regular)",
-                    category: "fuel",
-                    costPrice: "108.00",
-                    sellingPrice: "110.50",
-                    margin: "2.31",
-                    lastUpdated: "18 Jan 2024",
-                    status: "active",
-                    priceChange: "increased"
-                  },
-                  {
-                    name: "Diesel (HSD)",
-                    category: "fuel", 
-                    costPrice: "82.00",
-                    sellingPrice: "84.25",
-                    margin: "2.74",
-                    lastUpdated: "18 Jan 2024",
-                    status: "active",
-                    priceChange: "decreased"
-                  },
-                  {
-                    name: "Premium Petrol",
-                    category: "fuel",
-                    costPrice: "112.50",
-                    sellingPrice: "115.75",
-                    margin: "2.89",
-                    lastUpdated: "17 Jan 2024",
-                    status: "active",
-                    priceChange: "stable"
-                  },
-                  {
-                    name: "Engine Oil 5W-30",
-                    category: "lubricant",
-                    costPrice: "450.00",
-                    sellingPrice: "550.00",
-                    margin: "18.18",
-                    lastUpdated: "15 Jan 2024",
-                    status: "active",
-                    priceChange: "stable"
-                  }
-                ].map((product, index) => {
-                  const costPrice = parseFloat(product.costPrice);
-                  const sellingPrice = parseFloat(product.sellingPrice);
-                  const marginPercentage = ((sellingPrice - costPrice) / costPrice * 100).toFixed(2);
+                {products.length > 0 ? products.map((product: any, index: number) => {
+                  const currentPrice = parseFloat(product.currentPrice || '0');
+                  const estimatedCost = currentPrice * 0.95; // Estimated cost is 95% of selling price
+                  const marginPercentage = ((currentPrice - estimatedCost) / estimatedCost * 100).toFixed(2);
                   
                   return (
-                    <tr key={index} className="border-b border-border hover:bg-muted/50">
+                    <tr key={product.id} className="border-b border-border hover:bg-muted/50">
                       <td className="p-3">
                         <div className="font-medium text-card-foreground" data-testid={`product-name-${index}`}>
                           {product.name}
@@ -183,19 +140,13 @@ export default function PriceManagement() {
                         </Badge>
                       </td>
                       <td className="p-3 text-right font-mono" data-testid={`cost-price-${index}`}>
-                        ₹{product.costPrice}
+                        ₹{estimatedCost.toFixed(2)}
                       </td>
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end space-x-2">
                           <span className="font-semibold font-mono" data-testid={`selling-price-${index}`}>
-                            ₹{product.sellingPrice}
+                            ₹{currentPrice.toFixed(2)}
                           </span>
-                          {product.priceChange === 'increased' && (
-                            <span className="text-green-600 text-xs">↑</span>
-                          )}
-                          {product.priceChange === 'decreased' && (
-                            <span className="text-red-600 text-xs">↓</span>
-                          )}
                         </div>
                       </td>
                       <td className="p-3 text-right">
@@ -205,14 +156,16 @@ export default function PriceManagement() {
                           {marginPercentage}%
                         </span>
                       </td>
-                      <td className="p-3 text-center text-sm">{product.lastUpdated}</td>
+                      <td className="p-3 text-center text-sm">
+                        {product.createdAt ? new Date(product.createdAt).toLocaleDateString('en-GB') : 'N/A'}
+                      </td>
                       <td className="p-3 text-center">
                         <Badge
-                          variant={product.status === 'active' ? 'default' : 'secondary'}
-                          className={product.status === 'active' ? 'bg-green-100 text-green-800' : ''}
+                          variant={product.isActive ? 'default' : 'secondary'}
+                          className={product.isActive ? 'bg-green-100 text-green-800' : ''}
                           data-testid={`product-status-${index}`}
                         >
-                          {product.status}
+                          {product.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </td>
                       <td className="p-3 text-center">
@@ -239,7 +192,13 @@ export default function PriceManagement() {
                       </td>
                     </tr>
                   );
-                })}
+                }) : (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                      No products found
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

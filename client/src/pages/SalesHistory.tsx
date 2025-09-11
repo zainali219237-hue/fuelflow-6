@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { SalesTransaction } from "@shared/schema";
+import type { SalesTransaction, Customer, Product } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,10 +19,45 @@ export default function SalesHistory() {
     enabled: !!user?.stationId,
   });
 
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+  });
+
+  const { data: products = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+
   const filteredTransactions = salesTransactions.filter((transaction: SalesTransaction) => {
     const matchesSearch = transaction.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesPayment = paymentFilter === "all" || transaction.paymentMethod === paymentFilter;
-    return matchesSearch && matchesPayment;
+    
+    // Date filtering
+    const transactionDate = new Date(transaction.transactionDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let matchesDate = true;
+    if (dateFilter === "today") {
+      const transactionToday = new Date(transactionDate);
+      transactionToday.setHours(0, 0, 0, 0);
+      matchesDate = transactionToday.getTime() === today.getTime();
+    } else if (dateFilter === "yesterday") {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const transactionToday = new Date(transactionDate);
+      transactionToday.setHours(0, 0, 0, 0);
+      matchesDate = transactionToday.getTime() === yesterday.getTime();
+    } else if (dateFilter === "week") {
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      matchesDate = transactionDate >= weekAgo;
+    } else if (dateFilter === "month") {
+      const monthAgo = new Date(today);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      matchesDate = transactionDate >= monthAgo;
+    }
+    
+    return matchesSearch && matchesPayment && matchesDate;
   });
 
   if (isLoading) {
@@ -153,86 +188,68 @@ export default function SalesHistory() {
                 </tr>
               </thead>
               <tbody>
-                {/* Sample transactions */}
-                {[
-                  {
-                    time: "14:35",
-                    invoice: "INV-001234",
-                    customer: "Walk-in Customer",
-                    product: "Petrol",
-                    quantity: "25.00",
-                    rate: "110.50",
-                    amount: "2,762.50",
-                    payment: "cash"
-                  },
-                  {
-                    time: "14:28",
-                    invoice: "INV-001233", 
-                    customer: "Rajesh Transport",
-                    product: "Diesel",
-                    quantity: "50.00",
-                    rate: "84.25",
-                    amount: "4,212.50",
-                    payment: "credit"
-                  },
-                  {
-                    time: "14:22",
-                    invoice: "INV-001232",
-                    customer: "Walk-in Customer",
-                    product: "Petrol",
-                    quantity: "30.00", 
-                    rate: "110.50",
-                    amount: "3,315.00",
-                    payment: "card"
-                  }
-                ].map((transaction, index) => (
-                  <tr key={index} className="border-b border-border hover:bg-muted/50">
-                    <td className="p-3 text-sm">{transaction.time}</td>
-                    <td className="p-3">
-                      <span className="font-medium text-primary" data-testid={`invoice-${index}`}>
-                        {transaction.invoice}
-                      </span>
-                    </td>
-                    <td className="p-3">{transaction.customer}</td>
-                    <td className="p-3">{transaction.product}</td>
-                    <td className="p-3 text-right">{transaction.quantity} L</td>
-                    <td className="p-3 text-right">₹{transaction.rate}</td>
-                    <td className="p-3 text-right font-semibold" data-testid={`amount-${index}`}>
-                      ₹{transaction.amount}
-                    </td>
-                    <td className="p-3 text-center">
-                      <Badge
-                        variant={transaction.payment === 'cash' ? 'default' : 
-                                transaction.payment === 'credit' ? 'destructive' : 'secondary'}
-                        data-testid={`payment-method-${index}`}
-                      >
-                        {transaction.payment}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-center">
-                      <div className="flex items-center justify-center space-x-2">
-                        <button 
-                          className="text-blue-600 hover:text-blue-800"
-                          data-testid={`button-view-${index}`}
+                {filteredTransactions.length > 0 ? filteredTransactions.map((transaction: SalesTransaction, index: number) => {
+                  const customer = customers.find(c => c.id === transaction.customerId);
+                  const transactionTime = new Date(transaction.transactionDate).toLocaleTimeString('en-IN', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                  
+                  return (
+                    <tr key={transaction.id} className="border-b border-border hover:bg-muted/50">
+                      <td className="p-3 text-sm">{transactionTime}</td>
+                      <td className="p-3">
+                        <span className="font-medium text-primary" data-testid={`invoice-${index}`}>
+                          {transaction.invoiceNumber}
+                        </span>
+                      </td>
+                      <td className="p-3">{customer?.name || 'Walk-in Customer'}</td>
+                      <td className="p-3">Mixed Products</td>
+                      <td className="p-3 text-right">-</td>
+                      <td className="p-3 text-right">-</td>
+                      <td className="p-3 text-right font-semibold" data-testid={`amount-${index}`}>
+                        ₹{parseFloat(transaction.totalAmount || '0').toLocaleString()}
+                      </td>
+                      <td className="p-3 text-center">
+                        <Badge
+                          variant={transaction.paymentMethod === 'cash' ? 'default' : 
+                                  transaction.paymentMethod === 'credit' ? 'destructive' : 'secondary'}
+                          data-testid={`payment-method-${index}`}
                         >
-                          👁️
-                        </button>
-                        <button 
-                          className="text-green-600 hover:text-green-800"
-                          data-testid={`button-print-${index}`}
-                        >
-                          🖨️
-                        </button>
-                        <button 
-                          className="text-purple-600 hover:text-purple-800"
-                          data-testid={`button-receipt-${index}`}
-                        >
-                          🧾
-                        </button>
-                      </div>
+                          {transaction.paymentMethod}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-center">
+                        <div className="flex items-center justify-center space-x-2">
+                          <button 
+                            className="text-blue-600 hover:text-blue-800"
+                            data-testid={`button-view-${index}`}
+                          >
+                            👁️
+                          </button>
+                          <button 
+                            className="text-green-600 hover:text-green-800"
+                            data-testid={`button-print-${index}`}
+                          >
+                            🖨️
+                          </button>
+                          <button 
+                            className="text-purple-600 hover:text-purple-800"
+                            data-testid={`button-receipt-${index}`}
+                          >
+                            🧾
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }) : (
+                  <tr>
+                    <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                      No transactions found for the selected criteria
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

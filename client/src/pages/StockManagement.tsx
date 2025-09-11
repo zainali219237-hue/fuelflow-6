@@ -148,50 +148,39 @@ export default function StockManagement() {
               </div>
             ) : (
               <div className="space-y-4">
-                {[
-                  {
-                    type: 'Stock In - Petrol',
-                    details: 'Tank 1 | Purchase Order #PO-2024-001',
-                    time: '2 hours ago',
-                    quantity: '+2,000 L',
-                    amount: '₹2,21,000',
-                    isPositive: true
-                  },
-                  {
-                    type: 'Stock Out - Diesel',
-                    details: 'Tank 2 | Sale #INV-001234',
-                    time: '3 hours ago',
-                    quantity: '-50 L',
-                    amount: '₹4,212.50',
-                    isPositive: false
-                  },
-                  {
-                    type: 'Stock Out - Petrol',
-                    details: 'Tank 1 | Sale #INV-001233',
-                    time: '4 hours ago',
-                    quantity: '-25 L',
-                    amount: '₹2,762.50',
-                    isPositive: false
-                  }
-                ].map((movement, index) => (
-                  <div key={index} className="p-4 border border-border rounded-md">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className={`font-medium ${movement.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                          {movement.type}
+                {stockMovements.length > 0 ? stockMovements.slice(0, 3).map((movement: StockMovement, index: number) => {
+                  const tank = tanks.find(t => t.id === movement.tankId);
+                  const product = products.find(p => p.id === tank?.productId);
+                  const isPositive = movement.movementType === 'in';
+                  const quantity = parseFloat(movement.quantity || '0');
+                  const timeAgo = new Date(movement.movementDate).toLocaleString('en-GB');
+                  
+                  return (
+                    <div key={movement.id} className="p-4 border border-border rounded-md">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className={`font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                            Stock {movement.movementType === 'in' ? 'In' : movement.movementType === 'out' ? 'Out' : 'Adjustment'} - {product?.name || 'Unknown'}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {tank?.name} | {movement.referenceType || 'Manual'} #{movement.referenceId || 'N/A'}
+                          </div>
+                          <div className="text-xs text-muted-foreground">{timeAgo}</div>
                         </div>
-                        <div className="text-sm text-muted-foreground">{movement.details}</div>
-                        <div className="text-xs text-muted-foreground">{movement.time}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`font-semibold ${movement.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                          {movement.quantity}
+                        <div className="text-right">
+                          <div className={`font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                            {isPositive ? '+' : ''}{Math.abs(quantity).toLocaleString()} L
+                          </div>
+                          <div className="text-sm text-muted-foreground">Movement</div>
                         </div>
-                        <div className="text-sm text-muted-foreground">{movement.amount}</div>
                       </div>
                     </div>
+                  );
+                }) : (
+                  <div className="p-4 text-center text-muted-foreground">
+                    No recent stock movements
                   </div>
-                ))}
+                )}
               </div>
             )}
           </CardContent>
@@ -204,44 +193,53 @@ export default function StockManagement() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <div className="flex items-start">
-                  <span className="text-yellow-500 mr-2">⚠️</span>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-yellow-800">Low Stock Alert</div>
-                    <div className="text-xs text-yellow-600 mt-1">
-                      Tank 2 (Diesel) - Only 750L remaining (19% capacity)
+              {/* Generate real alerts based on tank data */}
+              {tanks.filter(tank => {
+                const currentStock = parseFloat(tank.currentStock || '0');
+                const minimumLevel = parseFloat(tank.minimumLevel || '0');
+                return currentStock <= minimumLevel;
+              }).slice(0, 2).map((tank, index) => {
+                const currentStock = parseFloat(tank.currentStock || '0');
+                const capacity = parseFloat(tank.capacity || '1');
+                const percentage = Math.round((currentStock / capacity) * 100);
+                const product = products.find(p => p.id === tank.productId);
+                
+                return (
+                  <div key={tank.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                    <div className="flex items-start">
+                      <span className="text-yellow-500 mr-2">⚠️</span>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-yellow-800">Low Stock Alert</div>
+                        <div className="text-xs text-yellow-600 mt-1">
+                          {tank.name} ({product?.name}) - Only {currentStock.toLocaleString()}L remaining ({percentage}% capacity)
+                        </div>
+                        <Button 
+                          size="sm" 
+                          className="mt-2 bg-yellow-600 hover:bg-yellow-700 text-white"
+                          data-testid="button-create-purchase-order"
+                        >
+                          Create Purchase Order
+                        </Button>
+                      </div>
                     </div>
-                    <Button 
-                      size="sm" 
-                      className="mt-2 bg-yellow-600 hover:bg-yellow-700 text-white"
-                      data-testid="button-create-purchase-order"
-                    >
-                      Create Purchase Order
-                    </Button>
                   </div>
-                </div>
-              </div>
+                );
+              })}
               
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <div className="flex items-start">
-                  <span className="text-blue-500 mr-2">📋</span>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-blue-800">Purchase Order Scheduled</div>
-                    <div className="text-xs text-blue-600 mt-1">
-                      PO-2024-002 - 3,000L Diesel delivery tomorrow
+              {/* Show info message if no critical alerts */}
+              {tanks.filter(tank => parseFloat(tank.currentStock || '0') <= parseFloat(tank.minimumLevel || '0')).length === 0 && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                  <div className="flex items-start">
+                    <span className="text-green-500 mr-2">✓</span>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-green-800">All Stock Levels Normal</div>
+                      <div className="text-xs text-green-600 mt-1">
+                        No critical stock alerts at this time
+                      </div>
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="mt-2 border-blue-600 text-blue-600 hover:bg-blue-50"
-                      data-testid="button-view-details"
-                    >
-                      View Details
-                    </Button>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Quick Stock Actions */}
