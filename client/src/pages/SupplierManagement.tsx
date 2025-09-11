@@ -1,11 +1,16 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import type { Supplier } from "@shared/schema";
+import { insertSupplierSchema } from "@shared/schema";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
 
@@ -14,6 +19,48 @@ export default function SupplierManagement() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [open, setOpen] = useState(false);
+
+  const form = useForm({
+    resolver: zodResolver(insertSupplierSchema),
+    defaultValues: {
+      name: "",
+      contactPerson: "",
+      contactPhone: "",
+      contactEmail: "",
+      address: "",
+      gstNumber: "",
+      paymentTerms: "Net 30 Days",
+      outstandingAmount: "0",
+    },
+  });
+
+  const createSupplierMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/suppliers", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Supplier created",
+        description: "New supplier has been added successfully",
+      });
+      setOpen(false);
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create supplier",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: any) => {
+    createSupplierMutation.mutate(data);
+  };
 
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
     queryKey: ["/api/suppliers"],
@@ -52,9 +99,136 @@ export default function SupplierManagement() {
           <h3 className="text-2xl font-semibold text-card-foreground">Supplier Management</h3>
           <p className="text-muted-foreground">Manage vendor relationships and payment terms</p>
         </div>
-        <Button data-testid="button-add-supplier">
-          + Add New Supplier
-        </Button>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-add-supplier">
+              + Add New Supplier
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add New Supplier</DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Supplier Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter supplier name" {...field} data-testid="input-supplier-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="contactPerson"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Person</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter contact person name" {...field} data-testid="input-contact-person" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="contactPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter phone number" {...field} data-testid="input-supplier-phone" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="contactEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Address</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="Enter email address" {...field} data-testid="input-supplier-email" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter address" {...field} data-testid="input-supplier-address" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="gstNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>GST Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter GST number" {...field} data-testid="input-supplier-gst" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="paymentTerms"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Payment Terms</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-payment-terms">
+                              <SelectValue placeholder="Select payment terms" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Net 15 Days">Net 15 Days</SelectItem>
+                            <SelectItem value="Net 30 Days">Net 30 Days</SelectItem>
+                            <SelectItem value="Net 45 Days">Net 45 Days</SelectItem>
+                            <SelectItem value="Net 60 Days">Net 60 Days</SelectItem>
+                            <SelectItem value="Cash on Delivery">Cash on Delivery</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={createSupplierMutation.isPending} data-testid="button-submit-supplier">
+                    {createSupplierMutation.isPending ? "Creating..." : "Create Supplier"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Supplier Stats */}

@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import type { Customer } from "@shared/schema";
+import { insertCustomerSchema } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
 
@@ -14,6 +19,48 @@ export default function CustomerManagement() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [open, setOpen] = useState(false);
+
+  const form = useForm({
+    resolver: zodResolver(insertCustomerSchema),
+    defaultValues: {
+      name: "",
+      type: "walk-in" as const,
+      contactPhone: "",
+      contactEmail: "",
+      address: "",
+      gstNumber: "",
+      creditLimit: "0",
+      outstandingAmount: "0",
+    },
+  });
+
+  const createCustomerMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/customers", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Customer created",
+        description: "New customer has been added successfully",
+      });
+      setOpen(false);
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create customer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: any) => {
+    createCustomerMutation.mutate(data);
+  };
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -54,9 +101,134 @@ export default function CustomerManagement() {
           <h3 className="text-2xl font-semibold text-card-foreground">Customer Account Management</h3>
           <p className="text-muted-foreground">Manage customer profiles, credit accounts, and payment history</p>
         </div>
-        <Button data-testid="button-add-customer">
-          + Add New Customer
-        </Button>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-add-customer">
+              + Add New Customer
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add New Customer</DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter customer name" {...field} data-testid="input-customer-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer Type *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-customer-type">
+                            <SelectValue placeholder="Select customer type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="walk-in">Walk-in</SelectItem>
+                          <SelectItem value="credit">Credit Customer</SelectItem>
+                          <SelectItem value="fleet">Fleet Customer</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="contactPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter phone number" {...field} data-testid="input-customer-phone" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="contactEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Address</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="Enter email address" {...field} data-testid="input-customer-email" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter address" {...field} data-testid="input-customer-address" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="gstNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>GST Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter GST number" {...field} data-testid="input-customer-gst" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="creditLimit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Credit Limit (₹)</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="0" {...field} data-testid="input-customer-credit-limit" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={createCustomerMutation.isPending} data-testid="button-submit-customer">
+                    {createCustomerMutation.isPending ? "Creating..." : "Create Customer"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Customer Stats */}
@@ -159,7 +331,7 @@ export default function CustomerManagement() {
                         data-testid={`outstanding-${index}`}
                       >
                         {parseFloat(customer.outstandingAmount || '0') > 0 
-                          ? `₹${parseFloat(customer.outstandingAmount).toLocaleString()}` 
+                          ? `₹${parseFloat(customer.outstandingAmount || '0').toLocaleString()}` 
                           : '-'}
                       </span>
                     </td>
