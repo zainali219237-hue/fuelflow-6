@@ -1,11 +1,16 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Product, Customer, Tank } from "@shared/schema";
+import { insertCustomerSchema } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Combobox, ComboboxOption } from "@/components/ui/combobox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
@@ -27,6 +32,48 @@ export default function PointOfSale() {
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [transactionItems, setTransactionItems] = useState<POSItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "credit" | "fleet">("cash");
+  const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
+
+  const customerForm = useForm({
+    resolver: zodResolver(insertCustomerSchema.omit({ outstandingAmount: true })),
+    defaultValues: {
+      name: "",
+      type: "walk-in" as const,
+      contactPhone: "",
+      contactEmail: "",
+      address: "",
+      gstNumber: "",
+      creditLimit: "0",
+    },
+  });
+
+  const createCustomerMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/customers", data);
+      return response.json();
+    },
+    onSuccess: (newCustomer) => {
+      toast({
+        title: "Customer added",
+        description: "New customer has been added successfully",
+      });
+      setCustomerDialogOpen(false);
+      customerForm.reset();
+      setSelectedCustomerId(newCustomer.id);
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add customer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onCustomerSubmit = (data: any) => {
+    createCustomerMutation.mutate(data);
+  };
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -188,7 +235,76 @@ export default function PointOfSale() {
                   disabled={customersLoading}
                   data-testid="combobox-customer"
                 />
-                <Button variant="secondary" data-testid="button-add-customer">+ Add</Button>
+                <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="secondary" data-testid="button-add-customer">+ Add</Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[400px]">
+                    <DialogHeader>
+                      <DialogTitle>Quick Add Customer</DialogTitle>
+                    </DialogHeader>
+                    <Form {...customerForm}>
+                      <form onSubmit={customerForm.handleSubmit(onCustomerSubmit)} className="space-y-4">
+                        <FormField
+                          control={customerForm.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Customer Name *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter customer name" {...field} data-testid="input-quick-customer-name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={customerForm.control}
+                          name="contactPhone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone Number</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter phone number" {...field} data-testid="input-quick-customer-phone" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={customerForm.control}
+                          name="type"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Customer Type</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-quick-customer-type">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="walk-in">Walk-in</SelectItem>
+                                  <SelectItem value="credit">Credit Customer</SelectItem>
+                                  <SelectItem value="fleet">Fleet Customer</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="flex justify-end space-x-2 pt-2">
+                          <Button type="button" variant="outline" onClick={() => setCustomerDialogOpen(false)} data-testid="button-cancel-customer">
+                            Cancel
+                          </Button>
+                          <Button type="submit" disabled={createCustomerMutation.isPending} data-testid="button-submit-quick-customer">
+                            {createCustomerMutation.isPending ? "Adding..." : "Add Customer"}
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
 

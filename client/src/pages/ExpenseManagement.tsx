@@ -1,11 +1,16 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import type { Expense } from "@shared/schema";
+import { insertExpenseSchema } from "@shared/schema";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
@@ -16,6 +21,48 @@ export default function ExpenseManagement() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [open, setOpen] = useState(false);
+
+  const form = useForm({
+    resolver: zodResolver(insertExpenseSchema),
+    defaultValues: {
+      stationId: user?.stationId || "",
+      userId: user?.id || "",
+      category: "utilities",
+      description: "",
+      amount: "0",
+      receiptNumber: "",
+      paymentMethod: "cash" as const,
+      vendorName: "",
+    },
+  });
+
+  const createExpenseMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/expenses", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Expense recorded",
+        description: "New expense has been recorded successfully",
+      });
+      setOpen(false);
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to record expense",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: any) => {
+    createExpenseMutation.mutate(data);
+  };
 
   const { data: expenses = [], isLoading } = useQuery<Expense[]>({
     queryKey: ["/api/expenses", user?.stationId],
@@ -43,7 +90,7 @@ export default function ExpenseManagement() {
 
   const totalExpenses = filteredExpenses.reduce((sum: number, e: Expense) => sum + parseFloat(e.amount || '0'), 0);
   const monthlyExpenses = filteredExpenses.filter((e: Expense) => {
-    const expenseDate = new Date(e.expenseDate);
+    const expenseDate = e.expenseDate ? new Date(e.expenseDate) : new Date();
     const currentDate = new Date();
     return expenseDate.getMonth() === currentDate.getMonth();
   }).reduce((sum: number, e: Expense) => sum + parseFloat(e.amount || '0'), 0);
@@ -64,9 +111,136 @@ export default function ExpenseManagement() {
           <p className="text-muted-foreground">Track operational costs and overhead expenses</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button data-testid="button-add-expense">
-            + Add Expense
-          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-expense">
+                + Add Expense
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Record New Expense</DialogTitle>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Category *</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-expense-category">
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="salary">Staff Salaries</SelectItem>
+                              <SelectItem value="utilities">Utilities</SelectItem>
+                              <SelectItem value="maintenance">Maintenance</SelectItem>
+                              <SelectItem value="insurance">Insurance</SelectItem>
+                              <SelectItem value="fuel">Fuel Purchase</SelectItem>
+                              <SelectItem value="office">Office Supplies</SelectItem>
+                              <SelectItem value="marketing">Marketing</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Amount (₹) *</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-expense-amount" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter expense description" {...field} data-testid="input-expense-description" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="vendorName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Vendor/Supplier</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter vendor name" {...field} data-testid="input-expense-vendor" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="receiptNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Receipt/Invoice No.</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter receipt number" {...field} data-testid="input-expense-receipt" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="paymentMethod"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Payment Method *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-payment-method">
+                              <SelectValue placeholder="Select payment method" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="cash">Cash</SelectItem>
+                            <SelectItem value="card">Card</SelectItem>
+                            <SelectItem value="credit">Credit/UPI</SelectItem>
+                            <SelectItem value="fleet">Fleet Card</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel">
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={createExpenseMutation.isPending} data-testid="button-submit-expense">
+                      {createExpenseMutation.isPending ? "Recording..." : "Record Expense"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
           <Button variant="outline" data-testid="button-export-expenses">
             📊 Export Report
           </Button>
@@ -152,7 +326,7 @@ export default function ExpenseManagement() {
                   <div>
                     <div className="font-medium text-card-foreground">{expense.description}</div>
                     <div className="text-sm text-muted-foreground">
-                      {expense.vendorName || 'N/A'} • {new Date(expense.expenseDate).toLocaleDateString('en-GB')}
+                      {expense.vendorName || 'N/A'} • {expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString('en-GB') : 'N/A'}
                     </div>
                   </div>
                   <div className="text-right">
@@ -221,7 +395,7 @@ export default function ExpenseManagement() {
               <tbody>
                 {filteredExpenses.length > 0 ? filteredExpenses.map((expense: Expense, index: number) => (
                   <tr key={expense.id} className="border-b border-border hover:bg-muted/50">
-                    <td className="p-3 text-sm">{new Date(expense.expenseDate).toLocaleDateString('en-GB')}</td>
+                    <td className="p-3 text-sm">{expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString('en-GB') : 'N/A'}</td>
                     <td className="p-3">
                       <div className="font-medium text-card-foreground">{expense.description}</div>
                     </td>
