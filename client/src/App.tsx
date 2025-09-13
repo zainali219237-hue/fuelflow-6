@@ -32,7 +32,8 @@ import NotFound from "@/pages/not-found";
 // Bootstrap component to handle station currency fetch without circular imports
 function CurrencyBootstrap() {
   const { user } = useAuth();
-  const { setCurrency } = useCurrency();
+  const currencyContext = useCurrency();
+  const { setCurrency } = currencyContext || { setCurrency: () => {} };
 
   useEffect(() => {
     const fetchStationCurrency = async () => {

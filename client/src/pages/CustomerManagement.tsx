@@ -19,7 +19,7 @@ import { Eye, Edit, CreditCard } from "lucide-react";
 export default function CustomerManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { currencyConfig } = useCurrency();
+  const { currencyConfig } = useCurrency() || { currencyConfig: { symbol: '₹' } };
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [open, setOpen] = useState(false);
