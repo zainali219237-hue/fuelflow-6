@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
-import { useCurrency } from "@/contexts/CurrencyContext";
 import { formatAmount } from "@/lib/currency";
 import { Printer, Download, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
@@ -28,10 +27,9 @@ interface TransactionWithDetails extends SalesTransaction {
 export default function InvoiceReceipt() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { currency } = useCurrency();
 
   const { data: transaction, isLoading } = useQuery<TransactionWithDetails>({
-    queryKey: ["/api/sales/transaction", id!],
+    queryKey: ["/api/sales/detail", id!],
     enabled: !!id && !!user?.stationId,
   });
 

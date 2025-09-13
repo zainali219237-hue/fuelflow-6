@@ -54,8 +54,8 @@ export interface IStorage {
   // Sales Transactions
   getSalesTransactions(stationId: string, limit?: number): Promise<SalesTransaction[]>;
   getSalesTransaction(id: string): Promise<SalesTransaction | undefined>;
-  getSalesTransactionWithItems(id: string): Promise<(SalesTransaction & { items: SalesTransactionItem[], customer: Customer, station: Station }) | undefined>;
-  getSalesTransactionWithItemsSecure(id: string, userStationId: string, userRole: string): Promise<(SalesTransaction & { items: SalesTransactionItem[], customer: Customer, station: Station }) | undefined>;
+  getSalesTransactionWithItems(id: string): Promise<(SalesTransaction & { items: (SalesTransactionItem & { product: Product })[], customer: Customer, station: Station, user: User }) | undefined>;
+  getSalesTransactionWithItemsSecure(id: string, userStationId: string, userRole: string): Promise<(SalesTransaction & { items: (SalesTransactionItem & { product: Product })[], customer: Customer, station: Station, user: User }) | undefined>;
   createSalesTransaction(transaction: InsertSalesTransaction): Promise<SalesTransaction>;
   deleteSalesTransaction(id: string): Promise<void>;
   deleteSalesTransactionSecure(id: string, userStationId: string, userRole: string): Promise<void>;
@@ -447,49 +447,76 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getSalesTransactionWithItems(id: string): Promise<(SalesTransaction & { items: SalesTransactionItem[], customer: Customer, station: Station }) | undefined> {
+  async getSalesTransactionWithItems(id: string): Promise<(SalesTransaction & { items: (SalesTransactionItem & { product: Product })[], customer: Customer, station: Station, user: User }) | undefined> {
     const transaction = await db
       .select()
       .from(salesTransactions)
       .leftJoin(customers, eq(salesTransactions.customerId, customers.id))
       .leftJoin(stations, eq(salesTransactions.stationId, stations.id))
+      .leftJoin(users, eq(salesTransactions.userId, users.id))
       .where(eq(salesTransactions.id, id))
       .then(results => results[0]);
 
     if (!transaction) return undefined;
     
-    // Ensure customer and station exist - if not, the data is inconsistent
-    if (!transaction.customers || !transaction.stations) {
-      throw new Error(`Sales transaction ${id} has missing customer or station data`);
+    // Ensure customer, station, and user exist - if not, the data is inconsistent
+    if (!transaction.customers || !transaction.stations || !transaction.users) {
+      throw new Error(`Sales transaction ${id} has missing customer, station, or user data`);
     }
 
-    const items = await db
-      .select()
+    const itemsWithProducts = await db
+      .select({
+        // SalesTransactionItem fields
+        id: salesTransactionItems.id,
+        transactionId: salesTransactionItems.transactionId,
+        productId: salesTransactionItems.productId,
+        tankId: salesTransactionItems.tankId,
+        quantity: salesTransactionItems.quantity,
+        unitPrice: salesTransactionItems.unitPrice,
+        totalPrice: salesTransactionItems.totalPrice,
+        createdAt: salesTransactionItems.createdAt,
+        // Product fields (nested)
+        product: {
+          id: products.id,
+          name: products.name,
+          category: products.category,
+          unit: products.unit,
+          currentPrice: products.currentPrice,
+          density: products.density,
+          hsnCode: products.hsnCode,
+          taxRate: products.taxRate,
+          isActive: products.isActive,
+          createdAt: products.createdAt
+        }
+      })
       .from(salesTransactionItems)
+      .innerJoin(products, eq(salesTransactionItems.productId, products.id))
       .where(eq(salesTransactionItems.transactionId, id));
 
     return {
       ...transaction.sales_transactions,
-      items,
+      items: itemsWithProducts as (SalesTransactionItem & { product: Product })[],
       customer: transaction.customers,
-      station: transaction.stations
+      station: transaction.stations,
+      user: transaction.users
     };
   }
 
-  async getSalesTransactionWithItemsSecure(id: string, userStationId: string, userRole: string): Promise<(SalesTransaction & { items: SalesTransactionItem[], customer: Customer, station: Station }) | undefined> {
+  async getSalesTransactionWithItemsSecure(id: string, userStationId: string, userRole: string): Promise<(SalesTransaction & { items: (SalesTransactionItem & { product: Product })[], customer: Customer, station: Station, user: User }) | undefined> {
     const transaction = await db
       .select()
       .from(salesTransactions)
       .leftJoin(customers, eq(salesTransactions.customerId, customers.id))
       .leftJoin(stations, eq(salesTransactions.stationId, stations.id))
+      .leftJoin(users, eq(salesTransactions.userId, users.id))
       .where(eq(salesTransactions.id, id))
       .then(results => results[0]);
 
     if (!transaction) return undefined;
     
-    // Ensure customer and station exist - if not, the data is inconsistent
-    if (!transaction.customers || !transaction.stations) {
-      throw new Error(`Sales transaction ${id} has missing customer or station data`);
+    // Ensure customer, station, and user exist - if not, the data is inconsistent
+    if (!transaction.customers || !transaction.stations || !transaction.users) {
+      throw new Error(`Sales transaction ${id} has missing customer, station, or user data`);
     }
 
     // Security check: verify the transaction belongs to the user's station (admins can access all)
@@ -497,16 +524,41 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Access denied: Transaction does not belong to your station');
     }
 
-    const items = await db
-      .select()
+    const itemsWithProducts = await db
+      .select({
+        // SalesTransactionItem fields
+        id: salesTransactionItems.id,
+        transactionId: salesTransactionItems.transactionId,
+        productId: salesTransactionItems.productId,
+        tankId: salesTransactionItems.tankId,
+        quantity: salesTransactionItems.quantity,
+        unitPrice: salesTransactionItems.unitPrice,
+        totalPrice: salesTransactionItems.totalPrice,
+        createdAt: salesTransactionItems.createdAt,
+        // Product fields (nested)
+        product: {
+          id: products.id,
+          name: products.name,
+          category: products.category,
+          unit: products.unit,
+          currentPrice: products.currentPrice,
+          density: products.density,
+          hsnCode: products.hsnCode,
+          taxRate: products.taxRate,
+          isActive: products.isActive,
+          createdAt: products.createdAt
+        }
+      })
       .from(salesTransactionItems)
+      .innerJoin(products, eq(salesTransactionItems.productId, products.id))
       .where(eq(salesTransactionItems.transactionId, id));
 
     return {
       ...transaction.sales_transactions,
-      items,
+      items: itemsWithProducts as (SalesTransactionItem & { product: Product })[],
       customer: transaction.customers,
-      station: transaction.stations
+      station: transaction.stations,
+      user: transaction.users
     };
   }
 
