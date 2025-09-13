@@ -55,8 +55,10 @@ export interface IStorage {
   getSalesTransactions(stationId: string, limit?: number): Promise<SalesTransaction[]>;
   getSalesTransaction(id: string): Promise<SalesTransaction | undefined>;
   getSalesTransactionWithItems(id: string): Promise<(SalesTransaction & { items: SalesTransactionItem[], customer: Customer, station: Station }) | undefined>;
+  getSalesTransactionWithItemsSecure(id: string, userStationId: string, userRole: string): Promise<(SalesTransaction & { items: SalesTransactionItem[], customer: Customer, station: Station }) | undefined>;
   createSalesTransaction(transaction: InsertSalesTransaction): Promise<SalesTransaction>;
   deleteSalesTransaction(id: string): Promise<void>;
+  deleteSalesTransactionSecure(id: string, userStationId: string, userRole: string): Promise<void>;
   
   // Sales Transaction Items
   createSalesTransactionItem(item: InsertSalesTransactionItem): Promise<SalesTransactionItem>;
@@ -65,8 +67,11 @@ export interface IStorage {
   // Purchase Orders
   getPurchaseOrders(stationId: string): Promise<PurchaseOrder[]>;
   getPurchaseOrder(id: string): Promise<PurchaseOrder | undefined>;
+  getPurchaseOrderWithItems(id: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[], supplier: Supplier, station: Station }) | undefined>;
+  getPurchaseOrderWithItemsSecure(id: string, userStationId: string, userRole: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[], supplier: Supplier, station: Station }) | undefined>;
   createPurchaseOrder(order: InsertPurchaseOrder): Promise<PurchaseOrder>;
   deletePurchaseOrder(id: string): Promise<void>;
+  deletePurchaseOrderSecure(id: string, userStationId: string, userRole: string): Promise<void>;
   
   // Purchase Order Items
   createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem>;
@@ -440,6 +445,40 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  async getSalesTransactionWithItemsSecure(id: string, userStationId: string, userRole: string): Promise<(SalesTransaction & { items: SalesTransactionItem[], customer: Customer, station: Station }) | undefined> {
+    const transaction = await db
+      .select()
+      .from(salesTransactions)
+      .leftJoin(customers, eq(salesTransactions.customerId, customers.id))
+      .leftJoin(stations, eq(salesTransactions.stationId, stations.id))
+      .where(eq(salesTransactions.id, id))
+      .then(results => results[0]);
+
+    if (!transaction) return undefined;
+    
+    // Ensure customer and station exist - if not, the data is inconsistent
+    if (!transaction.customers || !transaction.stations) {
+      throw new Error(`Sales transaction ${id} has missing customer or station data`);
+    }
+
+    // Security check: verify the transaction belongs to the user's station (admins can access all)
+    if (userRole !== 'admin' && transaction.sales_transactions.stationId !== userStationId) {
+      throw new Error('Access denied: Transaction does not belong to your station');
+    }
+
+    const items = await db
+      .select()
+      .from(salesTransactionItems)
+      .where(eq(salesTransactionItems.transactionId, id));
+
+    return {
+      ...transaction.sales_transactions,
+      items,
+      customer: transaction.customers,
+      station: transaction.stations
+    };
+  }
+
   async deleteSalesTransaction(id: string): Promise<void> {
     await db.transaction(async (tx) => {
       // Delete related transaction items first
@@ -447,6 +486,35 @@ export class DatabaseStorage implements IStorage {
       
       // Delete the transaction
       await tx.delete(salesTransactions).where(eq(salesTransactions.id, id));
+    });
+  }
+
+  async deleteSalesTransactionSecure(id: string, userStationId: string, userRole: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      // First verify the transaction belongs to the user's station (unless admin)
+      if (userRole !== 'admin') {
+        const [transaction] = await tx.select({ stationId: salesTransactions.stationId })
+          .from(salesTransactions)
+          .where(eq(salesTransactions.id, id));
+        
+        if (!transaction) {
+          throw new Error('Sales transaction not found');
+        }
+        
+        if (transaction.stationId !== userStationId) {
+          throw new Error('Access denied: Transaction does not belong to your station');
+        }
+      }
+      
+      // Delete related transaction items first
+      await tx.delete(salesTransactionItems).where(eq(salesTransactionItems.transactionId, id));
+      
+      // Delete the transaction
+      const result = await tx.delete(salesTransactions).where(eq(salesTransactions.id, id)).returning({ id: salesTransactions.id });
+      
+      if (result.length === 0) {
+        throw new Error('Sales transaction not found');
+      }
     });
   }
 
@@ -462,6 +530,98 @@ export class DatabaseStorage implements IStorage {
       
       // Delete the purchase order
       await tx.delete(purchaseOrders).where(eq(purchaseOrders.id, id));
+    });
+  }
+
+  async getPurchaseOrderWithItems(id: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[], supplier: Supplier, station: Station }) | undefined> {
+    const order = await db
+      .select()
+      .from(purchaseOrders)
+      .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
+      .leftJoin(stations, eq(purchaseOrders.stationId, stations.id))
+      .where(eq(purchaseOrders.id, id))
+      .then(results => results[0]);
+
+    if (!order) return undefined;
+    
+    // Ensure supplier and station exist - if not, the data is inconsistent
+    if (!order.suppliers || !order.stations) {
+      throw new Error(`Purchase order ${id} has missing supplier or station data`);
+    }
+
+    const items = await db
+      .select()
+      .from(purchaseOrderItems)
+      .where(eq(purchaseOrderItems.orderId, id));
+
+    return {
+      ...order.purchase_orders,
+      items,
+      supplier: order.suppliers,
+      station: order.stations
+    };
+  }
+
+  async getPurchaseOrderWithItemsSecure(id: string, userStationId: string, userRole: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[], supplier: Supplier, station: Station }) | undefined> {
+    const order = await db
+      .select()
+      .from(purchaseOrders)
+      .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
+      .leftJoin(stations, eq(purchaseOrders.stationId, stations.id))
+      .where(eq(purchaseOrders.id, id))
+      .then(results => results[0]);
+
+    if (!order) return undefined;
+    
+    // Ensure supplier and station exist - if not, the data is inconsistent
+    if (!order.suppliers || !order.stations) {
+      throw new Error(`Purchase order ${id} has missing supplier or station data`);
+    }
+
+    // Security check: verify the order belongs to the user's station (admins can access all)
+    if (userRole !== 'admin' && order.purchase_orders.stationId !== userStationId) {
+      throw new Error('Access denied: Purchase order does not belong to your station');
+    }
+
+    const items = await db
+      .select()
+      .from(purchaseOrderItems)
+      .where(eq(purchaseOrderItems.orderId, id));
+
+    return {
+      ...order.purchase_orders,
+      items,
+      supplier: order.suppliers,
+      station: order.stations
+    };
+  }
+
+  async deletePurchaseOrderSecure(id: string, userStationId: string, userRole: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      // First verify the order belongs to the user's station (unless admin)
+      if (userRole !== 'admin') {
+        const [order] = await tx.select({ stationId: purchaseOrders.stationId })
+          .from(purchaseOrders)
+          .where(eq(purchaseOrders.id, id));
+        
+        if (!order) {
+          throw new Error('Purchase order not found');
+        }
+        
+        if (order.stationId !== userStationId) {
+          throw new Error('Access denied: Purchase order does not belong to your station');
+        }
+      }
+      
+      // Delete related order items first
+      await tx.delete(purchaseOrderItems).where(eq(purchaseOrderItems.orderId, id));
+      
+      // Delete the purchase order
+      const result = await tx.delete(purchaseOrders).where(eq(purchaseOrders.id, id)).returning({ id: purchaseOrders.id });
+      
+      if (result.length === 0) {
+        throw new Error('Purchase order not found');
+      }
     });
   }
 

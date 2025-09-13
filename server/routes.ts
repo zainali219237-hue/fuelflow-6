@@ -239,6 +239,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/sales/detail/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userStationId = req.user?.stationId || '';
+      const userRole = req.user?.role || '';
+      
+      const sale = await storage.getSalesTransactionWithItemsSecure(id, userStationId, userRole);
+      if (!sale) {
+        return res.status(404).json({ message: "Sales transaction not found" });
+      }
+      res.json(sale);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Access denied')) {
+        return res.status(403).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to fetch sales transaction details" });
+    }
+  });
+
+  app.delete("/api/sales/:id", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userStationId = req.user?.stationId || '';
+      const userRole = req.user?.role || '';
+      
+      await storage.deleteSalesTransactionSecure(id, userStationId, userRole);
+      res.json({ message: "Sales transaction deleted successfully" });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Access denied')) {
+        return res.status(403).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to delete sales transaction" });
+    }
+  });
+
   app.post("/api/sales", requireAuth, async (req, res) => {
     try {
       const { transaction, items } = req.body;
@@ -297,6 +332,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/purchase-orders/detail/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userStationId = req.user?.stationId || '';
+      const userRole = req.user?.role || '';
+      
+      const order = await storage.getPurchaseOrderWithItemsSecure(id, userStationId, userRole);
+      if (!order) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      res.json(order);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Access denied')) {
+        return res.status(403).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to fetch purchase order details" });
+    }
+  });
+
+  app.delete("/api/purchase-orders/:id", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userStationId = req.user?.stationId || '';
+      const userRole = req.user?.role || '';
+      
+      await storage.deletePurchaseOrderSecure(id, userStationId, userRole);
+      res.json({ message: "Purchase order deleted successfully" });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Access denied')) {
+        return res.status(403).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to delete purchase order" });
+    }
+  });
+
   app.post("/api/purchase-orders", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
     try {
       const { order, items } = req.body;
@@ -331,6 +401,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/expenses/:stationId/:id", requireAuth, requireRole(['admin', 'manager']), requireStationAccess, async (req, res) => {
+    try {
+      const { id, stationId } = req.params;
+      await storage.deleteExpense(id, stationId);
+      res.json({ message: "Expense deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete expense" });
+    }
+  });
+
   app.post("/api/expenses", requireAuth, async (req, res) => {
     try {
       const validatedData = insertExpenseSchema.parse(req.body);
@@ -349,6 +429,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(payments);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch payments" });
+    }
+  });
+
+  app.delete("/api/payments/:stationId/:id", requireAuth, requireRole(['admin', 'manager']), requireStationAccess, async (req, res) => {
+    try {
+      const { id, stationId } = req.params;
+      await storage.deletePayment(id, stationId);
+      res.json({ message: "Payment deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete payment" });
     }
   });
 
@@ -404,6 +494,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(report);
     } catch (error) {
       res.status(500).json({ message: "Failed to generate financial report" });
+    }
+  });
+
+  app.get("/api/reports/daily/:stationId", requireAuth, requireStationAccess, async (req, res) => {
+    try {
+      const { stationId } = req.params;
+      const { date } = req.query;
+      
+      const report = await storage.getDailyReport(
+        stationId,
+        date ? new Date(date as string) : new Date()
+      );
+      res.json(report);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to generate daily report" });
+    }
+  });
+
+  app.get("/api/reports/aging/:stationId", requireAuth, requireStationAccess, async (req, res) => {
+    try {
+      const { stationId } = req.params;
+      const { type } = req.query;
+      
+      if (!type || (type !== 'receivable' && type !== 'payable')) {
+        return res.status(400).json({ message: "Type parameter must be 'receivable' or 'payable'" });
+      }
+      
+      const report = await storage.getAgingReport(stationId, type as 'receivable' | 'payable');
+      res.json(report);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to generate aging report" });
     }
   });
 
