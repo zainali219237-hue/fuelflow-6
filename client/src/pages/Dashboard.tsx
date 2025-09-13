@@ -3,9 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import type { Tank, SalesTransaction, Customer, Product } from "@shared/schema";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { formatCurrency, formatCurrencyCompact } = useCurrency();
   
   const { data: dashboardStats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/dashboard", user?.stationId],
@@ -98,7 +100,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-green-100 text-sm font-medium">Today's Sales</p>
                 <p className="text-3xl font-bold" data-testid="todays-sales">
-                  ₹{dashboardStats?.todaysSales?.totalAmount ? parseFloat(dashboardStats.todaysSales.totalAmount).toLocaleString() : '0'}
+                  {formatCurrency(dashboardStats?.todaysSales?.totalAmount || 0)}
                 </p>
                 <p className="text-green-100 text-sm">{dashboardStats?.todaysSales?.count || 0} transactions</p>
               </div>

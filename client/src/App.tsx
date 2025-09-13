@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import AuthGuard from "@/components/layout/AuthGuard";
 import Dashboard from "@/pages/Dashboard";
 import PointOfSale from "@/pages/PointOfSale";
@@ -45,12 +46,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <AuthGuard>
-            <Router />
-          </AuthGuard>
-        </TooltipProvider>
+        <CurrencyProvider>
+          <TooltipProvider>
+            <Toaster />
+            <AuthGuard>
+              <Router />
+            </AuthGuard>
+          </TooltipProvider>
+        </CurrencyProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
