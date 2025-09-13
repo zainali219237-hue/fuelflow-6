@@ -1,4 +1,57 @@
-import { CURRENCY_CONFIG, CurrencyCode } from '@/contexts/CurrencyContext';
+// Currency configuration with proper formatting info
+export const CURRENCY_CONFIG = {
+  PKR: { 
+    symbol: '₨', 
+    name: 'Pakistani Rupee', 
+    locale: 'en-PK',
+    code: 'PKR'
+  },
+  INR: { 
+    symbol: '₹', 
+    name: 'Indian Rupee', 
+    locale: 'en-IN',
+    code: 'INR'
+  },
+  USD: { 
+    symbol: '$', 
+    name: 'US Dollar', 
+    locale: 'en-US',
+    code: 'USD'
+  },
+  EUR: { 
+    symbol: '€', 
+    name: 'Euro', 
+    locale: 'de-DE',
+    code: 'EUR'
+  },
+  GBP: { 
+    symbol: '£', 
+    name: 'British Pound', 
+    locale: 'en-GB',
+    code: 'GBP'
+  },
+  AED: { 
+    symbol: 'د.إ', 
+    name: 'UAE Dirham', 
+    locale: 'ar-AE',
+    code: 'AED'
+  },
+  SAR: { 
+    symbol: '﷼', 
+    name: 'Saudi Riyal', 
+    locale: 'ar-SA',
+    code: 'SAR'
+  },
+  CNY: { 
+    symbol: '¥', 
+    name: 'Chinese Yuan', 
+    locale: 'zh-CN',
+    code: 'CNY'
+  }
+} as const;
+
+export type CurrencyCode = keyof typeof CURRENCY_CONFIG;
+export type CurrencyConfig = (typeof CURRENCY_CONFIG)[CurrencyCode];
 
 // Helper function to get currency symbol without context
 export function getCurrencySymbol(currencyCode: CurrencyCode): string {

@@ -1,61 +1,5 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { apiRequest } from '@/lib/queryClient';
-
-// Currency configuration with proper formatting info
-export const CURRENCY_CONFIG = {
-  PKR: { 
-    symbol: '₨', 
-    name: 'Pakistani Rupee', 
-    locale: 'en-PK',
-    code: 'PKR'
-  },
-  INR: { 
-    symbol: '₹', 
-    name: 'Indian Rupee', 
-    locale: 'en-IN',
-    code: 'INR'
-  },
-  USD: { 
-    symbol: '$', 
-    name: 'US Dollar', 
-    locale: 'en-US',
-    code: 'USD'
-  },
-  EUR: { 
-    symbol: '€', 
-    name: 'Euro', 
-    locale: 'de-DE',
-    code: 'EUR'
-  },
-  GBP: { 
-    symbol: '£', 
-    name: 'British Pound', 
-    locale: 'en-GB',
-    code: 'GBP'
-  },
-  AED: { 
-    symbol: 'د.إ', 
-    name: 'UAE Dirham', 
-    locale: 'ar-AE',
-    code: 'AED'
-  },
-  SAR: { 
-    symbol: '﷼', 
-    name: 'Saudi Riyal', 
-    locale: 'ar-SA',
-    code: 'SAR'
-  },
-  CNY: { 
-    symbol: '¥', 
-    name: 'Chinese Yuan', 
-    locale: 'zh-CN',
-    code: 'CNY'
-  }
-} as const;
-
-export type CurrencyCode = keyof typeof CURRENCY_CONFIG;
-export type CurrencyConfig = (typeof CURRENCY_CONFIG)[CurrencyCode];
+import { createContext, useContext, useState, ReactNode } from 'react';
+import { CURRENCY_CONFIG, type CurrencyCode, type CurrencyConfig } from '@/lib/currency';
 
 interface CurrencyContextType {
   currency: CurrencyCode;
@@ -66,37 +10,21 @@ interface CurrencyContextType {
   isLoading: boolean;
 }
 
-const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
+// Global singleton pattern to prevent duplicate module instances during HMR
+const ctx = (globalThis as any).__CurrencyContext || createContext<CurrencyContextType | undefined>(undefined);
+(globalThis as any).__CurrencyContext = ctx;
+const CurrencyContext = ctx;
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
-  const [currency, setCurrencyState] = useState<CurrencyCode>('PKR'); // Default to Pakistani Rupee
+  const [currency, setCurrencyState] = useState<CurrencyCode>(() => {
+    // Initialize from localStorage if available
+    const savedCurrency = typeof window !== 'undefined' ? localStorage.getItem('selectedCurrency') : null;
+    if (savedCurrency && savedCurrency in CURRENCY_CONFIG) {
+      return savedCurrency as CurrencyCode;
+    }
+    return 'PKR'; // Default to Pakistani Rupee
+  });
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
-
-  // Get station's default currency when user is available
-  useEffect(() => {
-    const fetchStationCurrency = async () => {
-      if (!user?.stationId) return;
-      
-      setIsLoading(true);
-      try {
-        const response = await apiRequest('GET', `/api/stations/${user.stationId}`);
-        const station = await response.json();
-        
-        if (station?.defaultCurrency) {
-          setCurrencyState(station.defaultCurrency as CurrencyCode);
-        }
-      } catch (error) {
-        console.error('Failed to fetch station currency:', error);
-        // Fallback to PKR if station fetch fails
-        setCurrencyState('PKR');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchStationCurrency();
-  }, [user?.stationId]);
 
   const currencyConfig = CURRENCY_CONFIG[currency];
 
@@ -142,6 +70,9 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
 
   const setCurrency = (newCurrency: CurrencyCode) => {
     setCurrencyState(newCurrency);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selectedCurrency', newCurrency);
+    }
     // Note: In a real app, you'd want to update the station's default currency via API
   };
 

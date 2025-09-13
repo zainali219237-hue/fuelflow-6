@@ -1,10 +1,13 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/hooks/useAuth";
-import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { CurrencyProvider, useCurrency } from "@/contexts/CurrencyContext";
+import { CURRENCY_CONFIG, type CurrencyCode } from "@/lib/currency";
+import { apiRequest } from "@/lib/queryClient";
 import AuthGuard from "@/components/layout/AuthGuard";
 import Dashboard from "@/pages/Dashboard";
 import PointOfSale from "@/pages/PointOfSale";
@@ -23,7 +26,43 @@ import InvoiceReceipt from "@/pages/InvoiceReceipt";
 import TankMonitoring from "@/pages/TankMonitoring";
 import DailyReports from "@/pages/DailyReports";
 import AgingReports from "@/pages/AgingReports";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
+
+// Bootstrap component to handle station currency fetch without circular imports
+function CurrencyBootstrap() {
+  const { user } = useAuth();
+  const { setCurrency } = useCurrency();
+
+  useEffect(() => {
+    const fetchStationCurrency = async () => {
+      if (!user?.stationId) return;
+      
+      // Only fetch from server if no localStorage preference exists
+      const savedCurrency = typeof window !== 'undefined' ? localStorage.getItem('selectedCurrency') : null;
+      if (savedCurrency && savedCurrency in CURRENCY_CONFIG) {
+        return; // Use localStorage preference
+      }
+      
+      try {
+        const response = await apiRequest('GET', `/api/stations/${user.stationId}`);
+        const station = await response.json();
+        
+        if (station?.defaultCurrency && station.defaultCurrency in CURRENCY_CONFIG) {
+          const newCurrency = station.defaultCurrency as CurrencyCode;
+          setCurrency(newCurrency);
+        }
+      } catch (error) {
+        console.error('Failed to fetch station currency:', error);
+        // Fallback is already handled by CurrencyProvider default
+      }
+    };
+
+    fetchStationCurrency();
+  }, [user?.stationId, setCurrency]);
+
+  return null;
+}
 
 function Router() {
   return (
@@ -45,6 +84,7 @@ function Router() {
       <Route path="/tank-monitoring" component={TankMonitoring} />
       <Route path="/daily-reports" component={DailyReports} />
       <Route path="/aging-reports" component={AgingReports} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -55,6 +95,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <CurrencyProvider>
+          <CurrencyBootstrap />
           <TooltipProvider>
             <Toaster />
             <AuthGuard>

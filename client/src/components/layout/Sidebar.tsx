@@ -49,6 +49,12 @@ const navigationItems = [
       { name: "Daily Reports", path: "/daily-reports", icon: "📅" },
       { name: "Aging Reports", path: "/aging-reports", icon: "⏰" },
     ]
+  },
+  {
+    label: "System",
+    items: [
+      { name: "Settings", path: "/settings", icon: "⚙️" },
+    ]
   }
 ];
 
