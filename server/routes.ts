@@ -176,6 +176,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stock Movements routes
+  app.get("/api/stock-movements/:tankId", requireAuth, async (req, res) => {
+    try {
+      const { tankId } = req.params;
+      const stockMovements = await storage.getStockMovements(tankId);
+      res.json(stockMovements);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch stock movements" });
+    }
+  });
+
   // Customers routes
   app.get("/api/customers", requireAuth, async (req, res) => {
     try {

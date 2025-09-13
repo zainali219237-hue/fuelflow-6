@@ -20,6 +20,7 @@ import ExpenseManagement from "@/pages/ExpenseManagement";
 import SupplierManagement from "@/pages/SupplierManagement";
 import PriceManagement from "@/pages/PriceManagement";
 import InvoiceReceipt from "@/pages/InvoiceReceipt";
+import TankMonitoring from "@/pages/TankMonitoring";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -39,6 +40,7 @@ function Router() {
       <Route path="/pricing" component={PriceManagement} />
       <Route path="/financial-reports" component={FinancialReports} />
       <Route path="/invoice/:id" component={InvoiceReceipt} />
+      <Route path="/tank-monitoring" component={TankMonitoring} />
       <Route component={NotFound} />
     </Switch>
   );

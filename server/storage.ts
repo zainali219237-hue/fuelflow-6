@@ -34,7 +34,7 @@ export interface IStorage {
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product>;
   
   // Tanks
-  getTanksByStation(stationId: string): Promise<Tank[]>;
+  getTanksByStation(stationId: string): Promise<(Tank & { product: Product })[]>;
   getTank(id: string): Promise<Tank | undefined>;
   createTank(tank: InsertTank): Promise<Tank>;
   updateTankStock(id: string, currentStock: number): Promise<Tank>;
@@ -150,8 +150,39 @@ export class DatabaseStorage implements IStorage {
     return product;
   }
 
-  async getTanksByStation(stationId: string): Promise<Tank[]> {
-    return await db.select().from(tanks).where(eq(tanks.stationId, stationId));
+  async getTanksByStation(stationId: string): Promise<(Tank & { product: Product })[]> {
+    const result = await db
+      .select({
+        // Tank fields
+        id: tanks.id,
+        stationId: tanks.stationId,
+        name: tanks.name,
+        productId: tanks.productId,
+        capacity: tanks.capacity,
+        currentStock: tanks.currentStock,
+        minimumLevel: tanks.minimumLevel,
+        status: tanks.status,
+        lastRefillDate: tanks.lastRefillDate,
+        createdAt: tanks.createdAt,
+        // Product fields (nested)
+        product: {
+          id: products.id,
+          name: products.name,
+          category: products.category,
+          unit: products.unit,
+          currentPrice: products.currentPrice,
+          density: products.density,
+          hsnCode: products.hsnCode,
+          taxRate: products.taxRate,
+          isActive: products.isActive,
+          createdAt: products.createdAt
+        }
+      })
+      .from(tanks)
+      .innerJoin(products, eq(tanks.productId, products.id))
+      .where(eq(tanks.stationId, stationId));
+    
+    return result as (Tank & { product: Product })[];
   }
 
   async getTank(id: string): Promise<Tank | undefined> {
