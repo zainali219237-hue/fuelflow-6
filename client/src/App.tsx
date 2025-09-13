@@ -22,6 +22,7 @@ import PriceManagement from "@/pages/PriceManagement";
 import InvoiceReceipt from "@/pages/InvoiceReceipt";
 import TankMonitoring from "@/pages/TankMonitoring";
 import DailyReports from "@/pages/DailyReports";
+import AgingReports from "@/pages/AgingReports";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/invoice/:id" component={InvoiceReceipt} />
       <Route path="/tank-monitoring" component={TankMonitoring} />
       <Route path="/daily-reports" component={DailyReports} />
+      <Route path="/aging-reports" component={AgingReports} />
       <Route component={NotFound} />
     </Switch>
   );
