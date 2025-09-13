@@ -10,6 +10,7 @@ export const paymentMethodEnum = pgEnum('payment_method', ['cash', 'card', 'cred
 export const transactionTypeEnum = pgEnum('transaction_type', ['sale', 'purchase', 'expense', 'payment']);
 export const tankStatusEnum = pgEnum('tank_status', ['normal', 'low', 'critical', 'maintenance']);
 export const customerTypeEnum = pgEnum('customer_type', ['walk-in', 'credit', 'fleet']);
+export const currencyCodeEnum = pgEnum('currency_code', ['PKR', 'INR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'CNY']);
 
 // Users table
 export const users = pgTable("users", {
@@ -33,6 +34,7 @@ export const stations = pgTable("stations", {
   licenseNumber: text("license_number"),
   contactPhone: text("contact_phone"),
   contactEmail: text("contact_email"),
+  defaultCurrency: currencyCodeEnum("default_currency").notNull().default('PKR'),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -103,7 +105,9 @@ export const salesTransactions = pgTable("sales_transactions", {
   customerId: varchar("customer_id").notNull(),
   userId: varchar("user_id").notNull(),
   transactionDate: timestamp("transaction_date").defaultNow(),
+  dueDate: timestamp("due_date"),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  currencyCode: currencyCodeEnum("currency_code").notNull().default('PKR'),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
   taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default('0'),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
@@ -133,9 +137,11 @@ export const purchaseOrders = pgTable("purchase_orders", {
   supplierId: varchar("supplier_id").notNull(),
   userId: varchar("user_id").notNull(),
   orderDate: timestamp("order_date").defaultNow(),
+  dueDate: timestamp("due_date"),
   expectedDeliveryDate: timestamp("expected_delivery_date"),
   actualDeliveryDate: timestamp("actual_delivery_date"),
   status: text("status").default('pending'), // pending, delivered, cancelled
+  currencyCode: currencyCodeEnum("currency_code").notNull().default('PKR'),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
   taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default('0'),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
@@ -165,6 +171,7 @@ export const expenses = pgTable("expenses", {
   category: text("category").notNull(), // salary, utilities, maintenance, insurance, etc.
   description: text("description").notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currencyCode: currencyCodeEnum("currency_code").notNull().default('PKR'),
   expenseDate: timestamp("expense_date").defaultNow(),
   receiptNumber: text("receipt_number"),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
@@ -181,6 +188,7 @@ export const payments = pgTable("payments", {
   customerId: varchar("customer_id"),
   supplierId: varchar("supplier_id"),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currencyCode: currencyCodeEnum("currency_code").notNull().default('PKR'),
   paymentDate: timestamp("payment_date").defaultNow(),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
   referenceNumber: text("reference_number"),
