@@ -13,12 +13,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 
 export default function PriceManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { currencyConfig } = useCurrency();
   const [open, setOpen] = useState(false);
 
   const form = useForm({
@@ -188,7 +190,7 @@ export default function PriceManagement() {
                       name="currentPrice"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Price (₹) *</FormLabel>
+                          <FormLabel>Price ({currencyConfig.symbol}) *</FormLabel>
                           <FormControl>
                             <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-product-price" />
                           </FormControl>

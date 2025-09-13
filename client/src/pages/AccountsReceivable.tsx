@@ -14,6 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
 
@@ -21,6 +22,7 @@ export default function AccountsReceivable() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { formatCurrency, currencyConfig } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [agingFilter, setAgingFilter] = useState("all");
   const [open, setOpen] = useState(false);
@@ -147,7 +149,7 @@ export default function AccountsReceivable() {
                         <FormLabel>Customer *</FormLabel>
                         <FormControl>
                           <Combobox
-                            options={creditCustomers.map(c => ({ value: c.id, label: `${c.name} (₹${parseFloat(c.outstandingAmount || '0').toLocaleString()} outstanding)` }))}
+                            options={creditCustomers.map(c => ({ value: c.id, label: `${c.name} (${formatCurrency(parseFloat(c.outstandingAmount || '0'))} outstanding)` }))}
                             value={field.value}
                             onValueChange={field.onChange}
                             placeholder="Select customer"
@@ -165,7 +167,7 @@ export default function AccountsReceivable() {
                       name="amount"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Amount (₹) *</FormLabel>
+                          <FormLabel>Amount ({currencyConfig.symbol}) *</FormLabel>
                           <FormControl>
                             <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-payment-amount" />
                           </FormControl>
@@ -253,7 +255,7 @@ export default function AccountsReceivable() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-orange-600" data-testid="total-outstanding">
-              ₹{totalOutstanding.toLocaleString()}
+              {formatCurrency(totalOutstanding)}
             </div>
             <div className="text-sm text-muted-foreground">Total Outstanding</div>
           </CardContent>
@@ -338,15 +340,15 @@ export default function AccountsReceivable() {
                         </div>
                       </td>
                       <td className="p-3 text-right">
-                        ₹{creditLimit.toLocaleString()}
+                        {formatCurrency(creditLimit)}
                       </td>
                       <td className="p-3 text-right">
                         <span className="font-semibold text-red-600" data-testid={`outstanding-ar-${index}`}>
-                          ₹{outstanding.toLocaleString()}
+                          {formatCurrency(outstanding)}
                         </span>
                       </td>
                       <td className="p-3 text-right text-green-600">
-                        ₹{Math.max(0, availableCredit).toLocaleString()}
+                        {formatCurrency(Math.max(0, availableCredit))}
                       </td>
                       <td className="p-3 text-center">
                         <span className={isOverdue ? 'text-red-600 font-semibold' : ''}>

@@ -12,11 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 
 export default function SupplierManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { formatCurrency } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [open, setOpen] = useState(false);
@@ -252,7 +254,7 @@ export default function SupplierManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-red-600" data-testid="total-outstanding-suppliers">
-              ₹{totalOutstanding.toLocaleString()}
+              {formatCurrency(totalOutstanding)}
             </div>
             <div className="text-sm text-muted-foreground">Total Outstanding</div>
           </CardContent>
@@ -335,10 +337,10 @@ export default function SupplierManagement() {
                       <td className="p-3 text-right">
                         {outstanding > 0 ? (
                           <span className="font-semibold text-red-600" data-testid={`outstanding-supplier-${index}`}>
-                            ₹{outstanding.toLocaleString()}
+                            {formatCurrency(outstanding)}
                           </span>
                         ) : (
-                          <span className="text-green-600">₹0</span>
+                          <span className="text-green-600">{formatCurrency(0)}</span>
                         )}
                       </td>
                       <td className="p-3 text-center text-sm">

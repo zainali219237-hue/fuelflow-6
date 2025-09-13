@@ -13,12 +13,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 
 export default function ExpenseManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { formatCurrency, currencyConfig } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [open, setOpen] = useState(false);
@@ -162,7 +164,7 @@ export default function ExpenseManagement() {
                       name="amount"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Amount (₹) *</FormLabel>
+                          <FormLabel>Amount ({currencyConfig.symbol}) *</FormLabel>
                           <FormControl>
                             <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-expense-amount" />
                           </FormControl>
@@ -258,7 +260,7 @@ export default function ExpenseManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-red-600" data-testid="total-expenses">
-              ₹{totalExpenses.toLocaleString()}
+              {formatCurrency(totalExpenses)}
             </div>
             <div className="text-sm text-muted-foreground">Total Expenses</div>
           </CardContent>
@@ -266,7 +268,7 @@ export default function ExpenseManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-orange-600" data-testid="monthly-expenses">
-              ₹{monthlyExpenses.toLocaleString()}
+              {formatCurrency(monthlyExpenses)}
             </div>
             <div className="text-sm text-muted-foreground">This Month</div>
           </CardContent>
@@ -274,7 +276,7 @@ export default function ExpenseManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-blue-600" data-testid="salary-expenses">
-              ₹{expensesByCategory.salary.toLocaleString()}
+              {formatCurrency(expensesByCategory.salary)}
             </div>
             <div className="text-sm text-muted-foreground">Staff Salaries</div>
           </CardContent>
@@ -282,7 +284,7 @@ export default function ExpenseManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-purple-600" data-testid="utility-expenses">
-              ₹{expensesByCategory.utilities.toLocaleString()}
+              {formatCurrency(expensesByCategory.utilities)}
             </div>
             <div className="text-sm text-muted-foreground">Utilities</div>
           </CardContent>
@@ -309,7 +311,7 @@ export default function ExpenseManagement() {
                     <span className="font-medium">{category.category}</span>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold" data-testid={`category-amount-${index}`}>₹{category.amount.toLocaleString()}</div>
+                    <div className="font-semibold" data-testid={`category-amount-${index}`}>{formatCurrency(category.amount)}</div>
                     <div className="text-sm text-muted-foreground">
                       {totalExpenses > 0 ? ((category.amount / totalExpenses) * 100).toFixed(1) : 0}%
                     </div>
@@ -336,7 +338,7 @@ export default function ExpenseManagement() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-red-600">₹{parseFloat(expense.amount || '0').toLocaleString()}</div>
+                    <div className="font-semibold text-red-600">{formatCurrency(parseFloat(expense.amount || '0'))}</div>
                     <Badge variant="secondary" className="text-xs">
                       {expense.category}
                     </Badge>

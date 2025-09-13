@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 export default function FinancialReports() {
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   const [reportType, setReportType] = useState("profit-loss");
   const [period, setPeriod] = useState("this-month");
 
@@ -109,20 +111,20 @@ export default function FinancialReports() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Petrol Sales</span>
-                  <span className="font-medium" data-testid="petrol-revenue">₹8,50,000</span>
+                  <span className="font-medium" data-testid="petrol-revenue">{formatCurrency(850000)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Diesel Sales</span>
-                  <span className="font-medium" data-testid="diesel-revenue">₹4,20,000</span>
+                  <span className="font-medium" data-testid="diesel-revenue">{formatCurrency(420000)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Other Services</span>
-                  <span className="font-medium" data-testid="other-revenue">₹25,000</span>
+                  <span className="font-medium" data-testid="other-revenue">{formatCurrency(25000)}</span>
                 </div>
                 <div className="border-t border-border pt-3 mt-4">
                   <div className="flex justify-between font-semibold">
                     <span>Total Revenue</span>
-                    <span className="text-green-600" data-testid="total-revenue">₹12,95,000</span>
+                    <span className="text-green-600" data-testid="total-revenue">{formatCurrency(1295000)}</span>
                   </div>
                 </div>
               </div>
@@ -136,32 +138,32 @@ export default function FinancialReports() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Cost of Goods Sold</span>
-                  <span className="font-medium" data-testid="cogs">₹11,80,000</span>
+                  <span className="font-medium" data-testid="cogs">{formatCurrency(1180000)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Staff Salaries</span>
-                  <span className="font-medium" data-testid="salaries">₹35,000</span>
+                  <span className="font-medium" data-testid="salaries">{formatCurrency(35000)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Electricity & Utilities</span>
-                  <span className="font-medium" data-testid="utilities">₹8,500</span>
+                  <span className="font-medium" data-testid="utilities">{formatCurrency(8500)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Maintenance</span>
-                  <span className="font-medium" data-testid="maintenance">₹12,000</span>
+                  <span className="font-medium" data-testid="maintenance">{formatCurrency(12000)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Insurance</span>
-                  <span className="font-medium" data-testid="insurance">₹3,500</span>
+                  <span className="font-medium" data-testid="insurance">{formatCurrency(3500)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Other Expenses</span>
-                  <span className="font-medium" data-testid="other-expenses">₹5,200</span>
+                  <span className="font-medium" data-testid="other-expenses">{formatCurrency(5200)}</span>
                 </div>
                 <div className="border-t border-border pt-3 mt-4">
                   <div className="flex justify-between font-semibold">
                     <span>Total Expenses</span>
-                    <span className="text-red-600" data-testid="total-expenses">₹12,44,200</span>
+                    <span className="text-red-600" data-testid="total-expenses">{formatCurrency(1244200)}</span>
                   </div>
                 </div>
               </div>
@@ -172,10 +174,10 @@ export default function FinancialReports() {
           <div className="mt-8 p-4 bg-muted rounded-lg">
             <div className="flex justify-between items-center">
               <span className="text-lg font-semibold text-card-foreground">Net Profit</span>
-              <span className="text-2xl font-bold text-green-600" data-testid="net-profit">₹50,800</span>
+              <span className="text-2xl font-bold text-green-600" data-testid="net-profit">{formatCurrency(50800)}</span>
             </div>
             <div className="mt-2 text-sm text-muted-foreground">
-              Profit Margin: 3.92% | Previous Month: ₹45,200 (+12.4%)
+              Profit Margin: 3.92% | Previous Month: {formatCurrency(45200)} (+12.4%)
             </div>
           </div>
         </CardContent>

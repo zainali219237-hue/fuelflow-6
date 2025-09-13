@@ -34,7 +34,7 @@ export default function Dashboard() {
 
   // Calculate chart data from dashboard stats (last 7 days)
   const generateChartData = () => {
-    if (!dashboardStats?.weeklySales) return [];
+    if (!dashboardStats || typeof dashboardStats !== 'object' || !('weeklySales' in dashboardStats)) return [];
     
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const today = new Date().getDay();
@@ -42,7 +42,7 @@ export default function Dashboard() {
     
     for (let i = 6; i >= 0; i--) {
       const dayIndex = (today - i + 7) % 7;
-      const dayData = dashboardStats.weeklySales.find((d: any) => d.dayOfWeek === dayIndex);
+      const dayData = (dashboardStats as any).weeklySales?.find((d: any) => d.dayOfWeek === dayIndex);
       chartData.push({
         day: days[dayIndex],
         sales: dayData ? parseFloat(dayData.totalAmount || '0') : 0
@@ -100,9 +100,9 @@ export default function Dashboard() {
               <div>
                 <p className="text-green-100 text-sm font-medium">Today's Sales</p>
                 <p className="text-3xl font-bold" data-testid="todays-sales">
-                  {formatCurrency(dashboardStats?.todaysSales?.totalAmount || 0)}
+                  {formatCurrency((dashboardStats as any)?.todaysSales?.totalAmount || 0)}
                 </p>
-                <p className="text-green-100 text-sm">{dashboardStats?.todaysSales?.count || 0} transactions</p>
+                <p className="text-green-100 text-sm">{(dashboardStats as any)?.todaysSales?.count || 0} transactions</p>
               </div>
               <div className="text-4xl opacity-80">💰</div>
             </div>
@@ -118,9 +118,9 @@ export default function Dashboard() {
               <div>
                 <p className="text-blue-100 text-sm font-medium">Monthly Revenue</p>
                 <p className="text-3xl font-bold" data-testid="monthly-revenue">
-                  ₹{dashboardStats?.monthlySales?.totalAmount ? parseFloat(dashboardStats.monthlySales.totalAmount).toLocaleString() : '0'}
+                  {formatCurrency((dashboardStats as any)?.monthlySales?.totalAmount ? parseFloat((dashboardStats as any).monthlySales.totalAmount) : 0)}
                 </p>
-                <p className="text-blue-100 text-sm">{dashboardStats?.monthlySales?.count || 0} transactions total</p>
+                <p className="text-blue-100 text-sm">{(dashboardStats as any)?.monthlySales?.count || 0} transactions total</p>
               </div>
               <div className="text-4xl opacity-80">📈</div>
             </div>
@@ -136,7 +136,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-purple-100 text-sm font-medium">Stock Value</p>
                 <p className="text-3xl font-bold" data-testid="stock-value">
-                  ₹{(calculateStockValue() / 100000).toFixed(1)}L
+                  {formatCurrencyCompact(calculateStockValue())}
                 </p>
                 <p className="text-purple-100 text-sm">All tanks combined</p>
               </div>
@@ -154,7 +154,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-orange-100 text-sm font-medium">Outstanding</p>
                 <p className="text-3xl font-bold" data-testid="outstanding-amount">
-                  ₹{dashboardStats?.outstanding?.totalOutstanding ? (parseFloat(dashboardStats.outstanding.totalOutstanding) / 100000).toFixed(1) + 'L' : '0L'}
+                  {formatCurrencyCompact((dashboardStats as any)?.outstanding?.totalOutstanding ? parseFloat((dashboardStats as any).outstanding.totalOutstanding) : 0)}
                 </p>
                 <p className="text-orange-100 text-sm">Credit customers</p>
               </div>
@@ -192,7 +192,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {dashboardStats?.productSales?.map((product: any, index: number) => {
+              {(dashboardStats as any)?.productSales?.map((product: any, index: number) => {
                 const colors = ['bg-green-500', 'bg-blue-500', 'bg-yellow-500', 'bg-red-500'];
                 return (
                   <div key={product.productId} className="flex items-center justify-between p-3 bg-muted rounded-md">
@@ -202,7 +202,7 @@ export default function Dashboard() {
                     </div>
                     <div className="text-right">
                       <div className="font-semibold" data-testid={`${product.productName.toLowerCase()}-sales`}>
-                        ₹{parseFloat(product.totalAmount || '0').toLocaleString()}
+                        {formatCurrency(parseFloat(product.totalAmount || '0'))}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {parseFloat(product.totalQuantity || '0').toLocaleString()} L
@@ -234,7 +234,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-3">
               {recentSales.length > 0 ? recentSales.slice(0, 3).map((transaction: SalesTransaction, index: number) => {
-                const timeAgo = new Date(transaction.transactionDate).toLocaleString();
+                const timeAgo = transaction.transactionDate ? new Date(transaction.transactionDate).toLocaleString() : 'N/A';
                 return (
                   <div key={transaction.id} className="flex items-center justify-between p-3 border border-border rounded-md">
                     <div>
@@ -251,7 +251,7 @@ export default function Dashboard() {
                         transaction.paymentMethod === 'cash' ? 'text-green-600' : 
                         transaction.paymentMethod === 'credit' ? 'text-blue-600' : 'text-purple-600'
                       }`}>
-                        ₹{parseFloat(transaction.totalAmount || '0').toLocaleString()}
+                        {formatCurrency(parseFloat(transaction.totalAmount || '0'))}
                       </div>
                     </div>
                   </div>

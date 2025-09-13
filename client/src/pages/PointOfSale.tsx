@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 
 interface POSItem {
@@ -28,6 +29,7 @@ export default function PointOfSale() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { formatCurrency } = useCurrency();
   
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [transactionItems, setTransactionItems] = useState<POSItem[]>([]);
@@ -324,7 +326,7 @@ export default function PointOfSale() {
                         <p className="text-sm text-muted-foreground">{product.category}</p>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold">₹{parseFloat(product.currentPrice).toFixed(2)}</div>
+                        <div className="text-lg font-bold">{formatCurrency(parseFloat(product.currentPrice))}</div>
                         <div className="text-xs text-muted-foreground">per {product.unit}</div>
                       </div>
                     </div>
@@ -363,9 +365,9 @@ export default function PointOfSale() {
                               data-testid={`input-quantity-${index}`}
                             />
                           </td>
-                          <td className="p-3 text-right">₹{item.unitPrice.toFixed(2)}</td>
+                          <td className="p-3 text-right">{formatCurrency(item.unitPrice)}</td>
                           <td className="p-3 text-right font-semibold" data-testid={`amount-${index}`}>
-                            ₹{item.totalPrice.toFixed(2)}
+                            {formatCurrency(item.totalPrice)}
                           </td>
                           <td className="p-3 text-center">
                             <button 
@@ -429,17 +431,17 @@ export default function PointOfSale() {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal:</span>
-                <span className="font-semibold" data-testid="subtotal">₹{subtotal.toFixed(2)}</span>
+                <span className="font-semibold" data-testid="subtotal">{formatCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Tax (5%):</span>
-                <span className="font-semibold" data-testid="tax-amount">₹{taxAmount.toFixed(2)}</span>
+                <span className="font-semibold" data-testid="tax-amount">{formatCurrency(taxAmount)}</span>
               </div>
               <div className="border-t border-border pt-3">
                 <div className="flex justify-between">
                   <span className="text-lg font-semibold text-card-foreground">Total:</span>
                   <span className="text-lg font-bold text-primary" data-testid="total-amount">
-                    ₹{totalAmount.toFixed(2)}
+                    {formatCurrency(totalAmount)}
                   </span>
                 </div>
               </div>

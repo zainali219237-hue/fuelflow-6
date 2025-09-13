@@ -5,7 +5,7 @@ import { apiRequest } from '@/lib/queryClient';
 // Currency configuration with proper formatting info
 export const CURRENCY_CONFIG = {
   PKR: { 
-    symbol: 'Rs.', 
+    symbol: '₨', 
     name: 'Pakistani Rupee', 
     locale: 'en-PK',
     code: 'PKR'

@@ -12,11 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 
 export default function CustomerManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { currencyConfig } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [open, setOpen] = useState(false);
@@ -208,7 +210,7 @@ export default function CustomerManagement() {
                     name="creditLimit"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Credit Limit (₹)</FormLabel>
+                        <FormLabel>Credit Limit ({currencyConfig.symbol})</FormLabel>
                         <FormControl>
                           <Input type="number" placeholder="0" {...field} data-testid="input-customer-credit-limit" />
                         </FormControl>

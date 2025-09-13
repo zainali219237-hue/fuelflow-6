@@ -14,6 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
 
@@ -21,6 +22,7 @@ export default function AccountsPayable() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { formatCurrency, currencyConfig } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
@@ -161,7 +163,7 @@ export default function AccountsPayable() {
                       name="amount"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Amount (₹) *</FormLabel>
+                          <FormLabel>Amount ({currencyConfig.symbol}) *</FormLabel>
                           <FormControl>
                             <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-payment-amount" />
                           </FormControl>
@@ -249,7 +251,7 @@ export default function AccountsPayable() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-red-600" data-testid="total-payable">
-              ₹{totalPayable.toLocaleString()}
+              {formatCurrency(totalPayable)}
             </div>
             <div className="text-sm text-muted-foreground">Total Payable</div>
           </CardContent>
@@ -336,7 +338,7 @@ export default function AccountsPayable() {
                       <td className="p-3">{supplier.paymentTerms || 'Net 30'}</td>
                       <td className="p-3 text-right">
                         <span className="font-semibold text-red-600" data-testid={`outstanding-ap-${index}`}>
-                          ₹{outstanding.toLocaleString()}
+                          {formatCurrency(outstanding)}
                         </span>
                       </td>
                       <td className="p-3 text-center text-sm">

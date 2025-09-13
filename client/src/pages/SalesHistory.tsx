@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 export default function SalesHistory() {
   const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("today");
   const [paymentFilter, setPaymentFilter] = useState("all");
@@ -32,6 +34,7 @@ export default function SalesHistory() {
     const matchesPayment = paymentFilter === "all" || transaction.paymentMethod === paymentFilter;
     
     // Date filtering
+    if (!transaction.transactionDate) return false;
     const transactionDate = new Date(transaction.transactionDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -108,7 +111,7 @@ export default function SalesHistory() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-green-600" data-testid="total-sales-amount">
-              ₹{totalAmount.toLocaleString()}
+              {formatCurrency(totalAmount)}
             </div>
             <div className="text-sm text-muted-foreground">Total Sales Amount</div>
           </CardContent>
@@ -190,10 +193,12 @@ export default function SalesHistory() {
               <tbody>
                 {filteredTransactions.length > 0 ? filteredTransactions.map((transaction: SalesTransaction, index: number) => {
                   const customer = customers.find(c => c.id === transaction.customerId);
-                  const transactionTime = new Date(transaction.transactionDate).toLocaleTimeString('en-IN', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  });
+                  const transactionTime = transaction.transactionDate 
+                    ? new Date(transaction.transactionDate).toLocaleTimeString('en-IN', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
+                    : 'N/A';
                   
                   return (
                     <tr key={transaction.id} className="border-b border-border hover:bg-muted/50">
@@ -208,7 +213,7 @@ export default function SalesHistory() {
                       <td className="p-3 text-right">-</td>
                       <td className="p-3 text-right">-</td>
                       <td className="p-3 text-right font-semibold" data-testid={`amount-${index}`}>
-                        ₹{parseFloat(transaction.totalAmount || '0').toLocaleString()}
+                        {formatCurrency(parseFloat(transaction.totalAmount || '0'))}
                       </td>
                       <td className="p-3 text-center">
                         <Badge

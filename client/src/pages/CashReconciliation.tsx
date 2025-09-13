@@ -8,10 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 export default function CashReconciliation() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { formatCurrency, currencyConfig } = useCurrency();
   const [shift, setShift] = useState("day");
   const [reconciliationDate, setReconciliationDate] = useState(new Date().toISOString().split('T')[0]);
   const [denominations, setDenominations] = useState([
@@ -184,7 +186,7 @@ export default function CashReconciliation() {
         <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
           <CardContent className="p-4">
             <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="opening-balance">₹{cashData.openingBalance.toLocaleString()}</div>
+              <div className="text-2xl font-bold" data-testid="opening-balance">{formatCurrency(cashData.openingBalance)}</div>
               <div className="text-sm text-green-100">Opening Balance</div>
             </div>
           </CardContent>
@@ -192,7 +194,7 @@ export default function CashReconciliation() {
         <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
           <CardContent className="p-4">
             <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="expected-cash">₹{cashData.expectedCash.toLocaleString()}</div>
+              <div className="text-2xl font-bold" data-testid="expected-cash">{formatCurrency(cashData.expectedCash)}</div>
               <div className="text-sm text-blue-100">Expected Cash</div>
             </div>
           </CardContent>
@@ -200,7 +202,7 @@ export default function CashReconciliation() {
         <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
           <CardContent className="p-4">
             <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="actual-cash">₹{cashData.actualCash.toLocaleString()}</div>
+              <div className="text-2xl font-bold" data-testid="actual-cash">{formatCurrency(cashData.actualCash)}</div>
               <div className="text-sm text-purple-100">Actual Cash</div>
             </div>
           </CardContent>
@@ -208,7 +210,7 @@ export default function CashReconciliation() {
         <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-0">
           <CardContent className="p-4">
             <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="cash-difference">₹{Math.abs(cashData.difference).toLocaleString()}</div>
+              <div className="text-2xl font-bold" data-testid="cash-difference">{formatCurrency(Math.abs(cashData.difference))}</div>
               <div className="text-sm text-red-100">
                 {cashData.difference >= 0 ? 'Excess' : 'Shortage'}
               </div>
@@ -227,7 +229,7 @@ export default function CashReconciliation() {
             <div className="space-y-3">
               {denominations.map((denom, index) => (
                 <div key={denom.value} className="grid grid-cols-4 gap-4 items-center">
-                  <div className="font-medium">₹{denom.value}</div>
+                  <div className="font-medium">{currencyConfig.symbol}{denom.value}</div>
                   <div className="text-center">×</div>
                   <Input
                     type="number"
@@ -237,7 +239,7 @@ export default function CashReconciliation() {
                     data-testid={`denom-count-${denom.value}`}
                   />
                   <div className="text-right font-semibold" data-testid={`denom-total-${denom.value}`}>
-                    ₹{denom.total.toLocaleString()}
+                    {formatCurrency(denom.total)}
                   </div>
                 </div>
               ))}
@@ -247,7 +249,7 @@ export default function CashReconciliation() {
                   <div></div>
                   <div></div>
                   <div className="text-right text-lg" data-testid="total-counted-cash">
-                    ₹{cashData.actualCash.toLocaleString()}
+                    {formatCurrency(cashData.actualCash)}
                   </div>
                 </div>
               </div>
@@ -265,25 +267,25 @@ export default function CashReconciliation() {
               <div className="flex justify-between items-center p-3 bg-green-50 rounded-md">
                 <span className="font-medium">Cash Sales</span>
                 <span className="text-lg font-bold text-green-600" data-testid="cash-sales">
-                  ₹{cashData.cashSales.toLocaleString()}
+                  {formatCurrency(cashData.cashSales)}
                 </span>
               </div>
               <div className="flex justify-between items-center p-3 bg-blue-50 rounded-md">
                 <span className="font-medium">Card Sales</span>
                 <span className="text-lg font-bold text-blue-600" data-testid="card-sales">
-                  ₹{cashData.cardSales.toLocaleString()}
+                  {formatCurrency(cashData.cardSales)}
                 </span>
               </div>
               <div className="flex justify-between items-center p-3 bg-orange-50 rounded-md">
                 <span className="font-medium">Credit Sales</span>
                 <span className="text-lg font-bold text-orange-600" data-testid="credit-sales">
-                  ₹{cashData.creditSales.toLocaleString()}
+                  {formatCurrency(cashData.creditSales)}
                 </span>
               </div>
               <div className="flex justify-between items-center p-3 bg-red-50 rounded-md">
                 <span className="font-medium">Expenses Paid</span>
                 <span className="text-lg font-bold text-red-600" data-testid="expenses-paid">
-                  ₹{cashData.expenses.toLocaleString()}
+                  {formatCurrency(cashData.expenses)}
                 </span>
               </div>
               
@@ -291,7 +293,7 @@ export default function CashReconciliation() {
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">Net Cash Movement:</span>
                   <span className="text-xl font-bold text-primary" data-testid="net-cash-movement">
-                    ₹{(cashData.cashSales - cashData.expenses).toLocaleString()}
+                    {formatCurrency(cashData.cashSales - cashData.expenses)}
                   </span>
                 </div>
               </div>
@@ -326,7 +328,7 @@ export default function CashReconciliation() {
               {cashData.difference !== 0 && (
                 <div className={`mt-2 font-semibold ${cashData.difference > 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {cashData.difference > 0 ? 'Excess: ' : 'Shortage: '}
-                  ₹{Math.abs(cashData.difference)}
+                  {formatCurrency(Math.abs(cashData.difference))}
                 </div>
               )}
             </div>

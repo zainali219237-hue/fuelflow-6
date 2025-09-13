@@ -14,6 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
 
@@ -21,6 +22,7 @@ export default function PurchaseOrders() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { formatCurrency, currencyConfig } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
@@ -185,7 +187,7 @@ export default function PurchaseOrders() {
                     name="subtotal"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Subtotal (₹) *</FormLabel>
+                        <FormLabel>Subtotal ({currencyConfig.symbol}) *</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-subtotal" />
                         </FormControl>
@@ -198,7 +200,7 @@ export default function PurchaseOrders() {
                     name="taxAmount"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tax Amount (₹)</FormLabel>
+                        <FormLabel>Tax Amount ({currencyConfig.symbol})</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-tax-amount" />
                         </FormControl>
@@ -211,7 +213,7 @@ export default function PurchaseOrders() {
                     name="totalAmount"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Total Amount (₹) *</FormLabel>
+                        <FormLabel>Total Amount ({currencyConfig.symbol}) *</FormLabel>
                         <FormControl>
                           <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-total-amount" />
                         </FormControl>
@@ -276,7 +278,7 @@ export default function PurchaseOrders() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-purple-600" data-testid="total-order-value">
-              ₹{totalValue.toLocaleString()}
+              {formatCurrency(totalValue)}
             </div>
             <div className="text-sm text-muted-foreground">Total Value</div>
           </CardContent>
@@ -342,7 +344,7 @@ export default function PurchaseOrders() {
                       <td className="p-3">Mixed Products</td>
                       <td className="p-3 text-right">-</td>
                       <td className="p-3 text-right font-semibold" data-testid={`amount-${index}`}>
-                        ₹{parseFloat(order.totalAmount || '0').toLocaleString()}
+                        {formatCurrency(parseFloat(order.totalAmount || '0'))}
                       </td>
                       <td className="p-3 text-center text-sm">
                         {order.orderDate ? new Date(order.orderDate).toLocaleDateString('en-GB') : 'N/A'}
