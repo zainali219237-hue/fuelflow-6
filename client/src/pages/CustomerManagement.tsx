@@ -14,6 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
+import { Eye, Edit, CreditCard } from "lucide-react";
 
 export default function CustomerManagement() {
   const { toast } = useToast();
@@ -22,6 +23,10 @@ export default function CustomerManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [open, setOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
 
   const form = useForm({
     resolver: zodResolver(insertCustomerSchema),
@@ -62,6 +67,21 @@ export default function CustomerManagement() {
 
   const onSubmit = (data: any) => {
     createCustomerMutation.mutate(data);
+  };
+
+  const handleViewCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setViewDialogOpen(true);
+  };
+
+  const handleEditCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setEditDialogOpen(true);
+  };
+
+  const handlePaymentCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setPaymentDialogOpen(true);
   };
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
@@ -348,24 +368,33 @@ export default function CustomerManagement() {
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex items-center justify-center space-x-2">
-                        <button 
-                          className="text-blue-600 hover:text-blue-800"
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewCustomer(customer)}
+                          className="text-blue-600 hover:text-blue-800 p-1"
                           data-testid={`button-view-${index}`}
                         >
-                          👁️
-                        </button>
-                        <button 
-                          className="text-green-600 hover:text-green-800"
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditCustomer(customer)}
+                          className="text-green-600 hover:text-green-800 p-1"
                           data-testid={`button-edit-${index}`}
                         >
-                          ✏️
-                        </button>
-                        <button 
-                          className="text-purple-600 hover:text-purple-800"
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handlePaymentCustomer(customer)}
+                          className="text-purple-600 hover:text-purple-800 p-1"
                           data-testid={`button-payment-${index}`}
                         >
-                          💰
-                        </button>
+                          <CreditCard className="w-4 h-4" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -382,6 +411,73 @@ export default function CustomerManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* View Customer Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Customer Details</DialogTitle>
+          </DialogHeader>
+          {selectedCustomer && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Name</label>
+                  <p className="text-sm text-muted-foreground">{selectedCustomer.name}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Type</label>
+                  <p className="text-sm text-muted-foreground">{selectedCustomer.type}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Phone</label>
+                  <p className="text-sm text-muted-foreground">{selectedCustomer.contactPhone || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Email</label>
+                  <p className="text-sm text-muted-foreground">{selectedCustomer.contactEmail || 'N/A'}</p>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm font-medium">Address</label>
+                  <p className="text-sm text-muted-foreground">{selectedCustomer.address || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Credit Limit</label>
+                  <p className="text-sm text-muted-foreground">₹{parseFloat(selectedCustomer.creditLimit || '0').toLocaleString()}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Outstanding</label>
+                  <p className="text-sm text-muted-foreground">₹{parseFloat(selectedCustomer.outstandingAmount || '0').toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Customer Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Customer</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <p className="text-muted-foreground">Edit functionality will be implemented soon.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Record Payment</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <p className="text-muted-foreground">Payment recording functionality will be implemented soon.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

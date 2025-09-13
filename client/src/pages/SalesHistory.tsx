@@ -8,13 +8,35 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { Eye, Printer, Receipt } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function SalesHistory() {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
+  const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("today");
   const [paymentFilter, setPaymentFilter] = useState("all");
+
+  const handleViewTransaction = (transactionId: string) => {
+    navigate(`/invoice/${transactionId}`);
+  };
+
+  const handlePrintTransaction = (transactionId: string) => {
+    // Open invoice page in new window and trigger print
+    const printWindow = window.open(`/invoice/${transactionId}`, '_blank');
+    if (printWindow) {
+      printWindow.addEventListener('load', () => {
+        printWindow.print();
+      });
+    }
+  };
+
+  const handleReceiptTransaction = (transactionId: string) => {
+    // Same as view - navigate to invoice page
+    navigate(`/invoice/${transactionId}`);
+  };
 
   const { data: salesTransactions = [], isLoading } = useQuery<SalesTransaction[]>({
     queryKey: ["/api/sales", user?.stationId],
@@ -226,24 +248,33 @@ export default function SalesHistory() {
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center space-x-2">
-                          <button 
-                            className="text-blue-600 hover:text-blue-800"
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewTransaction(transaction.id)}
+                            className="text-blue-600 hover:text-blue-800 p-1"
                             data-testid={`button-view-${index}`}
                           >
-                            👁️
-                          </button>
-                          <button 
-                            className="text-green-600 hover:text-green-800"
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePrintTransaction(transaction.id)}
+                            className="text-green-600 hover:text-green-800 p-1"
                             data-testid={`button-print-${index}`}
                           >
-                            🖨️
-                          </button>
-                          <button 
-                            className="text-purple-600 hover:text-purple-800"
+                            <Printer className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleReceiptTransaction(transaction.id)}
+                            className="text-purple-600 hover:text-purple-800 p-1"
                             data-testid={`button-receipt-${index}`}
                           >
-                            🧾
-                          </button>
+                            <Receipt className="w-4 h-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>

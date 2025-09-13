@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { formatAmount } from "@/lib/currency";
@@ -17,7 +18,8 @@ import {
   Droplets,
   Calendar,
   TrendingDown,
-  TrendingUp
+  TrendingUp,
+  Plus
 } from "lucide-react";
 import type { Tank, Product, StockMovement } from "@shared/schema";
 
@@ -29,6 +31,18 @@ export default function TankMonitoring() {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
   const [selectedTank, setSelectedTank] = useState<string | null>(null);
+  const [addTankDialogOpen, setAddTankDialogOpen] = useState(false);
+  const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
+  const [selectedTankForMaintenance, setSelectedTankForMaintenance] = useState<TankWithProduct | null>(null);
+
+  const handleAddTank = () => {
+    setAddTankDialogOpen(true);
+  };
+
+  const handleMaintenance = (tank: TankWithProduct) => {
+    setSelectedTankForMaintenance(tank);
+    setMaintenanceDialogOpen(true);
+  };
 
   const { data: tanks = [], isLoading } = useQuery<TankWithProduct[]>({
     queryKey: [`/api/tanks/${user?.stationId}`],
@@ -304,6 +318,7 @@ export default function TankMonitoring() {
                     <Button 
                       variant="outline" 
                       size="sm"
+                      onClick={() => handleMaintenance(tank)}
                       data-testid={`button-maintenance-${tank.name.toLowerCase().replace(/\s+/g, '-')}`}
                     >
                       <Wrench className="w-4 h-4" />
@@ -362,10 +377,40 @@ export default function TankMonitoring() {
             <p className="text-muted-foreground mb-4">
               No fuel tanks are configured for this station.
             </p>
-            <Button data-testid="button-add-tank">Add Tank</Button>
+            <Button onClick={handleAddTank} data-testid="button-add-tank">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Tank
+            </Button>
           </CardContent>
         </Card>
       )}
+
+      {/* Add Tank Dialog */}
+      <Dialog open={addTankDialogOpen} onOpenChange={setAddTankDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add New Tank</DialogTitle>
+          </DialogHeader>
+          <div className="p-4">
+            <p className="text-muted-foreground">Tank creation functionality will be implemented soon.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Maintenance Dialog */}
+      <Dialog open={maintenanceDialogOpen} onOpenChange={setMaintenanceDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Tank Maintenance</DialogTitle>
+          </DialogHeader>
+          {selectedTankForMaintenance && (
+            <div className="p-4">
+              <p className="mb-4">Tank: {selectedTankForMaintenance.name}</p>
+              <p className="text-muted-foreground">Maintenance scheduling functionality will be implemented soon.</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
