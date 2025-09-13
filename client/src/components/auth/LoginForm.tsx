@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { isFirebaseConfigured } from "@/lib/firebase";
@@ -11,7 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 export default function LoginForm() {
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin123");
-  const [stationId, setStationId] = useState("1");
   const [isLoading, setIsLoading] = useState(false);
   const { login, loginWithGoogle } = useAuth();
   const { toast } = useToast();
@@ -97,21 +95,6 @@ export default function LoginForm() {
               />
             </div>
 
-            <div>
-              <Label htmlFor="station" className="block text-sm font-medium text-card-foreground mb-2">
-                Station
-              </Label>
-              <Select value={stationId} onValueChange={setStationId}>
-                <SelectTrigger data-testid="select-station">
-                  <SelectValue placeholder="Select station" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Main Station - NH Highway</SelectItem>
-                  <SelectItem value="2">City Branch - MG Road</SelectItem>
-                  <SelectItem value="3">Express Station - Airport Road</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
             <Button 
               type="submit" 
