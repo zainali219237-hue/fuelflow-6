@@ -37,7 +37,7 @@ export interface IStorage {
   getTanksByStation(stationId: string): Promise<Tank[]>;
   getTank(id: string): Promise<Tank | undefined>;
   createTank(tank: InsertTank): Promise<Tank>;
-  updateTankStock(id: string, currentStock: string): Promise<Tank>;
+  updateTankStock(id: string, currentStock: number): Promise<Tank>;
   
   // Customers
   getCustomers(): Promise<Customer[]>;
@@ -54,7 +54,9 @@ export interface IStorage {
   // Sales Transactions
   getSalesTransactions(stationId: string, limit?: number): Promise<SalesTransaction[]>;
   getSalesTransaction(id: string): Promise<SalesTransaction | undefined>;
+  getSalesTransactionWithItems(id: string): Promise<(SalesTransaction & { items: SalesTransactionItem[], customer: Customer, station: Station }) | undefined>;
   createSalesTransaction(transaction: InsertSalesTransaction): Promise<SalesTransaction>;
+  deleteSalesTransaction(id: string): Promise<void>;
   
   // Sales Transaction Items
   createSalesTransactionItem(item: InsertSalesTransactionItem): Promise<SalesTransactionItem>;
@@ -62,7 +64,9 @@ export interface IStorage {
   
   // Purchase Orders
   getPurchaseOrders(stationId: string): Promise<PurchaseOrder[]>;
+  getPurchaseOrder(id: string): Promise<PurchaseOrder | undefined>;
   createPurchaseOrder(order: InsertPurchaseOrder): Promise<PurchaseOrder>;
+  deletePurchaseOrder(id: string): Promise<void>;
   
   // Purchase Order Items
   createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem>;
@@ -83,6 +87,10 @@ export interface IStorage {
   getDashboardStats(stationId: string): Promise<any>;
   getSalesReport(stationId: string, startDate: Date, endDate: Date): Promise<any>;
   getFinancialReport(stationId: string, startDate: Date, endDate: Date): Promise<any>;
+  getDailyReport(stationId: string, date: Date): Promise<any>;
+  getAgingReport(stationId: string, type: 'receivable' | 'payable'): Promise<any>;
+  deletePayment(id: string, stationId: string): Promise<void>;
+  deleteExpense(id: string, stationId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -151,9 +159,9 @@ export class DatabaseStorage implements IStorage {
     return tank;
   }
 
-  async updateTankStock(id: string, currentStock: string): Promise<Tank> {
+  async updateTankStock(id: string, currentStock: number): Promise<Tank> {
     const [tank] = await db.update(tanks)
-      .set({ currentStock })
+      .set({ currentStock: currentStock.toString() })
       .where(eq(tanks.id, id))
       .returning();
     return tank;
@@ -182,11 +190,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateCustomerOutstanding(customerId: string, additionalAmount: number): Promise<void> {
-    await db.update(customers)
-      .set({ 
-        outstandingAmount: sql`${customers.outstandingAmount} + ${additionalAmount}` 
-      })
-      .where(eq(customers.id, customerId));
+    try {
+      const result = await db.update(customers)
+        .set({ 
+          outstandingAmount: sql`${customers.outstandingAmount} + ${additionalAmount}` 
+        })
+        .where(eq(customers.id, customerId))
+        .returning({ id: customers.id });
+        
+      if (result.length === 0) {
+        throw new Error(`Customer ${customerId} not found`);
+      }
+    } catch (error) {
+      throw new Error(`Failed to update customer outstanding amount: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async getSuppliers(): Promise<Supplier[]> {
@@ -217,8 +234,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSalesTransaction(insertTransaction: InsertSalesTransaction): Promise<SalesTransaction> {
-    const [transaction] = await db.insert(salesTransactions).values(insertTransaction).returning();
-    return transaction;
+    try {
+      const [transaction] = await db.insert(salesTransactions).values(insertTransaction).returning();
+      return transaction;
+    } catch (error) {
+      throw new Error(`Failed to create sales transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async createSalesTransactionItem(insertItem: InsertSalesTransactionItem): Promise<SalesTransactionItem> {
@@ -240,8 +261,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPurchaseOrder(insertOrder: InsertPurchaseOrder): Promise<PurchaseOrder> {
-    const [order] = await db.insert(purchaseOrders).values(insertOrder).returning();
-    return order;
+    try {
+      const [order] = await db.insert(purchaseOrders).values(insertOrder).returning();
+      return order;
+    } catch (error) {
+      throw new Error(`Failed to create purchase order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async createPurchaseOrderItem(insertItem: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
@@ -384,6 +409,259 @@ export class DatabaseStorage implements IStorage {
       revenue: revenue[0],
       expenses: expenseData[0],
     };
+  }
+
+  async getSalesTransactionWithItems(id: string): Promise<(SalesTransaction & { items: SalesTransactionItem[], customer: Customer, station: Station }) | undefined> {
+    const transaction = await db
+      .select()
+      .from(salesTransactions)
+      .leftJoin(customers, eq(salesTransactions.customerId, customers.id))
+      .leftJoin(stations, eq(salesTransactions.stationId, stations.id))
+      .where(eq(salesTransactions.id, id))
+      .then(results => results[0]);
+
+    if (!transaction) return undefined;
+    
+    // Ensure customer and station exist - if not, the data is inconsistent
+    if (!transaction.customers || !transaction.stations) {
+      throw new Error(`Sales transaction ${id} has missing customer or station data`);
+    }
+
+    const items = await db
+      .select()
+      .from(salesTransactionItems)
+      .where(eq(salesTransactionItems.transactionId, id));
+
+    return {
+      ...transaction.sales_transactions,
+      items,
+      customer: transaction.customers,
+      station: transaction.stations
+    };
+  }
+
+  async deleteSalesTransaction(id: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Delete related transaction items first
+      await tx.delete(salesTransactionItems).where(eq(salesTransactionItems.transactionId, id));
+      
+      // Delete the transaction
+      await tx.delete(salesTransactions).where(eq(salesTransactions.id, id));
+    });
+  }
+
+  async getPurchaseOrder(id: string): Promise<PurchaseOrder | undefined> {
+    const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
+    return order || undefined;
+  }
+
+  async deletePurchaseOrder(id: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Delete related order items first
+      await tx.delete(purchaseOrderItems).where(eq(purchaseOrderItems.orderId, id));
+      
+      // Delete the purchase order
+      await tx.delete(purchaseOrders).where(eq(purchaseOrders.id, id));
+    });
+  }
+
+  async getDailyReport(stationId: string, date: Date): Promise<any> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Sales by payment method
+    const salesByMethod = await db
+      .select({
+        paymentMethod: salesTransactions.paymentMethod,
+        totalAmount: sum(salesTransactions.totalAmount),
+        count: sql<number>`count(*)`,
+        currencyCode: salesTransactions.currencyCode
+      })
+      .from(salesTransactions)
+      .where(
+        and(
+          eq(salesTransactions.stationId, stationId),
+          gte(salesTransactions.transactionDate, startOfDay),
+          lte(salesTransactions.transactionDate, endOfDay)
+        )
+      )
+      .groupBy(salesTransactions.paymentMethod, salesTransactions.currencyCode);
+
+    // Expenses
+    const dailyExpenses = await db
+      .select({
+        category: expenses.category,
+        totalAmount: sum(expenses.amount),
+        currencyCode: expenses.currencyCode
+      })
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.stationId, stationId),
+          gte(expenses.expenseDate, startOfDay),
+          lte(expenses.expenseDate, endOfDay)
+        )
+      )
+      .groupBy(expenses.category, expenses.currencyCode);
+
+    return {
+      date,
+      salesByMethod,
+      expenses: dailyExpenses
+    };
+  }
+
+  async getAgingReport(stationId: string, type: 'receivable' | 'payable'): Promise<any> {
+    try {
+      if (type === 'receivable') {
+        // Get all outstanding receivables
+        const receivables = await db
+          .select({
+            id: salesTransactions.id,
+            invoiceNumber: salesTransactions.invoiceNumber,
+            customerName: customers.name,
+            transactionDate: salesTransactions.transactionDate,
+            dueDate: salesTransactions.dueDate,
+            totalAmount: salesTransactions.totalAmount,
+            paidAmount: salesTransactions.paidAmount,
+            outstandingAmount: salesTransactions.outstandingAmount,
+            currencyCode: salesTransactions.currencyCode,
+            daysOverdue: sql<number>`CASE 
+              WHEN ${salesTransactions.dueDate} IS NULL THEN 0
+              WHEN ${salesTransactions.dueDate} < CURRENT_DATE THEN EXTRACT(day FROM CURRENT_DATE - ${salesTransactions.dueDate})::integer
+              ELSE 0
+            END`
+          })
+          .from(salesTransactions)
+          .leftJoin(customers, eq(salesTransactions.customerId, customers.id))
+          .where(
+            and(
+              eq(salesTransactions.stationId, stationId),
+              sql`${salesTransactions.outstandingAmount} > 0`
+            )
+          )
+          .orderBy(salesTransactions.dueDate);
+
+        // Group into age buckets
+        const buckets = {
+          current: receivables.filter(r => r.daysOverdue <= 0),
+          days30: receivables.filter(r => r.daysOverdue > 0 && r.daysOverdue <= 30),
+          days60: receivables.filter(r => r.daysOverdue > 30 && r.daysOverdue <= 60),
+          days90: receivables.filter(r => r.daysOverdue > 60 && r.daysOverdue <= 90),
+          over90: receivables.filter(r => r.daysOverdue > 90)
+        };
+
+        // Calculate totals for each bucket
+        const totals = {
+          current: buckets.current.reduce((sum, r) => sum + Number(r.outstandingAmount), 0),
+          days30: buckets.days30.reduce((sum, r) => sum + Number(r.outstandingAmount), 0),
+          days60: buckets.days60.reduce((sum, r) => sum + Number(r.outstandingAmount), 0),
+          days90: buckets.days90.reduce((sum, r) => sum + Number(r.outstandingAmount), 0),
+          over90: buckets.over90.reduce((sum, r) => sum + Number(r.outstandingAmount), 0)
+        };
+
+        return {
+          type: 'receivable',
+          buckets,
+          totals,
+          grandTotal: Object.values(totals).reduce((sum, total) => sum + total, 0),
+          details: receivables
+        };
+
+      } else {
+        // Get all outstanding payables
+        const payables = await db
+          .select({
+            id: purchaseOrders.id,
+            orderNumber: purchaseOrders.orderNumber,
+            supplierName: suppliers.name,
+            orderDate: purchaseOrders.orderDate,
+            dueDate: purchaseOrders.dueDate,
+            totalAmount: purchaseOrders.totalAmount,
+            paidAmount: purchaseOrders.paidAmount,
+            outstandingAmount: sql<string>`${purchaseOrders.totalAmount} - ${purchaseOrders.paidAmount}`,
+            currencyCode: purchaseOrders.currencyCode,
+            daysOverdue: sql<number>`CASE 
+              WHEN ${purchaseOrders.dueDate} IS NULL THEN 0
+              WHEN ${purchaseOrders.dueDate} < CURRENT_DATE THEN EXTRACT(day FROM CURRENT_DATE - ${purchaseOrders.dueDate})::integer
+              ELSE 0
+            END`
+          })
+          .from(purchaseOrders)
+          .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
+          .where(
+            and(
+              eq(purchaseOrders.stationId, stationId),
+              sql`${purchaseOrders.totalAmount} - ${purchaseOrders.paidAmount} > 0`
+            )
+          )
+          .orderBy(purchaseOrders.dueDate);
+
+        // Group into age buckets
+        const buckets = {
+          current: payables.filter(p => p.daysOverdue <= 0),
+          days30: payables.filter(p => p.daysOverdue > 0 && p.daysOverdue <= 30),
+          days60: payables.filter(p => p.daysOverdue > 30 && p.daysOverdue <= 60),
+          days90: payables.filter(p => p.daysOverdue > 60 && p.daysOverdue <= 90),
+          over90: payables.filter(p => p.daysOverdue > 90)
+        };
+
+        // Calculate totals for each bucket
+        const totals = {
+          current: buckets.current.reduce((sum, p) => sum + Number(p.outstandingAmount), 0),
+          days30: buckets.days30.reduce((sum, p) => sum + Number(p.outstandingAmount), 0),
+          days60: buckets.days60.reduce((sum, p) => sum + Number(p.outstandingAmount), 0),
+          days90: buckets.days90.reduce((sum, p) => sum + Number(p.outstandingAmount), 0),
+          over90: buckets.over90.reduce((sum, p) => sum + Number(p.outstandingAmount), 0)
+        };
+
+        return {
+          type: 'payable',
+          buckets,
+          totals,
+          grandTotal: Object.values(totals).reduce((sum, total) => sum + total, 0),
+          details: payables
+        };
+      }
+    } catch (error) {
+      throw new Error(`Failed to generate aging report: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async deletePayment(id: string, stationId: string): Promise<void> {
+    try {
+      const result = await db.delete(payments).where(
+        and(
+          eq(payments.id, id),
+          eq(payments.stationId, stationId)
+        )
+      ).returning({ id: payments.id });
+      
+      if (result.length === 0) {
+        throw new Error(`Payment ${id} not found or not authorized for station ${stationId}`);
+      }
+    } catch (error) {
+      throw new Error(`Failed to delete payment: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async deleteExpense(id: string, stationId: string): Promise<void> {
+    try {
+      const result = await db.delete(expenses).where(
+        and(
+          eq(expenses.id, id),
+          eq(expenses.stationId, stationId)
+        )
+      ).returning({ id: expenses.id });
+      
+      if (result.length === 0) {
+        throw new Error(`Expense ${id} not found or not authorized for station ${stationId}`);
+      }
+    } catch (error) {
+      throw new Error(`Failed to delete expense: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }
 
