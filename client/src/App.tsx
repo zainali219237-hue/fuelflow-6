@@ -29,6 +29,22 @@ import AgingReports from "@/pages/AgingReports";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
+// Global theme initialization to prevent auto-enabling dark mode on Settings page
+function ThemeBootstrap() {
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
+  return null;
+}
+
 // Bootstrap component to handle station currency fetch without circular imports
 function CurrencyBootstrap() {
   const { user } = useAuth();
@@ -96,6 +112,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <CurrencyProvider>
+          <ThemeBootstrap />
           <CurrencyBootstrap />
           <TooltipProvider>
             <Toaster />

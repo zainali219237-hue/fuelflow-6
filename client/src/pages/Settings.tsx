@@ -64,18 +64,9 @@ export default function Settings() {
     });
   };
 
-  // Initialize theme on component mount
+  // Initialize theme state from current DOM state (theme is now initialized globally)
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-      setIsDarkMode(true);
-      document.documentElement.classList.add('dark');
-    } else {
-      setIsDarkMode(false);
-      document.documentElement.classList.remove('dark');
-    }
+    setIsDarkMode(document.documentElement.classList.contains('dark'));
   }, []);
 
   // Load saved settings on component mount

@@ -4,10 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import type { Tank, SalesTransaction, Customer, Product } from "@shared/schema";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useLocation } from "wouter";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { formatCurrency, formatCurrencyCompact } = useCurrency();
+  const [, setLocation] = useLocation();
   
   const { data: dashboardStats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/dashboard", user?.stationId],
@@ -20,7 +22,7 @@ export default function Dashboard() {
   });
 
   const { data: recentSales = [], isLoading: salesLoading } = useQuery<SalesTransaction[]>({
-    queryKey: ["/api/sales", user?.stationId, { limit: 5 }],
+    queryKey: ["/api/sales", user?.stationId, "recent"],
     enabled: !!user?.stationId,
   });
 
@@ -226,7 +228,11 @@ export default function Dashboard() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Recent Transactions</CardTitle>
-              <button className="text-primary hover:text-primary/80 text-sm font-medium" data-testid="button-view-all">
+              <button 
+                className="text-primary hover:text-primary/80 text-sm font-medium transition-colors" 
+                onClick={() => setLocation('/sales-history')}
+                data-testid="button-view-all"
+              >
                 View All
               </button>
             </div>
