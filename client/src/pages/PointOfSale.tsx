@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -38,6 +38,66 @@ export default function PointOfSale() {
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [quickQuantity, setQuickQuantity] = useState(25);
   const [, setLocation] = useLocation();
+  
+  // Load draft or transaction data on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const draftId = urlParams.get('draft');
+    const editId = urlParams.get('edit');
+    
+    if (draftId) {
+      loadDraft(draftId);
+    } else if (editId) {
+      // For future implementation - load transaction for editing
+      toast({
+        title: "Edit functionality",
+        description: "Transaction editing will be available soon",
+      });
+    }
+  }, []);
+  
+  const loadDraft = (draftId: string) => {
+    try {
+      // Load from allPosDrafts first
+      const allDrafts = localStorage.getItem('allPosDrafts');
+      if (allDrafts) {
+        const drafts = JSON.parse(allDrafts);
+        const draft = drafts.find((d: any) => d.id === draftId);
+        if (draft) {
+          setSelectedCustomerId(draft.selectedCustomerId || '');
+          setTransactionItems(draft.transactionItems || []);
+          setPaymentMethod(draft.paymentMethod || 'cash');
+          
+          toast({
+            title: "Draft loaded",
+            description: "Previous draft has been restored",
+          });
+          return;
+        }
+      }
+      
+      // Fallback to single draft if not found in allDrafts
+      const singleDraft = localStorage.getItem('posDraft');
+      if (singleDraft && draftId.includes('draft-')) {
+        const draft = JSON.parse(singleDraft);
+        setSelectedCustomerId(draft.selectedCustomerId || '');
+        setTransactionItems(draft.transactionItems || []);
+        setPaymentMethod(draft.paymentMethod || 'cash');
+        
+        toast({
+          title: "Draft loaded",
+          description: "Previous draft has been restored",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load draft:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load draft",
+        variant: "destructive",
+      });
+    }
+  };
 
   const customerForm = useForm({
     resolver: zodResolver(insertCustomerSchema.omit({ outstandingAmount: true })),
@@ -201,20 +261,49 @@ export default function PointOfSale() {
       return;
     }
     
-    // Save to localStorage as draft
+    const totalAmount = transactionItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const timestamp = Date.now();
+    
+    // Create draft data
     const draftData = {
+      id: `draft-${timestamp}`,
       selectedCustomerId,
       transactionItems,
       paymentMethod,
-      timestamp: Date.now()
+      timestamp,
+      totalAmount
     };
     
-    localStorage.setItem('posDraft', JSON.stringify(draftData));
-    
-    toast({
-      title: "Draft saved",
-      description: "Transaction saved as draft",
-    });
+    // Save to allPosDrafts (new format)
+    try {
+      const existingDrafts = localStorage.getItem('allPosDrafts');
+      const drafts = existingDrafts ? JSON.parse(existingDrafts) : [];
+      
+      // Replace existing draft with same timestamp or add new one
+      const existingIndex = drafts.findIndex((d: any) => d.id === draftData.id);
+      if (existingIndex >= 0) {
+        drafts[existingIndex] = draftData;
+      } else {
+        drafts.push(draftData);
+      }
+      
+      localStorage.setItem('allPosDrafts', JSON.stringify(drafts));
+      
+      // Also save as single draft for backward compatibility
+      localStorage.setItem('posDraft', JSON.stringify(draftData));
+      
+      toast({
+        title: "Draft saved",
+        description: "Transaction saved as draft",
+      });
+    } catch (error) {
+      console.error('Failed to save draft:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save draft",
+        variant: "destructive",
+      });
+    }
   };
 
   const cancelTransaction = () => {

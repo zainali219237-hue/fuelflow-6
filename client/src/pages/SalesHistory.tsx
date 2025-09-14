@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { SalesTransaction, Customer, Product } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,16 +8,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { Eye, Printer, Receipt } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Eye, Printer, Edit, Download, Trash2, Play } from "lucide-react";
 import { useLocation } from "wouter";
+
+interface DraftSale {
+  id: string;
+  selectedCustomerId: string;
+  transactionItems: any[];
+  paymentMethod: string;
+  timestamp: number;
+  totalAmount: number;
+}
 
 export default function SalesHistory() {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
+  const { toast } = useToast();
   const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("today");
   const [paymentFilter, setPaymentFilter] = useState("all");
+  const [draftSales, setDraftSales] = useState<DraftSale[]>([]);
+  const [showDrafts, setShowDrafts] = useState(true);
 
   const handleViewTransaction = (transactionId: string) => {
     navigate(`/invoice/${transactionId}`);
@@ -33,9 +46,143 @@ export default function SalesHistory() {
     }
   };
 
-  const handleReceiptTransaction = (transactionId: string) => {
-    // Same as view - navigate to invoice page
-    navigate(`/invoice/${transactionId}`);
+  const handleEditTransaction = (transactionId: string) => {
+    // Navigate to Point of Sale with pre-loaded transaction data
+    navigate(`/pos?edit=${transactionId}`);
+  };
+
+  const handleContinueDraft = (draftId: string) => {
+    // Navigate to Point of Sale to continue the draft
+    navigate(`/pos?draft=${draftId}`);
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    const updatedDrafts = draftSales.filter(draft => draft.id !== draftId);
+    setDraftSales(updatedDrafts);
+    
+    // Update localStorage
+    if (updatedDrafts.length > 0) {
+      localStorage.setItem('allPosDrafts', JSON.stringify(updatedDrafts));
+    } else {
+      localStorage.removeItem('allPosDrafts');
+      localStorage.removeItem('posDraft'); // Also remove single draft
+    }
+    
+    toast({
+      title: "Draft deleted",
+      description: "Draft sale has been removed",
+    });
+  };
+
+  // Load drafts from localStorage
+  useEffect(() => {
+    const loadDrafts = () => {
+      try {
+        // Check for multiple drafts
+        const allDrafts = localStorage.getItem('allPosDrafts');
+        if (allDrafts) {
+          const drafts = JSON.parse(allDrafts) as DraftSale[];
+          setDraftSales(drafts);
+          return;
+        }
+        
+        // Check for single draft (legacy support)
+        const singleDraft = localStorage.getItem('posDraft');
+        if (singleDraft) {
+          const draft = JSON.parse(singleDraft);
+          const totalAmount = draft.transactionItems?.reduce((sum: number, item: any) => {
+            return sum + (item.totalPrice || 0);
+          }, 0) || 0;
+          
+          const draftSale: DraftSale = {
+            id: `draft-${draft.timestamp || Date.now()}`,
+            selectedCustomerId: draft.selectedCustomerId || '',
+            transactionItems: draft.transactionItems || [],
+            paymentMethod: draft.paymentMethod || 'cash',
+            timestamp: draft.timestamp || Date.now(),
+            totalAmount: totalAmount
+          };
+          
+          setDraftSales([draftSale]);
+          
+          // Migrate to new format
+          localStorage.setItem('allPosDrafts', JSON.stringify([draftSale]));
+        }
+      } catch (error) {
+        console.error('Failed to load drafts:', error);
+      }
+    };
+    
+    loadDrafts();
+  }, []);
+
+  const exportToExcel = () => {
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      "Invoice,Customer,Amount,Payment Method,Date\n" +
+      filteredTransactions.map(t => {
+        const customer = customers.find(c => c.id === t.customerId);
+        const date = t.transactionDate ? new Date(t.transactionDate).toLocaleDateString() : 'N/A';
+        return `${t.invoiceNumber},${customer?.name || 'Walk-in'},${t.totalAmount},${t.paymentMethod},${date}`;
+      }).join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `sales-history-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportToPDF = () => {
+    // Create a printable version of the sales data
+    const printContent = `
+      <html>
+        <head>
+          <title>Sales History Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .header { text-align: center; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Sales History Report</h1>
+            <p>Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+          <table>
+            <tr>
+              <th>Invoice</th>
+              <th>Customer</th>
+              <th>Amount</th>
+              <th>Payment Method</th>
+              <th>Date</th>
+            </tr>
+            ${filteredTransactions.map(t => {
+              const customer = customers.find(c => c.id === t.customerId);
+              const date = t.transactionDate ? new Date(t.transactionDate).toLocaleDateString() : 'N/A';
+              return `<tr>
+                <td>${t.invoiceNumber}</td>
+                <td>${customer?.name || 'Walk-in'}</td>
+                <td>${formatCurrency(parseFloat(t.totalAmount || '0'))}</td>
+                <td>${t.paymentMethod}</td>
+                <td>${date}</td>
+              </tr>`;
+            }).join('')}
+          </table>
+        </body>
+      </html>
+    `;
+    
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.print();
+    }
   };
 
   const { data: salesTransactions = [], isLoading } = useQuery<SalesTransaction[]>({
@@ -111,10 +258,10 @@ export default function SalesHistory() {
           <p className="text-muted-foreground">Complete transaction history and sales analytics</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline" data-testid="button-export-excel">
+          <Button variant="outline" onClick={exportToExcel} data-testid="button-export-excel">
             📊 Export Excel
           </Button>
-          <Button variant="outline" data-testid="button-export-pdf">
+          <Button variant="outline" onClick={exportToPDF} data-testid="button-export-pdf">
             📄 Export PDF
           </Button>
         </div>
@@ -193,6 +340,13 @@ export default function SalesHistory() {
                   <SelectItem value="fleet">Fleet</SelectItem>
                 </SelectContent>
               </Select>
+              <Button 
+                variant={showDrafts ? "default" : "outline"}
+                onClick={() => setShowDrafts(!showDrafts)}
+                data-testid="button-toggle-drafts"
+              >
+                {showDrafts ? "Hide Drafts" : "Show Drafts"}
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -213,6 +367,63 @@ export default function SalesHistory() {
                 </tr>
               </thead>
               <tbody>
+                {/* Draft Sales */}
+                {showDrafts && draftSales.map((draft: DraftSale, index: number) => {
+                  const customer = customers.find(c => c.id === draft.selectedCustomerId);
+                  const draftTime = new Date(draft.timestamp).toLocaleTimeString('en-IN', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                  
+                  return (
+                    <tr key={`draft-${draft.id}`} className="border-b border-border hover:bg-muted/50 bg-yellow-50 dark:bg-yellow-900/20">
+                      <td className="p-3 text-sm">{draftTime}</td>
+                      <td className="p-3">
+                        <span className="font-medium text-yellow-600" data-testid={`draft-invoice-${index}`}>
+                          DRAFT-{draft.id.split('-').pop()?.slice(-6)}
+                        </span>
+                      </td>
+                      <td className="p-3">{customer?.name || 'Walk-in Customer'}</td>
+                      <td className="p-3">{draft.transactionItems.length} items</td>
+                      <td className="p-3 text-right">{draft.transactionItems.reduce((sum, item) => sum + (item.quantity || 0), 0).toFixed(1)}L</td>
+                      <td className="p-3 text-right">-</td>
+                      <td className="p-3 text-right font-semibold" data-testid={`draft-amount-${index}`}>
+                        {formatCurrency(draft.totalAmount)}
+                      </td>
+                      <td className="p-3 text-center">
+                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                          DRAFT
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-center">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleContinueDraft(draft.id)}
+                            className="text-green-600 hover:text-green-800 p-1"
+                            data-testid={`button-continue-draft-${index}`}
+                            title="Continue Draft"
+                          >
+                            <Play className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteDraft(draft.id)}
+                            className="text-red-600 hover:text-red-800 p-1"
+                            data-testid={`button-delete-draft-${index}`}
+                            title="Delete Draft"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                
+                {/* Completed Sales */}
                 {filteredTransactions.length > 0 ? filteredTransactions.map((transaction: SalesTransaction, index: number) => {
                   const customer = customers.find(c => c.id === transaction.customerId);
                   const transactionTime = transaction.transactionDate 
@@ -269,20 +480,26 @@ export default function SalesHistory() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleReceiptTransaction(transaction.id)}
+                            onClick={() => handleEditTransaction(transaction.id)}
                             className="text-purple-600 hover:text-purple-800 p-1"
-                            data-testid={`button-receipt-${index}`}
+                            data-testid={`button-edit-${index}`}
+                            title="Edit Transaction"
                           >
-                            <Receipt className="w-4 h-4" />
+                            <Edit className="w-4 h-4" />
                           </Button>
                         </div>
                       </td>
                     </tr>
                   );
-                }) : (
+                }) : null}
+                
+                {/* Show message when no data */}
+                {filteredTransactions.length === 0 && (!showDrafts || draftSales.length === 0) && (
                   <tr>
                     <td colSpan={9} className="p-8 text-center text-muted-foreground">
-                      No transactions found for the selected criteria
+                      {showDrafts && draftSales.length === 0 
+                        ? "No transactions or drafts found" 
+                        : "No transactions found for the selected criteria"}
                     </td>
                   </tr>
                 )}
