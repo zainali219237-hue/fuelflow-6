@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
+import { useLocation } from "wouter";
 
 interface POSItem {
   productId: string;
@@ -35,6 +36,8 @@ export default function PointOfSale() {
   const [transactionItems, setTransactionItems] = useState<POSItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "credit" | "fleet">("cash");
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
+  const [quickQuantity, setQuickQuantity] = useState(25);
+  const [, setLocation] = useLocation();
 
   const customerForm = useForm({
     resolver: zodResolver(insertCustomerSchema.omit({ outstandingAmount: true })),
@@ -126,9 +129,9 @@ export default function PointOfSale() {
       productId: product.id,
       productName: product.name,
       tankId: mockTankId,
-      quantity: 25,
+      quantity: quickQuantity,
       unitPrice: parseFloat(product.currentPrice),
-      totalPrice: 25 * parseFloat(product.currentPrice),
+      totalPrice: quickQuantity * parseFloat(product.currentPrice),
     };
 
     setTransactionItems([...transactionItems, newItem]);
@@ -188,6 +191,60 @@ export default function PointOfSale() {
     createSaleMutation.mutate({ transaction, items });
   };
 
+  const saveAsDraft = () => {
+    if (transactionItems.length === 0) {
+      toast({
+        title: "No items",
+        description: "Please add items before saving as draft",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Save to localStorage as draft
+    const draftData = {
+      selectedCustomerId,
+      transactionItems,
+      paymentMethod,
+      timestamp: Date.now()
+    };
+    
+    localStorage.setItem('posDraft', JSON.stringify(draftData));
+    
+    toast({
+      title: "Draft saved",
+      description: "Transaction saved as draft",
+    });
+  };
+
+  const cancelTransaction = () => {
+    setTransactionItems([]);
+    setSelectedCustomerId("");
+    setPaymentMethod("cash");
+    localStorage.removeItem('posDraft');
+    
+    toast({
+      title: "Transaction cancelled",
+      description: "Transaction has been cleared",
+    });
+  };
+
+  const showLastTransaction = () => {
+    setLocation('/sales-history');
+  };
+
+  const printLastReceipt = () => {
+    toast({
+      title: "Print Receipt",
+      description: "Opening receipt for printing...",
+    });
+    window.print();
+  };
+
+  const showDaySummary = () => {
+    setLocation('/daily-reports');
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in">
       {/* POS Interface */}
@@ -205,10 +262,11 @@ export default function PointOfSale() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Customer Selection */}
-            <div>
-              <label className="block text-sm font-medium text-card-foreground mb-2">Customer</label>
-              <div className="flex space-x-2">
+            {/* Customer Selection & Quick Quantity */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-card-foreground mb-2">Customer</label>
+                <div className="flex space-x-2">
                 <Combobox
                   options={[
                     ...(walkInCustomer ? [{ 
@@ -307,6 +365,20 @@ export default function PointOfSale() {
                     </Form>
                   </DialogContent>
                 </Dialog>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-card-foreground mb-2">Default Quantity (L)</label>
+                <Input
+                  type="number"
+                  value={quickQuantity}
+                  onChange={(e) => setQuickQuantity(parseFloat(e.target.value) || 25)}
+                  placeholder="Enter default quantity"
+                  className="w-full"
+                  min="1"
+                  step="0.1"
+                  data-testid="input-quick-quantity"
+                />
               </div>
             </div>
 
@@ -457,10 +529,20 @@ export default function PointOfSale() {
               >
                 {createSaleMutation.isPending ? "Processing..." : "Complete Sale"}
               </Button>
-              <Button variant="outline" className="w-full" data-testid="button-save-draft">
+              <Button 
+                variant="outline" 
+                className="w-full" 
+                onClick={saveAsDraft}
+                data-testid="button-save-draft"
+              >
                 Save as Draft
               </Button>
-              <Button variant="outline" className="w-full text-destructive hover:bg-destructive/10" data-testid="button-cancel">
+              <Button 
+                variant="outline" 
+                className="w-full text-destructive hover:bg-destructive/10" 
+                onClick={cancelTransaction}
+                data-testid="button-cancel"
+              >
                 Cancel Transaction
               </Button>
             </div>
@@ -469,13 +551,25 @@ export default function PointOfSale() {
             <div className="pt-6 border-t border-border">
               <h4 className="font-medium text-card-foreground mb-3">Quick Actions</h4>
               <div className="space-y-2">
-                <button className="w-full text-left p-2 hover:bg-muted rounded-md text-sm" data-testid="button-last-transaction">
+                <button 
+                  className="w-full text-left p-2 hover:bg-muted rounded-md text-sm transition-colors" 
+                  onClick={showLastTransaction}
+                  data-testid="button-last-transaction"
+                >
                   📱 Last Transaction
                 </button>
-                <button className="w-full text-left p-2 hover:bg-muted rounded-md text-sm" data-testid="button-print-receipt">
+                <button 
+                  className="w-full text-left p-2 hover:bg-muted rounded-md text-sm transition-colors" 
+                  onClick={printLastReceipt}
+                  data-testid="button-print-receipt"
+                >
                   🧾 Print Receipt
                 </button>
-                <button className="w-full text-left p-2 hover:bg-muted rounded-md text-sm" data-testid="button-day-summary">
+                <button 
+                  className="w-full text-left p-2 hover:bg-muted rounded-md text-sm transition-colors" 
+                  onClick={showDaySummary}
+                  data-testid="button-day-summary"
+                >
                   📊 Day Summary
                 </button>
               </div>
