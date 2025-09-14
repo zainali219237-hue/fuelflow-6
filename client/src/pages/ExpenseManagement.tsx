@@ -414,7 +414,7 @@ export default function ExpenseManagement() {
                     </td>
                     <td className="p-3 text-sm">{expense.vendorName || 'N/A'}</td>
                     <td className="p-3 text-right font-semibold text-red-600" data-testid={`expense-amount-${index}`}>
-                      ₹{parseFloat(expense.amount || '0').toLocaleString()}
+                      {formatCurrency(parseFloat(expense.amount || '0'))}
                     </td>
                     <td className="p-3 text-center">
                       <Badge variant="outline">

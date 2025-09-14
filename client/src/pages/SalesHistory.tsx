@@ -13,7 +13,7 @@ import { useLocation } from "wouter";
 
 export default function SalesHistory() {
   const { user } = useAuth();
-  const { formatCurrency } = useCurrency() || { formatCurrency: (amount: number) => `₹${amount}` };
+  const { formatCurrency } = useCurrency();
   const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("today");
