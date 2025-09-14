@@ -10,10 +10,7 @@ interface CurrencyContextType {
   isLoading: boolean;
 }
 
-// Global singleton pattern to prevent duplicate module instances during HMR
-const ctx = (globalThis as any).__CurrencyContext || createContext<CurrencyContextType | undefined>(undefined);
-(globalThis as any).__CurrencyContext = ctx;
-const CurrencyContext = ctx;
+const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   const [currency, setCurrencyState] = useState<CurrencyCode>(() => {
@@ -92,7 +89,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useCurrency() {
+export function useCurrency(): CurrencyContextType {
   const context = useContext(CurrencyContext);
   if (context === undefined) {
     throw new Error('useCurrency must be used within a CurrencyProvider');

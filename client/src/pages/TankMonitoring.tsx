@@ -29,7 +29,7 @@ interface TankWithProduct extends Tank {
 
 export default function TankMonitoring() {
   const { user } = useAuth();
-  const { formatCurrency } = useCurrency() || { formatCurrency: (amount: number) => `₹${amount}` };
+  const { formatCurrency } = useCurrency();
   const [selectedTank, setSelectedTank] = useState<string | null>(null);
   const [addTankDialogOpen, setAddTankDialogOpen] = useState(false);
   const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
