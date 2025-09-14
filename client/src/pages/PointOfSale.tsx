@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Product, Customer, Tank } from "@shared/schema";
+import type { Product, Customer, Tank, SalesTransaction } from "@shared/schema";
 import { insertCustomerSchema } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,11 +48,7 @@ export default function PointOfSale() {
     if (draftId) {
       loadDraft(draftId);
     } else if (editId) {
-      // For future implementation - load transaction for editing
-      toast({
-        title: "Edit functionality",
-        description: "Transaction editing will be available soon",
-      });
+      loadTransactionForEdit(editId);
     }
   }, []);
   
@@ -94,6 +90,45 @@ export default function PointOfSale() {
       toast({
         title: "Error",
         description: "Failed to load draft",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadTransactionForEdit = async (transactionId: string) => {
+    try {
+      const response = await apiRequest('GET', `/api/sales/detail/${transactionId}`);
+      const transactionData = await response.json();
+      
+      if (transactionData && transactionData.items) {
+        // Set customer
+        setSelectedCustomerId(transactionData.customerId || '');
+        
+        // Set payment method
+        setPaymentMethod(transactionData.paymentMethod || 'cash');
+        
+        // Convert transaction items to POSItem format
+        const posItems = transactionData.items.map((item: any) => ({
+          productId: item.productId,
+          productName: item.product?.name || 'Unknown Product',
+          tankId: item.tankId || `tank-${item.productId}`,
+          quantity: parseFloat(item.quantity || '0'),
+          unitPrice: parseFloat(item.unitPrice || '0'),
+          totalPrice: parseFloat(item.totalPrice || '0'),
+        }));
+        
+        setTransactionItems(posItems);
+        
+        toast({
+          title: "Transaction loaded",
+          description: `Loaded transaction ${transactionData.invoiceNumber} for editing`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load transaction:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load transaction for editing",
         variant: "destructive",
       });
     }

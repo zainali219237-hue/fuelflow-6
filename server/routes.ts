@@ -187,6 +187,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/stock-movements", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertStockMovementSchema.parse(req.body);
+      const stockMovement = await storage.createStockMovement(validatedData);
+      res.status(201).json(stockMovement);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid stock movement data" });
+    }
+  });
+
   // Customers routes
   app.get("/api/customers", requireAuth, async (req, res) => {
     try {

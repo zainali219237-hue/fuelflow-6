@@ -34,12 +34,15 @@ export default function InvoiceReceipt() {
   });
 
   const handlePrint = () => {
-    window.print();
+    // Add a short delay to ensure content is rendered
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   const handleDownload = () => {
-    // Convert to PDF or trigger browser download
-    window.print();
+    // For now, trigger print dialog which allows saving as PDF
+    handlePrint();
   };
 
   if (isLoading) {

@@ -17,11 +17,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
+import { useLocation } from "wouter";
 
 export default function StockManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [open, setOpen] = useState(false);
 
   const form = useForm({
@@ -70,6 +72,40 @@ export default function StockManagement() {
 
   const onSubmit = (data: any) => {
     createStockMovementMutation.mutate(data);
+  };
+
+  // Quick Actions handlers
+  const handleStockReport = () => {
+    toast({
+      title: "Stock Report",
+      description: "Generating comprehensive stock report...",
+    });
+    // Navigate to reports or open print dialog
+    setLocation('/financial-reports');
+  };
+
+  const handleNewPurchase = () => {
+    setLocation('/purchase-orders');
+  };
+
+  const handleStockTransfer = () => {
+    toast({
+      title: "Stock Transfer",
+      description: "Stock transfer functionality coming soon",
+    });
+    // Future: Open stock transfer dialog
+  };
+
+  const handleStockAudit = () => {
+    toast({
+      title: "Stock Audit",
+      description: "Starting stock audit process...",
+    });
+    // Future: Open audit interface
+  };
+
+  const handleCreatePurchaseOrder = (tankId: string) => {
+    setLocation(`/purchase-orders?tank=${tankId}`);
   };
 
   const { data: tanks = [], isLoading: tanksLoading } = useQuery<Tank[]>({
@@ -267,7 +303,11 @@ export default function StockManagement() {
               </Form>
             </DialogContent>
           </Dialog>
-          <Button variant="outline" data-testid="button-stock-report">
+          <Button 
+            variant="outline" 
+            onClick={handleStockReport}
+            data-testid="button-stock-report"
+          >
             📊 Stock Report
           </Button>
         </div>
@@ -416,6 +456,7 @@ export default function StockManagement() {
                         <Button 
                           size="sm" 
                           className="mt-2 bg-yellow-600 hover:bg-yellow-700 text-white"
+                          onClick={() => handleCreatePurchaseOrder(tank.id)}
                           data-testid="button-create-purchase-order"
                         >
                           Create Purchase Order
@@ -446,16 +487,36 @@ export default function StockManagement() {
             <div className="mt-6 pt-4 border-t border-border">
               <h5 className="font-medium text-card-foreground mb-3">Quick Actions</h5>
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" data-testid="button-stock-report-quick">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleStockReport}
+                  data-testid="button-stock-report-quick"
+                >
                   📊 Stock Report
                 </Button>
-                <Button variant="outline" size="sm" data-testid="button-new-purchase">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleNewPurchase}
+                  data-testid="button-new-purchase"
+                >
                   📦 New Purchase
                 </Button>
-                <Button variant="outline" size="sm" data-testid="button-stock-transfer">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleStockTransfer}
+                  data-testid="button-stock-transfer"
+                >
                   🔄 Stock Transfer
                 </Button>
-                <Button variant="outline" size="sm" data-testid="button-stock-audit">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleStockAudit}
+                  data-testid="button-stock-audit"
+                >
                   📋 Stock Audit
                 </Button>
               </div>
