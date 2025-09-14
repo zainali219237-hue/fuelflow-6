@@ -13,8 +13,7 @@ const navigationItems = [
     label: "Sales & Transactions",
     items: [
       { name: "Point of Sale", path: "/pos", icon: "🛒" },
-      { name: "Sales History", path: "/sales-history", icon: "📋" },
-      { name: "Receipts & Invoices", path: "/receipts", icon: "🧾" },
+      { name: "Sales History & Receipts", path: "/sales-history", icon: "📋" },
     ]
   },
   {

@@ -82,7 +82,7 @@ function Router() {
       <Route path="/pricing" component={PriceManagement} />
       <Route path="/financial-reports" component={FinancialReports} />
       <Route path="/invoice/:id" component={InvoiceReceipt} />
-      <Route path="/tank-monitoring" component={TankMonitoring} />
+      <Route path="/tanks" component={TankMonitoring} />
       <Route path="/daily-reports" component={DailyReports} />
       <Route path="/aging-reports" component={AgingReports} />
       <Route path="/settings" component={Settings} />
