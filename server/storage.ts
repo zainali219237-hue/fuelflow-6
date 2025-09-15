@@ -405,9 +405,67 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(stockMovements.movementDate));
   }
 
-  async createStockMovement(insertMovement: InsertStockMovement): Promise<StockMovement> {
-    const [movement] = await db.insert(stockMovements).values(insertMovement).returning();
-    return movement;
+  async createStockMovement(insertMovement: InsertStockMovement): Promise<StockMovement & { updatedTank?: Tank }> {
+    return await db.transaction(async (tx) => {
+      // Get current tank stock
+      const [currentTank] = await tx.select().from(tanks).where(eq(tanks.id, insertMovement.tankId));
+      if (!currentTank) {
+        throw new Error(`Tank ${insertMovement.tankId} not found`);
+      }
+
+      const currentStock = parseFloat(currentTank.currentStock || '0');
+      const movementQuantity = parseFloat(insertMovement.quantity);
+      
+      // Calculate new stock based on movement type
+      let newStock: number;
+      switch (insertMovement.movementType) {
+        case 'in':
+          newStock = currentStock + Math.abs(movementQuantity);
+          break;
+        case 'out':
+          newStock = Math.max(0, currentStock - Math.abs(movementQuantity));
+          break;
+        case 'adjustment':
+          // For adjustments, quantity can be positive or negative
+          newStock = Math.max(0, currentStock + movementQuantity);
+          break;
+        case 'transfer':
+          // For transfers, this handles the source tank (out)
+          newStock = Math.max(0, currentStock - Math.abs(movementQuantity));
+          break;
+        case 'audit':
+          // For audits, the new quantity IS the new stock (not a delta)
+          newStock = Math.max(0, Math.abs(movementQuantity));
+          break;
+        default:
+          throw new Error(`Invalid movement type: ${insertMovement.movementType}`);
+      }
+
+      // Create stock movement record with correct values
+      const movementData = {
+        ...insertMovement,
+        previousStock: currentStock.toString(),
+        newStock: newStock.toString(),
+      };
+      
+      const [movement] = await tx.insert(stockMovements).values(movementData).returning();
+      
+      // Update tank stock and set last refill date if it's an 'in' movement
+      const updateData: any = { currentStock: newStock.toString() };
+      if (insertMovement.movementType === 'in') {
+        updateData.lastRefillDate = new Date();
+      }
+      
+      const [updatedTank] = await tx.update(tanks)
+        .set(updateData)
+        .where(eq(tanks.id, insertMovement.tankId))
+        .returning();
+
+      return {
+        ...movement,
+        updatedTank
+      };
+    });
   }
 
   async getDashboardStats(stationId: string): Promise<any> {

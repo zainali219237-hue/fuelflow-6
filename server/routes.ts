@@ -399,17 +399,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const createdItem = await storage.createSalesTransactionItem(validatedItem);
         createdItems.push(createdItem);
         
-        // Create stock movement
+        // Create stock movement (previousStock and newStock are calculated automatically)
         await storage.createStockMovement({
           tankId: item.tankId,
           stationId: validatedTransaction.stationId,
           userId: validatedTransaction.userId,
           movementType: 'out',
-          quantity: `-${item.quantity}`,
-          previousStock: '0', // Would need to fetch from tank
-          newStock: '0', // Would need to calculate
+          quantity: item.quantity, // Positive quantity - method handles the direction
+          previousStock: '0', // Will be calculated automatically
+          newStock: '0', // Will be calculated automatically
           referenceId: createdTransaction.id,
           referenceType: 'sale',
+          notes: `Sale - Invoice ${createdTransaction.invoiceNumber}`,
           movementDate: new Date(),
         });
       }
