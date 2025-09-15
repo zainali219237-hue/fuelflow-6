@@ -5,7 +5,7 @@ import {
   insertUserSchema, insertStationSchema, insertProductSchema, insertTankSchema,
   insertCustomerSchema, insertSupplierSchema, insertSalesTransactionSchema,
   insertSalesTransactionItemSchema, insertPurchaseOrderSchema, insertPurchaseOrderItemSchema,
-  insertExpenseSchema, insertPaymentSchema, insertStockMovementSchema
+  insertExpenseSchema, insertPaymentSchema, insertStockMovementSchema, insertSettingsSchema
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { requireAuth, requireRole, requireStationAccess, generateToken, verifyFirebaseToken, AuthenticatedUser } from "./auth";
@@ -121,6 +121,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(station);
     } catch (error) {
       res.status(400).json({ message: "Invalid station data" });
+    }
+  });
+
+  app.get("/api/stations/:id", requireAuth, requireStationAccess, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const station = await storage.getStation(id);
+      if (!station) {
+        return res.status(404).json({ message: "Station not found" });
+      }
+      res.json(station);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch station" });
+    }
+  });
+
+  // Settings routes
+  app.get("/api/settings/:stationId", requireAuth, requireStationAccess, async (req, res) => {
+    try {
+      const { stationId } = req.params;
+      const settings = await storage.getSettings(stationId);
+      if (!settings) {
+        // Return default settings if none exist
+        const defaultSettings = {
+          stationId,
+          taxEnabled: false,
+          taxRate: '0',
+          currencyCode: 'PKR' as const,
+        };
+        return res.json(defaultSettings);
+      }
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.post("/api/settings/:stationId", requireAuth, requireRole(['admin', 'manager']), requireStationAccess, async (req, res) => {
+    try {
+      const { stationId } = req.params;
+      // Ensure stationId comes from URL params, not body
+      const { stationId: _, ...bodyData } = req.body;
+      const validatedData = insertSettingsSchema.parse({ ...bodyData, stationId });
+      
+      try {
+        const settings = await storage.createSettings(validatedData);
+        res.status(201).json(settings);
+      } catch (error: any) {
+        // Handle unique constraint violation - settings already exist
+        if (error.message.includes('duplicate') || error.message.includes('unique')) {
+          const existingSettings = await storage.getSettings(stationId);
+          if (existingSettings) {
+            return res.status(409).json({ 
+              message: "Settings already exist for this station. Use PUT to update.",
+              settings: existingSettings 
+            });
+          }
+        }
+        throw error;
+      }
+    } catch (error) {
+      res.status(400).json({ message: "Invalid settings data" });
+    }
+  });
+
+  app.put("/api/settings/:stationId", requireAuth, requireRole(['admin', 'manager']), requireStationAccess, async (req, res) => {
+    try {
+      const { stationId } = req.params;
+      // Ensure stationId comes from URL params, not body  
+      const { stationId: _, ...bodyData } = req.body;
+      const validatedData = insertSettingsSchema.partial().parse(bodyData);
+      const settings = await storage.updateSettings(stationId, validatedData);
+      res.json(settings);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid settings data" });
     }
   });
 

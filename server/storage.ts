@@ -1,7 +1,7 @@
 import { 
   users, stations, products, tanks, customers, suppliers, 
   salesTransactions, salesTransactionItems, purchaseOrders, purchaseOrderItems,
-  expenses, payments, stockMovements, priceHistory,
+  expenses, payments, stockMovements, priceHistory, settings,
   type User, type InsertUser, type Station, type InsertStation,
   type Product, type InsertProduct, type Tank, type InsertTank,
   type Customer, type InsertCustomer, type Supplier, type InsertSupplier,
@@ -11,7 +11,8 @@ import {
   type PurchaseOrderItem, type InsertPurchaseOrderItem,
   type Expense, type InsertExpense, type Payment, type InsertPayment,
   type StockMovement, type InsertStockMovement,
-  type PriceHistory, type InsertPriceHistory
+  type PriceHistory, type InsertPriceHistory,
+  type Settings, type InsertSettings
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, lte, sum } from "drizzle-orm";
@@ -98,6 +99,11 @@ export interface IStorage {
   getAgingReport(stationId: string, type: 'receivable' | 'payable'): Promise<any>;
   deletePayment(id: string, stationId: string): Promise<void>;
   deleteExpense(id: string, stationId: string): Promise<void>;
+  
+  // Settings
+  getSettings(stationId: string): Promise<Settings | undefined>;
+  createSettings(settings: InsertSettings): Promise<Settings>;
+  updateSettings(stationId: string, settings: Partial<InsertSettings>): Promise<Settings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -963,6 +969,25 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       throw new Error(`Failed to delete expense: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+  
+  async getSettings(stationId: string): Promise<Settings | undefined> {
+    const [setting] = await db.select().from(settings).where(eq(settings.stationId, stationId));
+    return setting || undefined;
+  }
+
+  async createSettings(insertSettings: InsertSettings): Promise<Settings> {
+    const [setting] = await db.insert(settings).values(insertSettings).returning();
+    return setting;
+  }
+
+  async updateSettings(stationId: string, settingsData: Partial<InsertSettings>): Promise<Settings> {
+    const [setting] = await db.update(settings)
+      .set({ ...settingsData, updatedAt: new Date() })
+      .where(eq(settings.stationId, stationId))
+      .returning();
+    if (!setting) throw new Error("Settings not found");
+    return setting;
   }
 }
 

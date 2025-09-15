@@ -226,6 +226,22 @@ export const priceHistory = pgTable("price_history", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Settings table
+export const settings = pgTable("settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  stationId: varchar("station_id").notNull().unique(),
+  taxEnabled: boolean("tax_enabled").default(false),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).default('0'),
+  currencyCode: currencyCodeEnum("currency_code").notNull().default('PKR'),
+  companyName: text("company_name"),
+  companyAddress: text("company_address"),
+  companyPhone: text("company_phone"),
+  companyEmail: text("company_email"),
+  receiptFooter: text("receipt_footer"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   station: one(stations, { fields: [users.stationId], references: [stations.id] }),
@@ -237,7 +253,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   priceHistory: many(priceHistory),
 }));
 
-export const stationsRelations = relations(stations, ({ many }) => ({
+export const stationsRelations = relations(stations, ({ one, many }) => ({
   users: many(users),
   tanks: many(tanks),
   salesTransactions: many(salesTransactions),
@@ -246,6 +262,7 @@ export const stationsRelations = relations(stations, ({ many }) => ({
   payments: many(payments),
   stockMovements: many(stockMovements),
   priceHistory: many(priceHistory),
+  settings: one(settings, { fields: [stations.id], references: [settings.stationId] }),
 }));
 
 export const productsRelations = relations(products, ({ many }) => ({
@@ -323,6 +340,10 @@ export const priceHistoryRelations = relations(priceHistory, ({ one }) => ({
   user: one(users, { fields: [priceHistory.userId], references: [users.id] }),
 }));
 
+export const settingsRelations = relations(settings, ({ one }) => ({
+  station: one(stations, { fields: [settings.stationId], references: [stations.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertStationSchema = createInsertSchema(stations).omit({ id: true, createdAt: true });
@@ -338,6 +359,7 @@ export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true,
 export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });
 export const insertStockMovementSchema = createInsertSchema(stockMovements);
 export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({ id: true, createdAt: true });
+export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -368,3 +390,5 @@ export type StockMovement = typeof stockMovements.$inferSelect;
 export type InsertStockMovement = z.infer<typeof insertStockMovementSchema>;
 export type PriceHistory = typeof priceHistory.$inferSelect;
 export type InsertPriceHistory = z.infer<typeof insertPriceHistorySchema>;
+export type Settings = typeof settings.$inferSelect;
+export type InsertSettings = z.infer<typeof insertSettingsSchema>;
