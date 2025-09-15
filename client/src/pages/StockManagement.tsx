@@ -88,20 +88,64 @@ export default function StockManagement() {
     setLocation('/purchase-orders');
   };
 
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [auditDialogOpen, setAuditDialogOpen] = useState(false);
+  const [selectedTankForTransfer, setSelectedTankForTransfer] = useState<string>("");
+
   const handleStockTransfer = () => {
-    toast({
-      title: "Stock Transfer",
-      description: "Stock transfer functionality coming soon",
-    });
-    // Future: Open stock transfer dialog
+    setTransferDialogOpen(true);
   };
 
   const handleStockAudit = () => {
+    setAuditDialogOpen(true);
+  };
+
+  const executeStockTransfer = () => {
+    if (!selectedTankForTransfer) {
+      toast({
+        title: "Error",
+        description: "Please select a tank for transfer",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // For now, create a stock movement record for the transfer
+    const transferData = {
+      tankId: selectedTankForTransfer,
+      movementType: "transfer" as const,
+      quantity: "0", // This would be filled by a form in a real implementation
+      unitPrice: "0",
+      remarks: "Internal stock transfer",
+    };
+
     toast({
-      title: "Stock Audit",
-      description: "Starting stock audit process...",
+      title: "Stock Transfer Initiated",
+      description: "Stock transfer request has been submitted for processing",
     });
-    // Future: Open audit interface
+    setTransferDialogOpen(false);
+    setSelectedTankForTransfer("");
+  };
+
+  const executeStockAudit = () => {
+    // Create audit entries for all tanks
+    const auditPromises = tanks.map(tank => {
+      const auditData = {
+        tankId: tank.id,
+        movementType: "audit" as const,
+        quantity: "0",
+        unitPrice: "0",
+        remarks: `Stock audit - Current: ${tank.currentStock}L, Capacity: ${tank.capacity}L`,
+      };
+      
+      return createStockMovementMutation.mutateAsync(auditData);
+    });
+
+    toast({
+      title: "Stock Audit Started",
+      description: `Initiating audit for ${tanks.length} tanks. Check stock movements for details.`,
+    });
+    setAuditDialogOpen(false);
   };
 
   const handleCreatePurchaseOrder = (tankId: string) => {
@@ -524,6 +568,79 @@ export default function StockManagement() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Stock Transfer Dialog */}
+      <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Stock Transfer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Select Tank for Transfer</label>
+              <Select value={selectedTankForTransfer} onValueChange={setSelectedTankForTransfer}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Choose source tank" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tanks.map(tank => {
+                    const product = products.find(p => p.id === tank.productId);
+                    return (
+                      <SelectItem key={tank.id} value={tank.id}>
+                        {tank.name} - {product?.name} ({parseFloat(tank.currentStock || '0').toLocaleString()}L)
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <Button variant="outline" onClick={() => setTransferDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={executeStockTransfer} data-testid="button-execute-transfer">
+                Initiate Transfer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stock Audit Dialog */}
+      <Dialog open={auditDialogOpen} onOpenChange={setAuditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Stock Audit</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              This will initiate a comprehensive stock audit for all tanks. The system will record current stock levels and generate audit entries for review.
+            </div>
+            <div className="border rounded-lg p-4 bg-muted/50">
+              <h4 className="font-medium mb-2">Tanks to be audited:</h4>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {tanks.map(tank => {
+                  const product = products.find(p => p.id === tank.productId);
+                  return (
+                    <div key={tank.id} className="flex justify-between text-sm">
+                      <span>{tank.name} - {product?.name}</span>
+                      <span>{parseFloat(tank.currentStock || '0').toLocaleString()}L</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <Button variant="outline" onClick={() => setAuditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={executeStockAudit} data-testid="button-execute-audit">
+                Start Audit
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

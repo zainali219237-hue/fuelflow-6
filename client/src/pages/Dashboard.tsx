@@ -1,15 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import type { Tank, SalesTransaction, Customer, Product } from "@shared/schema";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLocation } from "wouter";
+import { Download, FileText, ShoppingCart, Users, BarChart3, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { formatCurrency, formatCurrencyCompact } = useCurrency();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   
   const { data: dashboardStats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/dashboard", user?.stationId],
@@ -73,6 +77,32 @@ export default function Dashboard() {
       parseFloat(customer.outstandingAmount || '0') > 0
     ).length;
   };
+
+  // Quick action handlers
+  const handleNewSale = () => {
+    setLocation('/pos');
+  };
+
+  const handleViewReports = () => {
+    setLocation('/financial-reports');
+  };
+
+  const handleStockStatus = () => {
+    setLocation('/stock');
+  };
+
+  const handleCustomerPayments = () => {
+    setLocation('/accounts-receivable');
+  };
+
+  const handleTankMonitoring = () => {
+    setLocation('/tanks');
+  };
+
+  const handleDailyReports = () => {
+    setLocation('/daily-reports');
+  };
+
 
   const isLoading = statsLoading || tanksLoading || salesLoading;
 
@@ -168,6 +198,76 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <Button 
+              variant="outline" 
+              className="flex flex-col items-center gap-2 h-20"
+              onClick={handleNewSale}
+              data-testid="button-new-sale"
+            >
+              <ShoppingCart className="w-6 h-6 text-green-600" />
+              <span className="text-sm font-medium">New Sale</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="flex flex-col items-center gap-2 h-20"
+              onClick={handleViewReports}
+              data-testid="button-view-reports"
+            >
+              <BarChart3 className="w-6 h-6 text-blue-600" />
+              <span className="text-sm font-medium">View Reports</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="flex flex-col items-center gap-2 h-20"
+              onClick={handleStockStatus}
+              data-testid="button-stock-status"
+            >
+              <FileText className="w-6 h-6 text-purple-600" />
+              <span className="text-sm font-medium">Stock Status</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="flex flex-col items-center gap-2 h-20"
+              onClick={handleCustomerPayments}
+              data-testid="button-customer-payments"
+            >
+              <Users className="w-6 h-6 text-orange-600" />
+              <span className="text-sm font-medium">Customer Payments</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="flex flex-col items-center gap-2 h-20"
+              onClick={handleTankMonitoring}
+              data-testid="button-tank-monitoring"
+            >
+              <AlertCircle className="w-6 h-6 text-red-600" />
+              <span className="text-sm font-medium">Tank Monitoring</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="flex flex-col items-center gap-2 h-20"
+              onClick={handleDailyReports}
+              data-testid="button-daily-reports"
+            >
+              <Download className="w-6 h-6 text-indigo-600" />
+              <span className="text-sm font-medium">Daily Reports</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Charts and Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

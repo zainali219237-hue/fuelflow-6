@@ -39,6 +39,11 @@ export default function PointOfSale() {
   const [quickQuantity, setQuickQuantity] = useState(25);
   const [, setLocation] = useLocation();
   
+  // State to track editing mode
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  
   // Load draft or transaction data on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -46,8 +51,11 @@ export default function PointOfSale() {
     const editId = urlParams.get('edit');
     
     if (draftId) {
+      setCurrentDraftId(draftId);
       loadDraft(draftId);
     } else if (editId) {
+      setIsEditMode(true);
+      setEditingTransactionId(editId);
       loadTransactionForEdit(editId);
     }
   }, []);
@@ -201,8 +209,7 @@ export default function PointOfSale() {
         title: "Sale completed",
         description: "Transaction recorded successfully",
       });
-      setTransactionItems([]);
-      setSelectedCustomerId("");
+      clearCurrentTransaction();
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
     },
@@ -210,6 +217,33 @@ export default function PointOfSale() {
       toast({
         title: "Sale failed",
         description: "Failed to record transaction",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateSaleMutation = useMutation({
+    mutationFn: async (saleData: { transactionId: string; transaction: any; items: any[] }) => {
+      const response = await apiRequest("PUT", `/api/sales/${saleData.transactionId}`, {
+        transaction: saleData.transaction,
+        items: saleData.items
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Sale updated",
+        description: "Transaction updated successfully",
+      });
+      clearCurrentTransaction();
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
+      setLocation('/sales-history');
+    },
+    onError: () => {
+      toast({
+        title: "Update failed",
+        description: "Failed to update transaction",
         variant: "destructive",
       });
     },
@@ -248,6 +282,42 @@ export default function PointOfSale() {
     setTransactionItems(updatedItems);
   };
 
+  const clearCurrentTransaction = () => {
+    setTransactionItems([]);
+    setSelectedCustomerId("");
+    setPaymentMethod("cash");
+    setIsEditMode(false);
+    setEditingTransactionId(null);
+    
+    // Remove draft if we were working with one
+    if (currentDraftId) {
+      removeDraftFromStorage(currentDraftId);
+      setCurrentDraftId(null);
+    }
+  };
+
+  const removeDraftFromStorage = (draftId: string) => {
+    try {
+      const allDrafts = localStorage.getItem('allPosDrafts');
+      if (allDrafts) {
+        const drafts = JSON.parse(allDrafts);
+        const updatedDrafts = drafts.filter((d: any) => d.id !== draftId);
+        localStorage.setItem('allPosDrafts', JSON.stringify(updatedDrafts));
+      }
+      
+      // Also remove single draft if it matches
+      const singleDraft = localStorage.getItem('posDraft');
+      if (singleDraft) {
+        const draft = JSON.parse(singleDraft);
+        if (draft.id === draftId) {
+          localStorage.removeItem('posDraft');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to remove draft from storage:', error);
+    }
+  };
+
   const subtotal = transactionItems.reduce((sum, item) => sum + item.totalPrice, 0);
   const taxAmount = subtotal * 0.05; // 5% tax
   const totalAmount = subtotal + taxAmount;
@@ -263,7 +333,7 @@ export default function PointOfSale() {
     }
 
     const transaction = {
-      invoiceNumber: `INV-${Date.now()}`,
+      invoiceNumber: isEditMode ? undefined : `INV-${Date.now()}`, // Don't change invoice number when editing
       stationId: user?.stationId,
       customerId: selectedCustomerId || walkInCustomer?.id,
       userId: user?.id,
@@ -283,7 +353,17 @@ export default function PointOfSale() {
       totalPrice: item.totalPrice.toFixed(2),
     }));
 
-    createSaleMutation.mutate({ transaction, items });
+    if (isEditMode && editingTransactionId) {
+      // Update existing transaction
+      updateSaleMutation.mutate({ 
+        transactionId: editingTransactionId, 
+        transaction, 
+        items 
+      });
+    } else {
+      // Create new transaction
+      createSaleMutation.mutate({ transaction, items });
+    }
   };
 
   const saveAsDraft = () => {
