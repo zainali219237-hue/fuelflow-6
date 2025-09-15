@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { CURRENCY_CONFIG, type CurrencyCode, type CurrencyConfig } from '@/lib/currency';
+import { useAuth } from '@/hooks/useAuth';
 
 interface CurrencyContextType {
   currency: CurrencyCode;
