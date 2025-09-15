@@ -319,7 +319,7 @@ export default function PointOfSale() {
   };
 
   const subtotal = transactionItems.reduce((sum, item) => sum + item.totalPrice, 0);
-  const taxAmount = subtotal * 0.05; // 5% tax
+  const taxAmount = 0; // Tax removed - will be configurable via global settings
   const totalAmount = subtotal + taxAmount;
 
   const completeSale = () => {
@@ -492,24 +492,38 @@ export default function PointOfSale() {
     }
   };
 
+  // Calculation functions for printing
+  const calculateSubtotal = () => {
+    return transactionItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  };
+
+  const calculateTax = () => {
+    // Tax will be made configurable - for now return 0
+    return 0;
+  };
+
+  const calculateTotal = () => {
+    return calculateSubtotal() + calculateTax();
+  };
+
   const generateInvoiceHTML = () => {
     const invoiceData = {
       invoiceNumber: `INV-${Date.now()}`,
       date: new Date().toLocaleDateString(),
       customerName: selectedCustomerId ? customers.find(c => c.id === selectedCustomerId)?.name || "Walk-in Customer" : "Walk-in Customer",
-      stationName: user?.station?.name || "Station 1",
+      stationName: "Station 1", // Will be made configurable via settings
       stationAddress: "123 Main Street, Demo City",
       stationPhone: "+1-234-567-8900",
       stationEmail: "station@fuelflow.com",
       stationGST: "GST123456789",
-      cashierName: user?.name || "Admin User",
+      cashierName: user?.fullName || "Admin User",
       paymentMethod: "CASH",
       paymentStatus: "PAID",
       items: transactionItems,
       subtotal: calculateSubtotal(),
       tax: calculateTax(),
       total: calculateTotal(),
-      currency: "PKR"
+      currency: "PKR" // Will be made configurable via global settings
     };
 
     return `

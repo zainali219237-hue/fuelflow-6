@@ -37,11 +37,13 @@ export default function SalesHistory() {
   };
 
   const handlePrintTransaction = (transactionId: string) => {
-    // Open invoice page in new window and trigger print
-    const printWindow = window.open(`/invoice/${transactionId}`, '_blank');
-    if (printWindow) {
-      printWindow.addEventListener('load', () => {
-        printWindow.print();
+    // Open invoice page in new window with print parameter - InvoiceReceipt will handle print timing
+    const printWindow = window.open(`/invoice/${transactionId}?print=1`, '_blank');
+    if (!printWindow) {
+      toast({
+        title: "Print Blocked",
+        description: "Please allow popups to print invoices",
+        variant: "destructive",
       });
     }
   };

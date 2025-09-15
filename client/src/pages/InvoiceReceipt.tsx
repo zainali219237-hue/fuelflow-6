@@ -1,5 +1,6 @@
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -32,6 +33,19 @@ export default function InvoiceReceipt() {
     queryKey: ["/api/sales/detail", id!],
     enabled: !!id && !!user?.stationId,
   });
+
+  // Check for print parameter from Sales History
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldPrint = urlParams.get('print') === '1';
+    
+    if (shouldPrint && !isLoading && transaction) {
+      // Data is loaded, safe to print
+      setTimeout(() => {
+        window.print();
+      }, 200); // Slightly longer delay for reliable printing
+    }
+  }, [isLoading, transaction]);
 
   const handlePrint = () => {
     // Add a short delay to ensure content is rendered
