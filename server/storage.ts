@@ -50,6 +50,8 @@ export interface IStorage {
   getSuppliers(): Promise<Supplier[]>;
   getSupplier(id: string): Promise<Supplier | undefined>;
   createSupplier(supplier: InsertSupplier): Promise<Supplier>;
+  updateSupplier(id: string, supplier: Partial<InsertSupplier>): Promise<Supplier>;
+  updateSupplierOutstanding(supplierId: string, additionalAmount: number): Promise<void>;
   
   // Sales Transactions
   getSalesTransactions(stationId: string, limit?: number): Promise<SalesTransaction[]>;
@@ -242,6 +244,23 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async updateSupplierOutstanding(supplierId: string, additionalAmount: number): Promise<void> {
+    try {
+      const result = await db.update(suppliers)
+        .set({ 
+          outstandingAmount: sql`${suppliers.outstandingAmount} + ${additionalAmount}` 
+        })
+        .where(eq(suppliers.id, supplierId))
+        .returning({ id: suppliers.id });
+        
+      if (result.length === 0) {
+        throw new Error(`Supplier ${supplierId} not found`);
+      }
+    } catch (error) {
+      throw new Error(`Failed to update supplier outstanding amount: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   async getSuppliers(): Promise<Supplier[]> {
     return await db.select().from(suppliers).where(eq(suppliers.isActive, true));
   }
@@ -253,6 +272,15 @@ export class DatabaseStorage implements IStorage {
 
   async createSupplier(insertSupplier: InsertSupplier): Promise<Supplier> {
     const [supplier] = await db.insert(suppliers).values(insertSupplier).returning();
+    return supplier;
+  }
+
+  async updateSupplier(id: string, supplierData: Partial<InsertSupplier>): Promise<Supplier> {
+    const [supplier] = await db.update(suppliers)
+      .set(supplierData)
+      .where(eq(suppliers.id, id))
+      .returning();
+    if (!supplier) throw new Error("Supplier not found");
     return supplier;
   }
 
@@ -330,8 +358,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPayment(insertPayment: InsertPayment): Promise<Payment> {
-    const [payment] = await db.insert(payments).values(insertPayment).returning();
-    return payment;
+    try {
+      // Start a transaction to ensure atomicity
+      const result = await db.transaction(async (tx) => {
+        // Create the payment record
+        const [payment] = await tx.insert(payments).values(insertPayment).returning();
+        
+        // Update outstanding amounts based on payment type
+        const paymentAmount = parseFloat(payment.amount);
+        
+        if (payment.type === 'receivable' && payment.customerId) {
+          // Customer payment - reduce customer's outstanding amount
+          await tx.update(customers)
+            .set({ 
+              outstandingAmount: sql`${customers.outstandingAmount} - ${paymentAmount}` 
+            })
+            .where(eq(customers.id, payment.customerId));
+        } else if (payment.type === 'payable' && payment.supplierId) {
+          // Supplier payment - reduce supplier's outstanding amount
+          await tx.update(suppliers)
+            .set({ 
+              outstandingAmount: sql`${suppliers.outstandingAmount} - ${paymentAmount}` 
+            })
+            .where(eq(suppliers.id, payment.supplierId));
+        }
+        
+        return payment;
+      });
+      
+      return result;
+    } catch (error) {
+      throw new Error(`Failed to create payment and update outstanding amounts: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async getStockMovements(tankId: string): Promise<StockMovement[]> {

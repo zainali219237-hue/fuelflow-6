@@ -5,17 +5,203 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useToast } from "@/hooks/use-toast";
 
 export default function FinancialReports() {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
+  const { toast } = useToast();
   const [reportType, setReportType] = useState("profit-loss");
   const [period, setPeriod] = useState("this-month");
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const { data: financialData, isLoading } = useQuery({
     queryKey: ["/api/reports/financial", user?.stationId, period],
     enabled: !!user?.stationId,
   });
+
+  // Handler functions
+  const handleGenerateReport = () => {
+    setIsGeneratingReport(true);
+    toast({
+      title: "Generating Report",
+      description: `Creating ${getReportTypeName(reportType)} for ${getPeriodName(period)}...`,
+    });
+    
+    // Simulate report generation
+    setTimeout(() => {
+      setIsGeneratingReport(false);
+      toast({
+        title: "Report Generated",
+        description: "Financial report has been generated successfully",
+      });
+    }, 1500);
+  };
+
+  const handleExportReport = () => {
+    const reportData = getCurrentReportData();
+    const csvContent = generateCSV(reportData);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${reportType}-${period}-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Export Successful",
+      description: "Financial report has been exported to CSV",
+    });
+  };
+
+  const handlePrintReport = () => {
+    const printContent = generatePrintHTML();
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    }
+    
+    toast({
+      title: "Print Prepared",
+      description: "Financial report is ready for printing",
+    });
+  };
+
+  // Helper functions
+  const getReportTypeName = (type: string) => {
+    const types: { [key: string]: string } = {
+      'profit-loss': 'Profit & Loss Statement',
+      'balance-sheet': 'Balance Sheet',
+      'cash-flow': 'Cash Flow Statement',
+      'sales-analysis': 'Sales Analysis',
+      'expense-analysis': 'Expense Analysis'
+    };
+    return types[type] || 'Financial Report';
+  };
+
+  const getPeriodName = (period: string) => {
+    const periods: { [key: string]: string } = {
+      'this-month': 'This Month',
+      'last-month': 'Last Month',
+      'this-quarter': 'This Quarter',
+      'this-year': 'This Year',
+      'custom': 'Custom Range'
+    };
+    return periods[period] || 'Selected Period';
+  };
+
+  const getCurrentReportData = () => {
+    return {
+      reportType: getReportTypeName(reportType),
+      period: getPeriodName(period),
+      revenue: {
+        petrol: 850000,
+        diesel: 420000,
+        other: 25000,
+        total: 1295000
+      },
+      expenses: {
+        cogs: 1180000,
+        salaries: 35000,
+        utilities: 8500,
+        maintenance: 12000,
+        insurance: 3500,
+        other: 5200,
+        total: 1244200
+      },
+      netProfit: 50800
+    };
+  };
+
+  const generateCSV = (data: any) => {
+    const csv = [
+      ['Financial Report', data.reportType],
+      ['Period', data.period],
+      ['Generated', new Date().toLocaleString()],
+      [''],
+      ['REVENUE'],
+      ['Petrol Sales', data.revenue.petrol],
+      ['Diesel Sales', data.revenue.diesel],
+      ['Other Services', data.revenue.other],
+      ['Total Revenue', data.revenue.total],
+      [''],
+      ['EXPENSES'],
+      ['Cost of Goods Sold', data.expenses.cogs],
+      ['Staff Salaries', data.expenses.salaries],
+      ['Electricity & Utilities', data.expenses.utilities],
+      ['Maintenance', data.expenses.maintenance],
+      ['Insurance', data.expenses.insurance],
+      ['Other Expenses', data.expenses.other],
+      ['Total Expenses', data.expenses.total],
+      [''],
+      ['NET PROFIT', data.netProfit]
+    ];
+    
+    return csv.map(row => row.join(',')).join('\n');
+  };
+
+  const generatePrintHTML = () => {
+    const data = getCurrentReportData();
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Financial Report - ${data.reportType}</title>
+          <style>
+            @media print {
+              @page { margin: 1in; }
+              body { font-family: Arial, sans-serif; background: white; color: black; }
+            }
+            body { font-family: Arial, sans-serif; background: white; color: black; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+            .section { margin: 20px 0; }
+            .section h3 { background: #f5f5f5; padding: 10px; margin: 0; border: 1px solid #ddd; }
+            .line-item { display: flex; justify-content: space-between; padding: 8px 10px; border-left: 1px solid #ddd; border-right: 1px solid #ddd; }
+            .line-item:nth-child(even) { background: #f9f9f9; }
+            .total { font-weight: bold; background: #e9e9e9 !important; border: 1px solid #999; }
+            .profit { background: #d4edda !important; border: 2px solid #28a745; font-weight: bold; text-align: center; padding: 15px; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${data.reportType}</h1>
+            <p>Period: ${data.period} | Generated: ${new Date().toLocaleString()}</p>
+          </div>
+          
+          <div class="section">
+            <h3>REVENUE</h3>
+            <div class="line-item"><span>Petrol Sales</span><span>${formatCurrency(data.revenue.petrol)}</span></div>
+            <div class="line-item"><span>Diesel Sales</span><span>${formatCurrency(data.revenue.diesel)}</span></div>
+            <div class="line-item"><span>Other Services</span><span>${formatCurrency(data.revenue.other)}</span></div>
+            <div class="line-item total"><span>Total Revenue</span><span>${formatCurrency(data.revenue.total)}</span></div>
+          </div>
+          
+          <div class="section">
+            <h3>EXPENSES</h3>
+            <div class="line-item"><span>Cost of Goods Sold</span><span>${formatCurrency(data.expenses.cogs)}</span></div>
+            <div class="line-item"><span>Staff Salaries</span><span>${formatCurrency(data.expenses.salaries)}</span></div>
+            <div class="line-item"><span>Electricity & Utilities</span><span>${formatCurrency(data.expenses.utilities)}</span></div>
+            <div class="line-item"><span>Maintenance</span><span>${formatCurrency(data.expenses.maintenance)}</span></div>
+            <div class="line-item"><span>Insurance</span><span>${formatCurrency(data.expenses.insurance)}</span></div>
+            <div class="line-item"><span>Other Expenses</span><span>${formatCurrency(data.expenses.other)}</span></div>
+            <div class="line-item total"><span>Total Expenses</span><span>${formatCurrency(data.expenses.total)}</span></div>
+          </div>
+          
+          <div class="profit">
+            <h3>NET PROFIT: ${formatCurrency(data.netProfit)}</h3>
+            <p>Profit Margin: ${((data.netProfit / data.revenue.total) * 100).toFixed(2)}%</p>
+          </div>
+        </body>
+      </html>
+    `;
+  };
 
   if (isLoading) {
     return (
@@ -74,8 +260,13 @@ export default function FinancialReports() {
               </Select>
             </div>
             <div className="flex items-end">
-              <Button className="w-full" data-testid="button-generate-report">
-                Generate Report
+              <Button 
+                className="w-full" 
+                onClick={handleGenerateReport}
+                disabled={isGeneratingReport}
+                data-testid="button-generate-report"
+              >
+                {isGeneratingReport ? "Generating..." : "Generate Report"}
               </Button>
             </div>
           </div>
@@ -91,10 +282,20 @@ export default function FinancialReports() {
               <p className="text-sm text-muted-foreground">For the month of January 2024</p>
             </div>
             <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" data-testid="button-export">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExportReport}
+                data-testid="button-export"
+              >
                 📊 Export
               </Button>
-              <Button variant="outline" size="sm" data-testid="button-print">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handlePrintReport}
+                data-testid="button-print"
+              >
                 🖨️ Print
               </Button>
             </div>

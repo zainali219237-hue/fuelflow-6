@@ -41,6 +41,7 @@ export default function StockManagement() {
     },
   });
 
+  // Regular stock movement mutation with success handling
   const createStockMovementMutation = useMutation({
     mutationFn: async (data: any) => {
       const movementData = {
@@ -70,6 +71,19 @@ export default function StockManagement() {
     },
   });
 
+  // Batch stock movement mutation without success callbacks (for transfers and audits)
+  const batchStockMovementMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const movementData = {
+        ...data,
+        stationId: user?.stationId || data.stationId,
+        userId: user?.id || data.userId,
+      };
+      const response = await apiRequest("POST", "/api/stock-movements", movementData);
+      return response.json();
+    },
+  });
+
   const onSubmit = (data: any) => {
     createStockMovementMutation.mutate(data);
   };
@@ -90,62 +104,172 @@ export default function StockManagement() {
 
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [auditDialogOpen, setAuditDialogOpen] = useState(false);
-  const [selectedTankForTransfer, setSelectedTankForTransfer] = useState<string>("");
+  const [transferForm, setTransferForm] = useState({
+    sourceTankId: "",
+    destinationTankId: "", 
+    quantity: "",
+    remarks: ""
+  });
+  const [auditForm, setAuditForm] = useState<{[tankId: string]: string}>({});
 
   const handleStockTransfer = () => {
+    setTransferForm({ sourceTankId: "", destinationTankId: "", quantity: "", remarks: "" });
     setTransferDialogOpen(true);
   };
 
   const handleStockAudit = () => {
+    // Initialize audit form with current stock values for all tanks
+    const initialAuditData = tanks.reduce((acc, tank) => {
+      acc[tank.id] = tank.currentStock || "0";
+      return acc;
+    }, {} as {[tankId: string]: string});
+    setAuditForm(initialAuditData);
     setAuditDialogOpen(true);
   };
 
-  const executeStockTransfer = () => {
-    if (!selectedTankForTransfer) {
+  const executeStockTransfer = async () => {
+    const { sourceTankId, destinationTankId, quantity, remarks } = transferForm;
+    
+    if (!sourceTankId || !destinationTankId || !quantity || parseFloat(quantity) <= 0) {
       toast({
         title: "Error",
-        description: "Please select a tank for transfer",
+        description: "Please fill all fields with valid values",
         variant: "destructive",
       });
       return;
     }
 
-    // For now, create a stock movement record for the transfer
-    const transferData = {
-      tankId: selectedTankForTransfer,
-      movementType: "transfer" as const,
-      quantity: "0", // This would be filled by a form in a real implementation
-      unitPrice: "0",
-      remarks: "Internal stock transfer",
-    };
+    if (sourceTankId === destinationTankId) {
+      toast({
+        title: "Error", 
+        description: "Source and destination tanks cannot be the same",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    toast({
-      title: "Stock Transfer Initiated",
-      description: "Stock transfer request has been submitted for processing",
-    });
-    setTransferDialogOpen(false);
-    setSelectedTankForTransfer("");
+    const sourceTank = tanks.find(t => t.id === sourceTankId);
+    const destTank = tanks.find(t => t.id === destinationTankId);
+    const transferQty = parseFloat(quantity);
+
+    if (!sourceTank || !destTank) {
+      toast({
+        title: "Error",
+        description: "Invalid tank selection",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate source has enough stock
+    if (parseFloat(sourceTank.currentStock || "0") < transferQty) {
+      toast({
+        title: "Error",
+        description: "Insufficient stock in source tank",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate destination has capacity
+    const destCurrentStock = parseFloat(destTank.currentStock || "0");
+    const destCapacity = parseFloat(destTank.capacity || "0");
+    if (destCurrentStock + transferQty > destCapacity) {
+      toast({
+        title: "Error", 
+        description: "Not enough capacity in destination tank",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Generate single reference ID for atomicity
+      const transferRef = `TXF-${Date.now()}`;
+      
+      // Create OUT movement from source
+      await batchStockMovementMutation.mutateAsync({
+        tankId: sourceTankId,
+        movementType: "out",
+        quantity: quantity,
+        unitPrice: "0",
+        remarks: `Transfer OUT to ${destTank.name} - ${remarks}`,
+        referenceType: "transfer",
+        referenceId: transferRef
+      });
+
+      // Create IN movement to destination  
+      await batchStockMovementMutation.mutateAsync({
+        tankId: destinationTankId,
+        movementType: "in", 
+        quantity: quantity,
+        unitPrice: "0",
+        remarks: `Transfer IN from ${sourceTank.name} - ${remarks}`,
+        referenceType: "transfer",
+        referenceId: transferRef
+      });
+
+      toast({
+        title: "Transfer Completed",
+        description: `Successfully transferred ${transferQty}L from ${sourceTank.name} to ${destTank.name}`,
+      });
+
+      setTransferDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/tanks", user?.stationId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stock-movements", user?.stationId] });
+    } catch (error) {
+      toast({
+        title: "Transfer Failed",
+        description: "Failed to complete stock transfer",
+        variant: "destructive",
+      });
+    }
   };
 
-  const executeStockAudit = () => {
-    // Create audit entries for all tanks
-    const auditPromises = tanks.map(tank => {
-      const auditData = {
-        tankId: tank.id,
-        movementType: "audit" as const,
-        quantity: "0",
-        unitPrice: "0",
-        remarks: `Stock audit - Current: ${tank.currentStock}L, Capacity: ${tank.capacity}L`,
-      };
-      
-      return createStockMovementMutation.mutateAsync(auditData);
-    });
+  const executeStockAudit = async () => {
+    const auditEntries = Object.entries(auditForm);
+    let adjustmentsMade = 0;
+    const auditRef = `AUD-${Date.now()}`;
 
-    toast({
-      title: "Stock Audit Started",
-      description: `Initiating audit for ${tanks.length} tanks. Check stock movements for details.`,
-    });
-    setAuditDialogOpen(false);
+    try {
+      for (const [tankId, physicalCount] of auditEntries) {
+        const tank = tanks.find(t => t.id === tankId);
+        if (!tank) continue;
+
+        const currentStock = parseFloat(tank.currentStock || "0");
+        const physicalStock = parseFloat(physicalCount);
+        const difference = physicalStock - currentStock;
+
+        // Only create movement if there's a difference
+        if (Math.abs(difference) >= 0.01) {
+          await batchStockMovementMutation.mutateAsync({
+            tankId: tankId,
+            movementType: difference > 0 ? "in" : "out",
+            quantity: Math.abs(difference).toString(),
+            unitPrice: "0",
+            remarks: `Stock audit adjustment - Physical: ${physicalStock}L, System: ${currentStock}L`,
+            referenceType: "audit",
+            referenceId: auditRef
+          });
+          adjustmentsMade++;
+        }
+      }
+
+      toast({
+        title: "Audit Completed",
+        description: `Stock audit completed. ${adjustmentsMade} adjustments made.`,
+      });
+
+      setAuditDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/tanks", user?.stationId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stock-movements", user?.stationId] });
+    } catch (error) {
+      toast({
+        title: "Audit Failed",
+        description: "Failed to complete stock audit",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCreatePurchaseOrder = (tankId: string) => {
@@ -571,15 +695,15 @@ export default function StockManagement() {
 
       {/* Stock Transfer Dialog */}
       <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
-        <DialogContent className="sm:max-w-[400px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Stock Transfer</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Select Tank for Transfer</label>
-              <Select value={selectedTankForTransfer} onValueChange={setSelectedTankForTransfer}>
-                <SelectTrigger className="mt-2">
+              <label className="text-sm font-medium">Source Tank</label>
+              <Select value={transferForm.sourceTankId} onValueChange={(value) => setTransferForm(prev => ({...prev, sourceTankId: value}))}>
+                <SelectTrigger className="mt-2" data-testid="select-source-tank">
                   <SelectValue placeholder="Choose source tank" />
                 </SelectTrigger>
                 <SelectContent>
@@ -587,19 +711,63 @@ export default function StockManagement() {
                     const product = products.find(p => p.id === tank.productId);
                     return (
                       <SelectItem key={tank.id} value={tank.id}>
-                        {tank.name} - {product?.name} ({parseFloat(tank.currentStock || '0').toLocaleString()}L)
+                        {tank.name} - {product?.name} ({parseFloat(tank.currentStock || '0').toLocaleString()}L available)
                       </SelectItem>
                     );
                   })}
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <label className="text-sm font-medium">Destination Tank</label>
+              <Select value={transferForm.destinationTankId} onValueChange={(value) => setTransferForm(prev => ({...prev, destinationTankId: value}))}>
+                <SelectTrigger className="mt-2" data-testid="select-destination-tank">
+                  <SelectValue placeholder="Choose destination tank" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tanks.filter(tank => tank.id !== transferForm.sourceTankId).map(tank => {
+                    const product = products.find(p => p.id === tank.productId);
+                    const available = parseFloat(tank.capacity || "0") - parseFloat(tank.currentStock || "0");
+                    return (
+                      <SelectItem key={tank.id} value={tank.id}>
+                        {tank.name} - {product?.name} ({available.toLocaleString()}L capacity)
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Quantity (Liters)</label>
+              <Input
+                type="number"
+                placeholder="Enter quantity to transfer"
+                value={transferForm.quantity}
+                onChange={(e) => setTransferForm(prev => ({...prev, quantity: e.target.value}))}
+                className="mt-2"
+                data-testid="input-transfer-quantity"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Remarks</label>
+              <Input
+                placeholder="Transfer notes (optional)"
+                value={transferForm.remarks}
+                onChange={(e) => setTransferForm(prev => ({...prev, remarks: e.target.value}))}
+                className="mt-2"
+                data-testid="input-transfer-remarks"
+              />
+            </div>
             <div className="flex justify-end space-x-3">
-              <Button variant="outline" onClick={() => setTransferDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setTransferDialogOpen(false)} data-testid="button-cancel-transfer">
                 Cancel
               </Button>
-              <Button onClick={executeStockTransfer} data-testid="button-execute-transfer">
-                Initiate Transfer
+              <Button 
+                onClick={executeStockTransfer} 
+                disabled={batchStockMovementMutation.isPending}
+                data-testid="button-execute-transfer"
+              >
+                {batchStockMovementMutation.isPending ? "Transferring..." : "Execute Transfer"}
               </Button>
             </div>
           </div>
@@ -608,34 +776,64 @@ export default function StockManagement() {
 
       {/* Stock Audit Dialog */}
       <Dialog open={auditDialogOpen} onOpenChange={setAuditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Stock Audit</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground">
-              This will initiate a comprehensive stock audit for all tanks. The system will record current stock levels and generate audit entries for review.
+              Enter the physical count for each tank. The system will automatically calculate adjustments based on the difference between physical and system stock.
             </div>
             <div className="border rounded-lg p-4 bg-muted/50">
-              <h4 className="font-medium mb-2">Tanks to be audited:</h4>
-              <div className="space-y-2 max-h-32 overflow-y-auto">
+              <h4 className="font-medium mb-3">Physical Stock Count:</h4>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
                 {tanks.map(tank => {
                   const product = products.find(p => p.id === tank.productId);
+                  const systemStock = parseFloat(tank.currentStock || '0');
+                  const physicalStock = parseFloat(auditForm[tank.id] || '0');
+                  const difference = physicalStock - systemStock;
+                  
                   return (
-                    <div key={tank.id} className="flex justify-between text-sm">
-                      <span>{tank.name} - {product?.name}</span>
-                      <span>{parseFloat(tank.currentStock || '0').toLocaleString()}L</span>
+                    <div key={tank.id} className="grid grid-cols-12 gap-2 items-center text-sm">
+                      <div className="col-span-4">
+                        <div className="font-medium">{tank.name}</div>
+                        <div className="text-xs text-muted-foreground">{product?.name}</div>
+                      </div>
+                      <div className="col-span-2 text-center">
+                        <div className="text-xs text-muted-foreground">System</div>
+                        <div>{systemStock.toLocaleString()}L</div>
+                      </div>
+                      <div className="col-span-3">
+                        <Input
+                          type="number"
+                          placeholder="Physical count"
+                          value={auditForm[tank.id] || ''}
+                          onChange={(e) => setAuditForm(prev => ({...prev, [tank.id]: e.target.value}))}
+                          className="text-center"
+                          data-testid={`input-audit-${tank.id}`}
+                        />
+                      </div>
+                      <div className="col-span-3 text-center">
+                        <div className="text-xs text-muted-foreground">Difference</div>
+                        <div className={`font-medium ${Math.abs(difference) < 0.01 ? 'text-green-600' : difference > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                          {Math.abs(difference) < 0.01 ? '✓' : (difference > 0 ? '+' : '') + difference.toFixed(1)}L
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </div>
             <div className="flex justify-end space-x-3">
-              <Button variant="outline" onClick={() => setAuditDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setAuditDialogOpen(false)} data-testid="button-cancel-audit">
                 Cancel
               </Button>
-              <Button onClick={executeStockAudit} data-testid="button-execute-audit">
-                Start Audit
+              <Button 
+                onClick={executeStockAudit} 
+                disabled={batchStockMovementMutation.isPending}
+                data-testid="button-execute-audit"
+              >
+                {batchStockMovementMutation.isPending ? "Processing..." : "Complete Audit"}
               </Button>
             </div>
           </div>

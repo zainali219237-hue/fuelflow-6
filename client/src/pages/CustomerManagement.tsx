@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import type { Customer } from "@shared/schema";
 import { insertCustomerSchema } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,12 +14,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
 import { Eye, Edit, CreditCard } from "lucide-react";
 
 export default function CustomerManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { currencyConfig } = useCurrency() || { currencyConfig: { symbol: '₹' } };
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
@@ -27,6 +30,37 @@ export default function CustomerManagement() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+
+  // Edit form
+  const editForm = useForm({
+    resolver: zodResolver(insertCustomerSchema),
+    defaultValues: {
+      name: "",
+      type: "walk-in",
+      contactPhone: "",
+      contactEmail: "",
+      address: "",
+      gstNumber: "",
+      creditLimit: "0",
+      outstandingAmount: "0",
+    },
+  });
+
+  // Payment form
+  const paymentForm = useForm({
+    resolver: zodResolver(z.object({
+      amount: z.string().min(1, "Amount is required"),
+      paymentMethod: z.enum(['cash', 'card']),
+      referenceNumber: z.string().optional(),
+      notes: z.string().optional(),
+    })),
+    defaultValues: {
+      amount: "",
+      paymentMethod: "cash" as const,
+      referenceNumber: "",
+      notes: "",
+    },
+  });
 
   const form = useForm({
     resolver: zodResolver(insertCustomerSchema),
@@ -39,6 +73,53 @@ export default function CustomerManagement() {
       gstNumber: "",
       creditLimit: "0",
       outstandingAmount: "0",
+    },
+  });
+
+  const updateCustomerMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await apiRequest("PUT", `/api/customers/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Customer updated",
+        description: "Customer information has been updated successfully",
+      });
+      setEditDialogOpen(false);
+      editForm.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update customer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const recordPaymentMutation = useMutation({
+    mutationFn: async (paymentData: any) => {
+      const response = await apiRequest("POST", "/api/payments", paymentData);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Payment recorded",
+        description: "Payment has been recorded successfully",
+      });
+      setPaymentDialogOpen(false);
+      paymentForm.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to record payment",
+        variant: "destructive",
+      });
     },
   });
 
@@ -76,12 +157,59 @@ export default function CustomerManagement() {
 
   const handleEditCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
+    editForm.reset({
+      name: customer.name,
+      type: customer.type,
+      contactPhone: customer.contactPhone || "",
+      contactEmail: customer.contactEmail || "",
+      address: customer.address || "",
+      gstNumber: customer.gstNumber || "",
+      creditLimit: customer.creditLimit || "0",
+      outstandingAmount: customer.outstandingAmount || "0",
+    });
     setEditDialogOpen(true);
   };
 
   const handlePaymentCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
+    paymentForm.reset({
+      amount: "",
+      paymentMethod: "cash" as const,
+      referenceNumber: "",
+      notes: "",
+    });
     setPaymentDialogOpen(true);
+  };
+
+  const onEditSubmit = (data: any) => {
+    if (!selectedCustomer) return;
+    updateCustomerMutation.mutate({ id: selectedCustomer.id, data });
+  };
+
+  const onPaymentSubmit = (data: any) => {
+    if (!selectedCustomer || !user) return;
+    
+    if (!user.id) {
+      toast({
+        title: "Error",
+        description: "User authentication required to record payment",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const paymentData = {
+      customerId: selectedCustomer.id,
+      amount: data.amount,
+      paymentMethod: data.paymentMethod,
+      referenceNumber: data.referenceNumber,
+      notes: data.notes,
+      type: "receivable",
+      stationId: user.stationId || "default-station",
+      userId: user.id,
+      currencyCode: "PKR",
+    };
+    recordPaymentMutation.mutate(paymentData);
   };
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
@@ -457,13 +585,126 @@ export default function CustomerManagement() {
 
       {/* Edit Customer Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Customer</DialogTitle>
           </DialogHeader>
-          <div className="p-4">
-            <p className="text-muted-foreground">Edit functionality will be implemented soon.</p>
-          </div>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Customer Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter customer name" {...field} data-testid="input-edit-customer-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Customer Type *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-customer-type">
+                          <SelectValue placeholder="Select customer type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="walk-in">Walk-in</SelectItem>
+                        <SelectItem value="credit">Credit Customer</SelectItem>
+                        <SelectItem value="fleet">Fleet Customer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="contactPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter phone number" {...field} data-testid="input-edit-customer-phone" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="contactEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email Address</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="Enter email address" {...field} data-testid="input-edit-customer-email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={editForm.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter address" {...field} data-testid="input-edit-customer-address" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="gstNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>GST Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter GST number" {...field} data-testid="input-edit-customer-gst" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="creditLimit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Credit Limit ({currencyConfig.symbol})</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="0" {...field} data-testid="input-edit-customer-credit-limit" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)} data-testid="button-cancel-edit">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateCustomerMutation.isPending} data-testid="button-update-customer">
+                  {updateCustomerMutation.isPending ? "Updating..." : "Update Customer"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
 
@@ -472,10 +713,84 @@ export default function CustomerManagement() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Record Payment</DialogTitle>
+            {selectedCustomer && (
+              <p className="text-sm text-muted-foreground">
+                Recording payment for {selectedCustomer.name} (Outstanding: ₹{parseFloat(selectedCustomer.outstandingAmount || '0').toLocaleString()})
+              </p>
+            )}
           </DialogHeader>
-          <div className="p-4">
-            <p className="text-muted-foreground">Payment recording functionality will be implemented soon.</p>
-          </div>
+          <Form {...paymentForm}>
+            <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
+              <FormField
+                control={paymentForm.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Amount *</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="Enter payment amount" {...field} data-testid="input-payment-amount" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={paymentForm.control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Method *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-payment-method">
+                          <SelectValue placeholder="Select payment method" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="card">Card</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={paymentForm.control}
+                name="referenceNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reference Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter reference number (optional)" {...field} data-testid="input-reference-number" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={paymentForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Add any notes (optional)" {...field} data-testid="input-payment-notes" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setPaymentDialogOpen(false)} data-testid="button-cancel-payment">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={recordPaymentMutation.isPending} data-testid="button-record-payment">
+                  {recordPaymentMutation.isPending ? "Recording..." : "Record Payment"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>

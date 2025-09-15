@@ -248,6 +248,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/suppliers/:id", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertSupplierSchema.partial().parse(req.body);
+      const supplier = await storage.updateSupplier(id, validatedData);
+      res.json(supplier);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid supplier data" });
+    }
+  });
+
   // Sales transactions routes
   app.get("/api/sales/:stationId", requireAuth, requireStationAccess, async (req, res) => {
     try {
@@ -465,10 +476,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/payments", requireAuth, async (req, res) => {
     try {
-      const validatedData = insertPaymentSchema.parse(req.body);
-      const payment = await storage.createPayment(validatedData);
+      // Validate that user has stationId for security
+      if (!req.user.stationId) {
+        return res.status(400).json({ message: "User must be assigned to a station to record payments" });
+      }
+
+      // Extract only allowed fields from client, ignore userId/stationId
+      const { customerId, supplierId, amount, currencyCode, paymentMethod, referenceNumber, notes, type } = req.body;
+      
+      // Use server-side attribution from authenticated user
+      const paymentData = {
+        customerId,
+        supplierId,
+        amount,
+        currencyCode: currencyCode || 'PKR',
+        paymentMethod,
+        referenceNumber,
+        notes,
+        type,
+        // Server-side attribution - never trust client
+        userId: req.user.id,
+        stationId: req.user.stationId
+      };
+
+      const payment = await storage.createPayment(paymentData);
       res.status(201).json(payment);
     } catch (error) {
+      console.error('Payment creation error:', error);
       res.status(400).json({ message: "Invalid payment data" });
     }
   });

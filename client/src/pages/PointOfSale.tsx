@@ -438,11 +438,292 @@ export default function PointOfSale() {
   };
 
   const printLastReceipt = () => {
-    toast({
-      title: "Print Receipt",
-      description: "Opening receipt for printing...",
-    });
-    window.print();
+    if (transactionItems.length === 0) {
+      toast({
+        title: "No Invoice to Print",
+        description: "Please add items to the transaction first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const invoiceHTML = generateInvoiceHTML();
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(invoiceHTML);
+        printWindow.document.close();
+        
+        // Wait for content to load before printing
+        printWindow.onload = () => {
+          printWindow.focus();
+          printWindow.print();
+        };
+        
+        // Fallback: print after a short delay if onload doesn't fire
+        setTimeout(() => {
+          if (printWindow && !printWindow.closed) {
+            printWindow.focus();
+            printWindow.print();
+          }
+        }, 500);
+      } else {
+        toast({
+          title: "Print Blocked",
+          description: "Please allow popups to print invoices",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      toast({
+        title: "Invoice Prepared",
+        description: "Invoice window opened for printing",
+      });
+    } catch (error) {
+      console.error('Print error:', error);
+      toast({
+        title: "Print Error",
+        description: "Failed to prepare invoice for printing",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const generateInvoiceHTML = () => {
+    const invoiceData = {
+      invoiceNumber: `INV-${Date.now()}`,
+      date: new Date().toLocaleDateString(),
+      customerName: selectedCustomerId ? customers.find(c => c.id === selectedCustomerId)?.name || "Walk-in Customer" : "Walk-in Customer",
+      stationName: user?.station?.name || "Station 1",
+      stationAddress: "123 Main Street, Demo City",
+      stationPhone: "+1-234-567-8900",
+      stationEmail: "station@fuelflow.com",
+      stationGST: "GST123456789",
+      cashierName: user?.name || "Admin User",
+      paymentMethod: "CASH",
+      paymentStatus: "PAID",
+      items: transactionItems,
+      subtotal: calculateSubtotal(),
+      tax: calculateTax(),
+      total: calculateTotal(),
+      currency: "PKR"
+    };
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Invoice - ${invoiceData.invoiceNumber}</title>
+          <style>
+            @media print {
+              @page { 
+                margin: 0.5in; 
+                size: A4;
+              }
+              body { 
+                -webkit-print-color-adjust: exact; 
+                color-adjust: exact; 
+              }
+            }
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            body { 
+              font-family: Arial, sans-serif; 
+              background: white; 
+              color: black; 
+              padding: 20px;
+              line-height: 1.4;
+            }
+            .invoice-header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 3px solid #333;
+              padding-bottom: 20px;
+            }
+            .invoice-title {
+              font-size: 24px;
+              font-weight: bold;
+              color: #2563eb;
+              margin-bottom: 10px;
+            }
+            .station-info {
+              font-size: 14px;
+              line-height: 1.6;
+            }
+            .invoice-details {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 30px;
+              align-items: flex-start;
+            }
+            .invoice-meta {
+              text-align: right;
+            }
+            .invoice-meta h3 {
+              font-size: 18px;
+              margin-bottom: 10px;
+              color: #333;
+            }
+            .payment-status {
+              background: #16a34a;
+              color: white;
+              padding: 5px 15px;
+              border-radius: 5px;
+              font-weight: bold;
+              display: inline-block;
+              margin: 10px 0;
+            }
+            .bill-to {
+              font-size: 14px;
+            }
+            .bill-to h4 {
+              margin-bottom: 5px;
+              color: #333;
+            }
+            .items-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin: 20px 0;
+              font-size: 14px;
+            }
+            .items-table th {
+              background: #f8f9fa;
+              border: 1px solid #ddd;
+              padding: 12px 8px;
+              text-align: left;
+              font-weight: bold;
+            }
+            .items-table td {
+              border: 1px solid #ddd;
+              padding: 10px 8px;
+            }
+            .items-table .text-right {
+              text-align: right;
+            }
+            .items-table .text-center {
+              text-align: center;
+            }
+            .totals-section {
+              margin-top: 30px;
+              display: flex;
+              justify-content: flex-end;
+            }
+            .totals-table {
+              width: 300px;
+              font-size: 14px;
+            }
+            .totals-table td {
+              padding: 8px 12px;
+              border-bottom: 1px solid #eee;
+            }
+            .totals-table .total-row {
+              background: #f8f9fa;
+              font-weight: bold;
+              font-size: 16px;
+              border-top: 2px solid #333;
+            }
+            .footer {
+              margin-top: 40px;
+              text-align: center;
+              font-size: 14px;
+              border-top: 1px solid #ddd;
+              padding-top: 20px;
+            }
+            .thank-you {
+              font-size: 18px;
+              font-weight: bold;
+              color: #2563eb;
+              margin-bottom: 10px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="invoice-header">
+            <div class="invoice-title">FuelFlow INVOICE</div>
+            <div class="station-info">
+              <strong>${invoiceData.stationName}</strong><br>
+              ${invoiceData.stationAddress}<br>
+              Phone: ${invoiceData.stationPhone}<br>
+              Email: ${invoiceData.stationEmail}<br>
+              GST: ${invoiceData.stationGST}
+            </div>
+          </div>
+
+          <div class="invoice-details">
+            <div class="bill-to">
+              <div class="payment-status">${invoiceData.paymentStatus} ${invoiceData.paymentMethod}</div>
+              <h4>Bill To:</h4>
+              <strong>${invoiceData.customerName}</strong>
+              <br><br>
+              <strong>Transaction Details:</strong><br>
+              Cashier: ${invoiceData.cashierName}<br>
+              Currency: ${invoiceData.currency}
+            </div>
+            <div class="invoice-meta">
+              <h3>Invoice #: ${invoiceData.invoiceNumber}</h3>
+              <div>Date: ${invoiceData.date}</div>
+            </div>
+          </div>
+
+          <h4 style="margin-bottom: 10px;">Items</h4>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th class="text-center">Quantity</th>
+                <th class="text-right">Unit Price</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${invoiceData.items.map(item => `
+                <tr>
+                  <td>
+                    <strong>${item.productName}</strong><br>
+                    <small style="color: #666;">HSN: 27101990</small>
+                  </td>
+                  <td class="text-center">${item.quantity.toFixed(3)} litre</td>
+                  <td class="text-right">Rs ${item.unitPrice.toFixed(2)}</td>
+                  <td class="text-right">Rs ${item.totalPrice.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="totals-section">
+            <table class="totals-table">
+              <tr>
+                <td>Subtotal:</td>
+                <td class="text-right">Rs ${invoiceData.subtotal.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td>Tax:</td>
+                <td class="text-right">Rs ${invoiceData.tax.toFixed(2)}</td>
+              </tr>
+              <tr class="total-row">
+                <td>Total Amount:</td>
+                <td class="text-right">Rs ${invoiceData.total.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td><strong>Amount Paid:</strong></td>
+                <td class="text-right"><strong>Rs ${invoiceData.total.toFixed(2)}</strong></td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="footer">
+            <div class="thank-you">Thank you for your business!</div>
+            <div>License: LIC123456</div>
+          </div>
+        </body>
+      </html>
+    `;
   };
 
   const showDaySummary = () => {

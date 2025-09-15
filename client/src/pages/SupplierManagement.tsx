@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import type { Supplier } from "@shared/schema";
 import { insertSupplierSchema } from "@shared/schema";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,15 +14,53 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
+import { Eye, Edit, Package, CreditCard } from "lucide-react";
 
 export default function SupplierManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { formatCurrency } = useCurrency();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [open, setOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+
+  // Edit form
+  const editForm = useForm({
+    resolver: zodResolver(insertSupplierSchema),
+    defaultValues: {
+      name: "",
+      contactPerson: "",
+      contactPhone: "",
+      contactEmail: "",
+      address: "",
+      gstNumber: "",
+      paymentTerms: "Net 30 Days",
+      outstandingAmount: "0",
+    },
+  });
+
+  // Payment form
+  const paymentForm = useForm({
+    resolver: zodResolver(z.object({
+      amount: z.string().min(1, "Amount is required"),
+      paymentMethod: z.enum(['cash', 'card']),
+      referenceNumber: z.string().optional(),
+      notes: z.string().optional(),
+    })),
+    defaultValues: {
+      amount: "",
+      paymentMethod: "cash" as const,
+      referenceNumber: "",
+      notes: "",
+    },
+  });
 
   const form = useForm({
     resolver: zodResolver(insertSupplierSchema),
@@ -34,6 +73,53 @@ export default function SupplierManagement() {
       gstNumber: "",
       paymentTerms: "Net 30 Days",
       outstandingAmount: "0",
+    },
+  });
+
+  const updateSupplierMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await apiRequest("PUT", `/api/suppliers/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Supplier updated",
+        description: "Supplier information has been updated successfully",
+      });
+      setEditDialogOpen(false);
+      editForm.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update supplier",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const recordPaymentMutation = useMutation({
+    mutationFn: async (paymentData: any) => {
+      const response = await apiRequest("POST", "/api/payments", paymentData);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Payment recorded",
+        description: "Payment has been recorded successfully",
+      });
+      setPaymentDialogOpen(false);
+      paymentForm.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to record payment",
+        variant: "destructive",
+      });
     },
   });
 
@@ -62,6 +148,68 @@ export default function SupplierManagement() {
 
   const onSubmit = (data: any) => {
     createSupplierMutation.mutate(data);
+  };
+
+  const handleViewSupplier = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setViewDialogOpen(true);
+  };
+
+  const handleEditSupplier = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    editForm.reset({
+      name: supplier.name,
+      contactPerson: supplier.contactPerson || "",
+      contactPhone: supplier.contactPhone || "",
+      contactEmail: supplier.contactEmail || "",
+      address: supplier.address || "",
+      gstNumber: supplier.gstNumber || "",
+      paymentTerms: supplier.paymentTerms || "Net 30 Days",
+      outstandingAmount: supplier.outstandingAmount || "0",
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handlePaymentSupplier = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    paymentForm.reset({
+      amount: "",
+      paymentMethod: "cash" as const,
+      referenceNumber: "",
+      notes: "",
+    });
+    setPaymentDialogOpen(true);
+  };
+
+  const onEditSubmit = (data: any) => {
+    if (!selectedSupplier) return;
+    updateSupplierMutation.mutate({ id: selectedSupplier.id, data });
+  };
+
+  const onPaymentSubmit = (data: any) => {
+    if (!selectedSupplier || !user) return;
+    
+    if (!user.id) {
+      toast({
+        title: "Error",
+        description: "User authentication required to record payment",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const paymentData = {
+      supplierId: selectedSupplier.id,
+      amount: data.amount,
+      paymentMethod: data.paymentMethod,
+      referenceNumber: data.referenceNumber,
+      notes: data.notes,
+      type: "payable",
+      stationId: user.stationId || "default-station",
+      userId: user.id,
+      currencyCode: "PKR",
+    };
+    recordPaymentMutation.mutate(paymentData);
   };
 
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
@@ -357,30 +505,42 @@ export default function SupplierManagement() {
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center space-x-2">
-                          <button 
-                            className="text-blue-600 hover:text-blue-800"
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewSupplier(supplier)}
+                            className="text-blue-600 hover:text-blue-800 p-1"
                             data-testid={`button-view-supplier-${index}`}
                           >
-                            👁️
-                          </button>
-                          <button 
-                            className="text-green-600 hover:text-green-800"
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditSupplier(supplier)}
+                            className="text-green-600 hover:text-green-800 p-1"
                             data-testid={`button-edit-supplier-${index}`}
                           >
-                            ✏️
-                          </button>
-                          <button 
-                            className="text-purple-600 hover:text-purple-800"
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toast({ title: "Feature Coming Soon", description: "Purchase orders functionality will be available soon." })}
+                            className="text-purple-600 hover:text-purple-800 p-1"
                             data-testid={`button-orders-${index}`}
                           >
-                            📦
-                          </button>
-                          <button 
-                            className="text-orange-600 hover:text-orange-800"
+                            <Package className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePaymentSupplier(supplier)}
+                            className="text-orange-600 hover:text-orange-800 p-1"
                             data-testid={`button-payment-${index}`}
                           >
-                            💰
-                          </button>
+                            <CreditCard className="w-4 h-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -397,6 +557,272 @@ export default function SupplierManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* View Supplier Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Supplier Details</DialogTitle>
+          </DialogHeader>
+          {selectedSupplier && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Name</label>
+                  <p className="text-sm text-muted-foreground">{selectedSupplier.name}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Contact Person</label>
+                  <p className="text-sm text-muted-foreground">{selectedSupplier.contactPerson || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Phone</label>
+                  <p className="text-sm text-muted-foreground">{selectedSupplier.contactPhone || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Email</label>
+                  <p className="text-sm text-muted-foreground">{selectedSupplier.contactEmail || 'N/A'}</p>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-sm font-medium">Address</label>
+                  <p className="text-sm text-muted-foreground">{selectedSupplier.address || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">GST Number</label>
+                  <p className="text-sm text-muted-foreground">{selectedSupplier.gstNumber || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Payment Terms</label>
+                  <p className="text-sm text-muted-foreground">{selectedSupplier.paymentTerms || 'Net 30 Days'}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Outstanding Amount</label>
+                  <p className="text-sm text-muted-foreground">{formatCurrency(parseFloat(selectedSupplier.outstandingAmount || '0'))}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Status</label>
+                  <Badge variant={selectedSupplier.isActive ? 'default' : 'secondary'}>
+                    {selectedSupplier.isActive ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Supplier Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Supplier</DialogTitle>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Supplier Name *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter supplier name" {...field} data-testid="input-edit-supplier-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="contactPerson"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contact Person</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter contact person name" {...field} data-testid="input-edit-contact-person" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="contactPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter phone number" {...field} data-testid="input-edit-supplier-phone" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="contactEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email Address</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="Enter email address" {...field} data-testid="input-edit-supplier-email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={editForm.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter address" {...field} data-testid="input-edit-supplier-address" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="gstNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>GST Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter GST number" {...field} data-testid="input-edit-supplier-gst" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="paymentTerms"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Terms</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-payment-terms">
+                            <SelectValue placeholder="Select payment terms" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Net 15 Days">Net 15 Days</SelectItem>
+                          <SelectItem value="Net 30 Days">Net 30 Days</SelectItem>
+                          <SelectItem value="Net 45 Days">Net 45 Days</SelectItem>
+                          <SelectItem value="Net 60 Days">Net 60 Days</SelectItem>
+                          <SelectItem value="Cash on Delivery">Cash on Delivery</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)} data-testid="button-cancel-edit-supplier">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateSupplierMutation.isPending} data-testid="button-update-supplier">
+                  {updateSupplierMutation.isPending ? "Updating..." : "Update Supplier"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Record Payment</DialogTitle>
+            {selectedSupplier && (
+              <p className="text-sm text-muted-foreground">
+                Recording payment to {selectedSupplier.name} (Outstanding: {formatCurrency(parseFloat(selectedSupplier.outstandingAmount || '0'))})
+              </p>
+            )}
+          </DialogHeader>
+          <Form {...paymentForm}>
+            <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
+              <FormField
+                control={paymentForm.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Amount *</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="Enter payment amount" {...field} data-testid="input-supplier-payment-amount" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={paymentForm.control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Method *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-supplier-payment-method">
+                          <SelectValue placeholder="Select payment method" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="card">Card</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={paymentForm.control}
+                name="referenceNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reference Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter reference number (optional)" {...field} data-testid="input-supplier-reference-number" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={paymentForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Add any notes (optional)" {...field} data-testid="input-supplier-payment-notes" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setPaymentDialogOpen(false)} data-testid="button-cancel-supplier-payment">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={recordPaymentMutation.isPending} data-testid="button-record-supplier-payment">
+                  {recordPaymentMutation.isPending ? "Recording..." : "Record Payment"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
