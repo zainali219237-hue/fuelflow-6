@@ -127,7 +127,7 @@ export default function InvoiceReceipt() {
       {/* Invoice Content */}
       <div className="container mx-auto px-6 py-8 max-w-4xl">
         <Card className="print:shadow-none print:border-none">
-          <CardContent className="p-8">
+          <CardContent className="p-8" id="invoice-print">
             {/* Header */}
             <div className="flex justify-between items-start mb-8">
               <div>
@@ -244,17 +244,6 @@ export default function InvoiceReceipt() {
             {/* Totals */}
             <div className="flex justify-end mb-8">
               <div className="w-full max-w-sm space-y-2">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span data-testid="text-subtotal">{formatAmount(parseFloat(transaction.subtotal ?? '0'), transaction.currencyCode)}</span>
-                </div>
-                {parseFloat(transaction.taxAmount ?? '0') > 0 && (
-                  <div className="flex justify-between">
-                    <span>Tax:</span>
-                    <span data-testid="text-tax">{formatAmount(parseFloat(transaction.taxAmount || '0'), transaction.currencyCode)}</span>
-                  </div>
-                )}
-                <Separator />
                 <div className="flex justify-between text-lg font-semibold">
                   <span>Total Amount:</span>
                   <span data-testid="text-total-amount">{formatAmount(parseFloat(transaction.totalAmount ?? '0'), transaction.currencyCode)}</span>

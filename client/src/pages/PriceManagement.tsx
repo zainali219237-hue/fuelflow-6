@@ -32,7 +32,6 @@ export default function PriceManagement() {
       currentPrice: "0",
       density: "0.750",
       hsnCode: "",
-      taxRate: "5",
     },
   });
 
@@ -193,19 +192,6 @@ export default function PriceManagement() {
                           <FormLabel>Price ({currencyConfig.symbol}) *</FormLabel>
                           <FormControl>
                             <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-product-price" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="taxRate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tax Rate (%)</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" placeholder="5.00" {...field} data-testid="input-product-tax" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
