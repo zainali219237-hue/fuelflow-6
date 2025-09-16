@@ -355,6 +355,7 @@ export async function seedInitialData() {
       await storage.createPurchaseOrder({
         stationId: station.id,
         supplierId: randomSupplier.id,
+        userId: adminUser.id,
         orderNumber: `PO-2024-${String(2000 + i).padStart(4, '0')}`,
         orderDate: orderDate,
         expectedDeliveryDate: expectedDate,
@@ -642,6 +643,7 @@ async function seedSampleData() {
       await storage.createPurchaseOrder({
         stationId: station.id,
         supplierId: randomSupplier.id,
+        userId: adminUser.id,
         orderNumber: `PO-TEST-${String(3000 + i).padStart(4, '0')}`,
         orderDate: orderDate,
         expectedDeliveryDate: expectedDate,
