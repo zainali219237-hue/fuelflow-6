@@ -382,13 +382,13 @@ export async function seedInitialData() {
       
       await storage.createExpense({
         stationId: station.id,
+        userId: adminUser.id,
         description: getExpenseDescription(category),
         category: category,
         amount: amount,
         expenseDate: expenseDate,
         paymentMethod: Math.random() > 0.5 ? "cash" : "card",
-        receiptNumber: `RCP-${Date.now()}-${i}`,
-        notes: `${category} expense for station operations`
+        receiptNumber: `RCP-${Date.now()}-${i}`
       });
     }
     console.log("Created 12 sample expense records");
