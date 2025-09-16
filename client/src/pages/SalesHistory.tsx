@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import type { SalesTransaction, Customer, Product } from "@shared/schema";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, Printer, Edit, Download, Trash2, Play } from "lucide-react";
+import { apiRequest } from "@/lib/api";
+import { Eye, Edit, Trash2, Play } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface DraftSale {
@@ -25,6 +26,7 @@ export default function SalesHistory() {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("today");
@@ -36,15 +38,30 @@ export default function SalesHistory() {
     navigate(`/invoice/${transactionId}`);
   };
 
-  const handlePrintTransaction = (transactionId: string) => {
-    // Open invoice page in new window with print parameter - InvoiceReceipt will handle print timing
-    const printWindow = window.open(`/invoice/${transactionId}?print=1`, '_blank');
-    if (!printWindow) {
+  const deleteSaleMutation = useMutation({
+    mutationFn: async (transactionId: string) => {
+      const response = await apiRequest("DELETE", `/api/sales/${transactionId}`);
+      return response.json();
+    },
+    onSuccess: () => {
       toast({
-        title: "Print Blocked",
-        description: "Please allow popups to print invoices",
+        title: "Transaction deleted",
+        description: "Sales transaction has been deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/sales", user?.stationId] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete transaction",
         variant: "destructive",
       });
+    },
+  });
+
+  const handleDeleteTransaction = (transactionId: string) => {
+    if (confirm("Are you sure you want to delete this transaction? This action cannot be undone.")) {
+      deleteSaleMutation.mutate(transactionId);
     }
   };
 
@@ -473,11 +490,12 @@ export default function SalesHistory() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handlePrintTransaction(transaction.id)}
-                            className="text-green-600 hover:text-green-800 p-1"
-                            data-testid={`button-print-${index}`}
+                            onClick={() => handleDeleteTransaction(transaction.id)}
+                            className="text-red-600 hover:text-red-800 p-1"
+                            data-testid={`button-delete-${index}`}
+                            title="Delete Transaction"
                           >
-                            <Printer className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="ghost"

@@ -347,7 +347,7 @@ export const settingsRelations = relations(settings, ({ one }) => ({
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertStationSchema = createInsertSchema(stations).omit({ id: true, createdAt: true });
-export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true });
+export const insertProductSchema = createInsertSchema(products).omit({ id: true, createdAt: true, taxRate: true });
 export const insertTankSchema = createInsertSchema(tanks).omit({ id: true, createdAt: true });
 export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true });
 export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true, createdAt: true });
