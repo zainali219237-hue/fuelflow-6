@@ -218,7 +218,18 @@ export default function SalesHistory() {
   });
 
   const filteredTransactions = salesTransactions.filter((transaction: SalesTransaction) => {
-    const matchesSearch = transaction.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+    // Enhanced search across multiple fields
+    const customer = customers.find(c => c.id === transaction.customerId);
+    const searchLower = searchTerm.toLowerCase();
+    
+    const matchesSearch = !searchTerm || 
+      transaction.invoiceNumber?.toLowerCase().includes(searchLower) ||
+      customer?.name?.toLowerCase().includes(searchLower) ||
+      transaction.totalAmount?.includes(searchTerm) ||
+      transaction.paymentMethod?.toLowerCase().includes(searchLower) ||
+      transaction.subtotal?.includes(searchTerm) ||
+      (customer?.contactPhone && customer.contactPhone.includes(searchTerm)) ||
+      (customer?.gstNumber && customer.gstNumber.toLowerCase().includes(searchLower));
     const matchesPayment = paymentFilter === "all" || transaction.paymentMethod === paymentFilter;
     
     // Date filtering
@@ -330,11 +341,11 @@ export default function SalesHistory() {
             <div className="flex items-center space-x-2">
               <Input
                 type="text"
-                placeholder="Search by invoice..."
+                placeholder="Search by invoice, customer, amount..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-48"
-                data-testid="input-search-invoice"
+                className="w-64"
+                data-testid="input-search-transactions"
               />
               <Select value={dateFilter} onValueChange={setDateFilter}>
                 <SelectTrigger className="w-32" data-testid="select-date-filter">

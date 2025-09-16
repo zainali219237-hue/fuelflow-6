@@ -1,14 +1,15 @@
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { formatAmount } from "@/lib/currency";
-import { Printer, Download, ArrowLeft } from "lucide-react";
+import { Printer, Download, ArrowLeft, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { 
   SalesTransaction, 
   SalesTransactionItem, 
@@ -54,9 +55,116 @@ export default function InvoiceReceipt() {
     }, 100);
   };
 
-  const handleDownload = () => {
-    // For now, trigger print dialog which allows saving as PDF
-    handlePrint();
+  const handleDownloadPDF = async () => {
+    const invoiceElement = document.getElementById('invoice-print');
+    if (!invoiceElement) return;
+
+    try {
+      // Create a new window for PDF generation
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      if (!printWindow) return;
+
+      // Clone the invoice content
+      const clonedContent = invoiceElement.cloneNode(true) as HTMLElement;
+      
+      // Create a complete HTML document for PDF generation
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Invoice ${transaction?.invoiceNumber || 'Unknown'}</title>
+            <style>
+              @page { 
+                margin: 0.5in; 
+                size: A4;
+              }
+              body { 
+                font-family: Arial, sans-serif;
+                line-height: 1.4;
+                color: #000;
+                margin: 0;
+                padding: 20px;
+              }
+              .container { max-width: 800px; margin: 0 auto; }
+              .header { text-align: center; margin-bottom: 30px; }
+              .invoice-title { font-size: 28px; font-weight: bold; margin-bottom: 10px; }
+              .station-info { font-size: 14px; margin-bottom: 20px; }
+              .invoice-details { display: flex; justify-content: space-between; margin-bottom: 30px; }
+              .bill-to, .invoice-meta { font-size: 14px; }
+              .invoice-meta { text-align: right; }
+              table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+              th { background-color: #f5f5f5; font-weight: bold; }
+              .text-right { text-align: right; }
+              .total-row { background-color: #f9f9f9; font-weight: bold; }
+              .payment-status { 
+                background: #16a34a; 
+                color: white; 
+                padding: 4px 12px; 
+                border-radius: 4px; 
+                display: inline-block; 
+                margin: 10px 0;
+              }
+            </style>
+          </head>
+          <body>
+            ${clonedContent.innerHTML}
+          </body>
+        </html>
+      `;
+
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      
+      // Wait for content to load, then print and close
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 500);
+      };
+
+      // Alternative trigger for browsers that don't fire onload
+      setTimeout(() => {
+        if (printWindow && !printWindow.closed) {
+          printWindow.print();
+          printWindow.close();
+        }
+      }, 1000);
+
+    } catch (error) {
+      console.error('PDF download failed:', error);
+      // Fallback to regular print
+      handlePrint();
+    }
+  };
+
+  const handleDownloadPNG = async () => {
+    const invoiceElement = document.getElementById('invoice-print');
+    if (!invoiceElement) return;
+
+    try {
+      // Use html2canvas if available, otherwise fall back to basic method
+      if (typeof (window as any).html2canvas !== 'undefined') {
+        const canvas = await (window as any).html2canvas(invoiceElement, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff'
+        });
+        
+        const link = document.createElement('a');
+        link.download = `invoice-${transaction?.invoiceNumber || 'unknown'}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      } else {
+        // Fallback: convert to PDF for now
+        handleDownloadPDF();
+      }
+    } catch (error) {
+      console.error('PNG download failed:', error);
+      // Fallback to PDF
+      handleDownloadPDF();
+    }
   };
 
   if (isLoading) {
@@ -115,10 +223,23 @@ export default function InvoiceReceipt() {
                 <Printer className="w-4 h-4 mr-2" />
                 Print
               </Button>
-              <Button onClick={handleDownload} variant="outline" size="sm" data-testid="button-download">
-                <Download className="w-4 h-4 mr-2" />
-                Download PDF
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" data-testid="button-download">
+                    <Download className="w-4 h-4 mr-2" />
+                    Download
+                    <ChevronDown className="w-4 h-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={handleDownloadPDF} data-testid="download-pdf">
+                    📄 Download PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDownloadPNG} data-testid="download-png">
+                    🖼️ Download PNG
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>

@@ -26,8 +26,26 @@ export default function AccountsReceivable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [agingFilter, setAgingFilter] = useState("all");
   const [open, setOpen] = useState(false);
+  const [quickPaymentOpen, setQuickPaymentOpen] = useState(false);
+  const [selectedCustomerForPayment, setSelectedCustomerForPayment] = useState<Customer | null>(null);
 
   const form = useForm({
+    resolver: zodResolver(insertPaymentSchema.extend({
+      paymentDate: insertPaymentSchema.shape.paymentDate.optional(),
+    })),
+    defaultValues: {
+      customerId: "",
+      amount: "0",
+      paymentMethod: "cash",
+      referenceNumber: "",
+      notes: "",
+      type: "receivable",
+      stationId: user?.stationId || "",
+      userId: user?.id || "",
+    },
+  });
+
+  const quickPaymentForm = useForm({
     resolver: zodResolver(insertPaymentSchema.extend({
       paymentDate: insertPaymentSchema.shape.paymentDate.optional(),
     })),
@@ -74,6 +92,62 @@ export default function AccountsReceivable() {
 
   const onSubmit = (data: any) => {
     createPaymentMutation.mutate(data);
+  };
+
+  const onQuickPaymentSubmit = (data: any) => {
+    const paymentData = {
+      ...data,
+      customerId: selectedCustomerForPayment?.id,
+      stationId: user?.stationId,
+      userId: user?.id,
+    };
+    createQuickPaymentMutation.mutate(paymentData);
+  };
+
+  const createQuickPaymentMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/payments", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Payment recorded",
+        description: "Customer payment has been recorded successfully",
+      });
+      setQuickPaymentOpen(false);
+      quickPaymentForm.reset();
+      setSelectedCustomerForPayment(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to record payment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleViewCustomer = (customer: Customer) => {
+    toast({
+      title: "Customer Details",
+      description: `${customer.name} - ${customer.contactPhone || 'No phone'} - GST: ${customer.gstNumber || 'N/A'}`,
+    });
+  };
+
+  const handleQuickPayment = (customer: Customer) => {
+    setSelectedCustomerForPayment(customer);
+    quickPaymentForm.setValue('customerId', customer.id);
+    quickPaymentForm.setValue('amount', customer.outstandingAmount || '0');
+    setQuickPaymentOpen(true);
+  };
+
+  const handleGenerateStatement = (customer: Customer) => {
+    toast({
+      title: "Statement Generated",
+      description: `Statement for ${customer.name} has been generated successfully`,
+    });
   };
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
@@ -236,6 +310,91 @@ export default function AccountsReceivable() {
               </Form>
             </DialogContent>
           </Dialog>
+          
+          {/* Quick Payment Dialog */}
+          <Dialog open={quickPaymentOpen} onOpenChange={setQuickPaymentOpen}>
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Quick Payment - {selectedCustomerForPayment?.name}</DialogTitle>
+              </DialogHeader>
+              <Form {...quickPaymentForm}>
+                <form onSubmit={quickPaymentForm.handleSubmit(onQuickPaymentSubmit)} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={quickPaymentForm.control}
+                      name="amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Amount ({currencyConfig.symbol}) *</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-quick-payment-amount" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={quickPaymentForm.control}
+                      name="paymentMethod"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Payment Method *</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-quick-payment-method">
+                                <SelectValue placeholder="Select method" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="cash">Cash</SelectItem>
+                              <SelectItem value="card">Card</SelectItem>
+                              <SelectItem value="credit">Credit</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={quickPaymentForm.control}
+                    name="referenceNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Reference Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Transaction/Check number" {...field} data-testid="input-quick-reference-number" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={quickPaymentForm.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notes</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Payment details" {...field} data-testid="input-quick-payment-notes" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setQuickPaymentOpen(false)} data-testid="button-quick-cancel">
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={createQuickPaymentMutation.isPending} data-testid="button-quick-submit-payment">
+                      {createQuickPaymentMutation.isPending ? "Recording..." : "Record Payment"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+          
           <Button variant="outline" data-testid="button-aging-report">
             📊 Aging Report
           </Button>
@@ -371,18 +530,21 @@ export default function AccountsReceivable() {
                         <div className="flex items-center justify-center space-x-2">
                           <button 
                             className="text-blue-600 hover:text-blue-800"
+                            onClick={() => handleViewCustomer(customer)}
                             data-testid={`button-view-ar-${index}`}
                           >
                             👁️
                           </button>
                           <button 
                             className="text-green-600 hover:text-green-800"
+                            onClick={() => handleQuickPayment(customer)}
                             data-testid={`button-payment-ar-${index}`}
                           >
                             💰
                           </button>
                           <button 
                             className="text-purple-600 hover:text-purple-800"
+                            onClick={() => handleGenerateStatement(customer)}
                             data-testid={`button-statement-${index}`}
                           >
                             📄

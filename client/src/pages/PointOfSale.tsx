@@ -191,8 +191,9 @@ export default function PointOfSale() {
     queryKey: ["/api/customers"],
   });
 
-  // Find walk-in customer for fallback
-  const walkInCustomer = customers.find(c => c.type === 'walk-in');
+  // Find walk-in customers for fallback and options
+  const walkInCustomers = customers.filter(c => c.type === 'walk-in');
+  const walkInCustomer = walkInCustomers[0]; // Use first walk-in customer for fallback
 
   const { data: tanks = [] } = useQuery<Tank[]>({
     queryKey: ["/api/tanks", user?.stationId],
@@ -768,11 +769,11 @@ export default function PointOfSale() {
                 <div className="flex space-x-2">
                 <Combobox
                   options={[
-                    ...(walkInCustomer ? [{ 
-                      value: walkInCustomer.id, 
-                      label: "Walk-in Customer", 
-                      searchTerms: ["walk", "cash", "retail", "walk-in"] 
-                    }] : []),
+                    ...walkInCustomers.map((customer): ComboboxOption => ({ 
+                      value: customer.id, 
+                      label: `${customer.name} (Walk-in)`, 
+                      searchTerms: ["walk", "cash", "retail", "walk-in", customer.name] 
+                    })),
                     ...customers.filter(c => c.type !== 'walk-in').map((customer): ComboboxOption => ({
                       value: customer.id,
                       label: `${customer.name} (${customer.type})`,
