@@ -290,12 +290,44 @@ export class DatabaseStorage implements IStorage {
     return supplier;
   }
 
-  async getSalesTransactions(stationId: string, limit = 50): Promise<SalesTransaction[]> {
-    return await db.select()
+  async getSalesTransactions(stationId: string, limit = 50): Promise<any[]> {
+    // First get the transactions
+    const transactions = await db.select()
       .from(salesTransactions)
       .where(eq(salesTransactions.stationId, stationId))
       .orderBy(desc(salesTransactions.transactionDate))
       .limit(limit);
+
+    // For each transaction, get its items with product details
+    const transactionsWithItems = await Promise.all(
+      transactions.map(async (transaction) => {
+        const items = await db
+          .select({
+            id: salesTransactionItems.id,
+            productId: salesTransactionItems.productId,
+            quantity: salesTransactionItems.quantity,
+            unitPrice: salesTransactionItems.unitPrice,
+            totalPrice: salesTransactionItems.totalPrice,
+            product: {
+              id: products.id,
+              name: products.name,
+              category: products.category,
+              unit: products.unit,
+              currentPrice: products.currentPrice
+            }
+          })
+          .from(salesTransactionItems)
+          .innerJoin(products, eq(salesTransactionItems.productId, products.id))
+          .where(eq(salesTransactionItems.transactionId, transaction.id));
+
+        return {
+          ...transaction,
+          items
+        };
+      })
+    );
+
+    return transactionsWithItems;
   }
 
   async getSalesTransaction(id: string): Promise<SalesTransaction | undefined> {

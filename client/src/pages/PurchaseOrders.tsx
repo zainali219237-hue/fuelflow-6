@@ -35,7 +35,7 @@ export default function PurchaseOrders() {
     defaultValues: {
       orderNumber: `PO-${Date.now()}`,
       supplierId: "",
-      expectedDeliveryDate: "",
+      expectedDeliveryDate: undefined, // Use undefined instead of empty string for optional date
       status: "pending",
       subtotal: "0",
       taxAmount: "0",
@@ -48,12 +48,17 @@ export default function PurchaseOrders() {
 
   const createPurchaseOrderMutation = useMutation({
     mutationFn: async (data: any) => {
-      const orderData = {
+      // Process form data to handle empty strings properly
+      const processedData = {
         ...data,
         stationId: user?.stationId || data.stationId,
         userId: user?.id || data.userId,
+        // Convert empty strings to undefined for optional date fields
+        expectedDeliveryDate: data.expectedDeliveryDate === "" ? undefined : data.expectedDeliveryDate,
+        // Add missing required field
+        currencyCode: currencyConfig.code,
       };
-      const response = await apiRequest("POST", "/api/purchase-orders", orderData);
+      const response = await apiRequest("POST", "/api/purchase-orders", processedData);
       return response.json();
     },
     onSuccess: () => {

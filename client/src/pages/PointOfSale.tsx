@@ -203,6 +203,10 @@ export default function PointOfSale() {
   const createSaleMutation = useMutation({
     mutationFn: async (saleData: { transaction: any; items: any[] }) => {
       const response = await apiRequest("POST", "/api/sales", saleData);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -214,10 +218,11 @@ export default function PointOfSale() {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Sale creation error:", error);
       toast({
         title: "Sale failed",
-        description: "Failed to record transaction",
+        description: error?.message || "Failed to record transaction",
         variant: "destructive",
       });
     },
@@ -229,6 +234,10 @@ export default function PointOfSale() {
         transaction: saleData.transaction,
         items: saleData.items
       });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -241,10 +250,11 @@ export default function PointOfSale() {
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       setLocation('/sales-history');
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Sale update error:", error);
       toast({
         title: "Update failed",
-        description: "Failed to update transaction",
+        description: error?.message || "Failed to update transaction",
         variant: "destructive",
       });
     },
@@ -333,12 +343,42 @@ export default function PointOfSale() {
       return;
     }
 
+    // Guard against missing user data
+    if (!user || !user.stationId || !user.id) {
+      toast({
+        title: "User data not loaded",
+        description: "Please wait for user data to load and try again",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Guard against missing customer data
+    if (customersLoading) {
+      toast({
+        title: "Customer data loading",
+        description: "Please wait for customer data to load and try again",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedCustomerId && !walkInCustomer) {
+      toast({
+        title: "No customer selected",
+        description: "Please select a customer or ensure walk-in customer is available",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const transaction = {
-      invoiceNumber: isEditMode ? undefined : `INV-${Date.now()}`, // Don't change invoice number when editing
-      stationId: user?.stationId,
+      invoiceNumber: `INV-${user.stationId}-${Date.now()}`, // Always include unique invoice number
+      stationId: user.stationId,
       customerId: selectedCustomerId || walkInCustomer?.id,
-      userId: user?.id,
+      userId: user.id,
       paymentMethod,
+      currencyCode: 'PKR', // Required field for schema validation
       subtotal: subtotal.toFixed(2),
       taxAmount: taxAmount.toFixed(2),
       totalAmount: totalAmount.toFixed(2),
@@ -1024,10 +1064,14 @@ export default function PointOfSale() {
                 className="w-full" 
                 size="lg"
                 onClick={completeSale}
-                disabled={createSaleMutation.isPending || transactionItems.length === 0}
+                disabled={createSaleMutation.isPending || transactionItems.length === 0 || !user || !user.stationId || !user.id || customersLoading || (!selectedCustomerId && !walkInCustomer)}
                 data-testid="button-complete-sale"
               >
-                {createSaleMutation.isPending ? "Processing..." : "Complete Sale"}
+                {createSaleMutation.isPending ? "Processing..." : 
+                 (!user || !user.stationId || !user.id) ? "Loading User..." :
+                 customersLoading ? "Loading Customers..." :
+                 (!selectedCustomerId && !walkInCustomer) ? "No Customer" :
+                 "Complete Sale"}
               </Button>
               <Button 
                 variant="outline" 

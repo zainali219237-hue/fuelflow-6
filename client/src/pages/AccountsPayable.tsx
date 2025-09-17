@@ -35,7 +35,7 @@ export default function AccountsPayable() {
     })),
     defaultValues: {
       supplierId: "",
-      amount: "0",
+      amount: "", // Empty instead of "0"
       paymentMethod: "cash",
       referenceNumber: "",
       notes: "",
@@ -67,6 +67,7 @@ export default function AccountsPayable() {
         ...data,
         stationId: user?.stationId || data.stationId,
         userId: user?.id || data.userId,
+        currencyCode: currencyConfig.code, // Add required field
       };
       const response = await apiRequest("POST", "/api/payments", paymentData);
       return response.json();
@@ -106,7 +107,14 @@ export default function AccountsPayable() {
 
   const createQuickPaymentMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/payments", data);
+      // Process form data to ensure all required fields are present
+      const paymentData = {
+        ...data,
+        stationId: user?.stationId || data.stationId,
+        userId: user?.id || data.userId,
+        currencyCode: currencyConfig.code, // Add required currency field
+      };
+      const response = await apiRequest("POST", "/api/payments", paymentData);
       return response.json();
     },
     onSuccess: () => {

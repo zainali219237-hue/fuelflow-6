@@ -454,7 +454,7 @@ export default function SalesHistory() {
                 })}
                 
                 {/* Completed Sales */}
-                {filteredTransactions.length > 0 ? filteredTransactions.map((transaction: SalesTransaction, index: number) => {
+                {filteredTransactions.length > 0 ? filteredTransactions.map((transaction: SalesTransaction & { items?: any[] }, index: number) => {
                   const customer = customers.find(c => c.id === transaction.customerId);
                   const transactionTime = transaction.transactionDate 
                     ? new Date(transaction.transactionDate).toLocaleTimeString('en-IN', {
@@ -472,9 +472,25 @@ export default function SalesHistory() {
                         </span>
                       </td>
                       <td className="p-3">{customer?.name || 'Walk-in Customer'}</td>
-                      <td className="p-3">Mixed Products</td>
-                      <td className="p-3 text-right">-</td>
-                      <td className="p-3 text-right">-</td>
+                      <td className="p-3">
+                        {transaction.items && transaction.items.length > 0 ? (
+                          transaction.items.length === 1 
+                            ? transaction.items[0].product?.name 
+                            : `${transaction.items.length} items`
+                        ) : 'No items'}
+                      </td>
+                      <td className="p-3 text-right">
+                        {transaction.items && transaction.items.length > 0 
+                          ? transaction.items.reduce((sum: number, item: any) => sum + parseFloat(item.quantity || '0'), 0).toFixed(1) + 'L'
+                          : '-'
+                        }
+                      </td>
+                      <td className="p-3 text-right">
+                        {transaction.items && transaction.items.length === 1 
+                          ? formatCurrency(parseFloat(transaction.items[0].unitPrice || '0'))
+                          : '-'
+                        }
+                      </td>
                       <td className="p-3 text-right font-semibold" data-testid={`amount-${index}`}>
                         {formatCurrency(parseFloat(transaction.totalAmount || '0'))}
                       </td>
