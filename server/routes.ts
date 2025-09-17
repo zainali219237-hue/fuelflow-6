@@ -426,13 +426,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({ transaction: createdTransaction, items: createdItems });
     } catch (error) {
       if (error instanceof Error && error.name === 'ZodError') {
+        console.error("Sales validation error:", error.message, (error as any).errors);
         return res.status(400).json({ 
           message: "Validation failed", 
           errors: (error as any).errors 
         });
       }
       console.error("Sales creation error:", error);
-      res.status(400).json({ message: "Invalid sales data" });
+      console.error("Request body:", JSON.stringify(req.body, null, 2));
+      res.status(400).json({ message: "Invalid sales data", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

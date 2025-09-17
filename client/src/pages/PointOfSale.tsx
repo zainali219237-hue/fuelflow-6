@@ -378,7 +378,7 @@ export default function PointOfSale() {
       customerId: selectedCustomerId || walkInCustomer?.id,
       userId: user.id,
       paymentMethod,
-      currencyCode: 'PKR', // Required field for schema validation
+      currencyCode: currencyConfig.code, // Required field for schema validation
       subtotal: subtotal.toFixed(2),
       taxAmount: taxAmount.toFixed(2),
       totalAmount: totalAmount.toFixed(2),
@@ -388,8 +388,8 @@ export default function PointOfSale() {
 
     const items = transactionItems.map(item => ({
       productId: item.productId,
-      tankId: item.tankId,
-      quantity: item.quantity.toString(),
+      tankId: item.tankId || null, // Use null instead of undefined for optional field
+      quantity: item.quantity.toFixed(3), // Use toFixed for proper decimal formatting
       unitPrice: item.unitPrice.toFixed(2),
       totalPrice: item.totalPrice.toFixed(2),
     }));
