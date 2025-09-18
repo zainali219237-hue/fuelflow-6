@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { RefreshCw, CreditCard, TrendingUp, TrendingDown, Printer } from "lucide-react";
 
 export default function CashReconciliation() {
   const { user } = useAuth();
@@ -33,7 +34,7 @@ export default function CashReconciliation() {
   const getShiftDateRange = () => {
     const baseDate = new Date(reconciliationDate);
     let startTime, endTime;
-    
+
     if (shift === 'day') {
       startTime = new Date(baseDate);
       startTime.setHours(6, 0, 0, 0);
@@ -51,7 +52,7 @@ export default function CashReconciliation() {
       endTime = new Date(baseDate);
       endTime.setHours(23, 59, 59, 999);
     }
-    
+
     return { startTime: startTime.toISOString(), endTime: endTime.toISOString() };
   };
 
@@ -138,10 +139,10 @@ export default function CashReconciliation() {
         </div>
         <div className="flex items-center space-x-2">
           <Button data-testid="button-start-reconciliation">
-            🔄 Start Reconciliation
+            <RefreshCw className="mr-2 h-4 w-4" /> 🔄 Start Reconciliation
           </Button>
           <Button variant="outline" data-testid="button-print-report">
-            🖨️ Print Report
+            <Printer className="mr-2 h-4 w-4" /> Print Report
           </Button>
         </div>
       </div>
@@ -288,7 +289,7 @@ export default function CashReconciliation() {
                   {formatCurrency(cashData.expenses)}
                 </span>
               </div>
-              
+
               <div className="border-t pt-4 mt-6">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">Net Cash Movement:</span>
@@ -333,7 +334,7 @@ export default function CashReconciliation() {
               )}
             </div>
           </div>
-          
+
           <div className="mt-4 flex justify-end space-x-2">
             <Button variant="outline" data-testid="button-save-draft">
               Save Draft

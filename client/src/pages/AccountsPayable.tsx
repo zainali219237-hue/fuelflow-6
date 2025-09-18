@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
+import { Calendar, Eye, DollarSign, FileText } from "lucide-react";
 
 export default function AccountsPayable() {
   const { user } = useAuth();
@@ -400,7 +401,8 @@ export default function AccountsPayable() {
           </Dialog>
           
           <Button variant="outline" data-testid="button-payment-schedule">
-            📅 Payment Schedule
+            <Calendar className="w-4 h-4 mr-2" />
+            Payment Schedule
           </Button>
         </div>
       </div>
@@ -528,27 +530,33 @@ export default function AccountsPayable() {
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center space-x-2">
-                          <button 
-                            className="text-blue-600 hover:text-blue-800"
+                          <Button 
+                            variant="ghost"
+                            size="sm"
+                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-8 w-8 p-0"
                             onClick={() => handleViewSupplier(supplier)}
                             data-testid={`button-view-ap-${index}`}
                           >
-                            👁️
-                          </button>
-                          <button 
-                            className="text-green-600 hover:text-green-800"
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost"
+                            size="sm"
+                            className="text-green-600 hover:text-green-800 hover:bg-green-50 h-8 w-8 p-0"
                             onClick={() => handleQuickPayment(supplier)}
                             data-testid={`button-pay-ap-${index}`}
                           >
-                            💰
-                          </button>
-                          <button 
-                            className="text-purple-600 hover:text-purple-800"
+                            <DollarSign className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost"
+                            size="sm"
+                            className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 h-8 w-8 p-0"
                             onClick={() => handleViewHistory(supplier)}
                             data-testid={`button-history-ap-${index}`}
                           >
-                            📄
-                          </button>
+                            <FileText className="w-4 h-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>

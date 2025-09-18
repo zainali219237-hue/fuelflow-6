@@ -32,9 +32,21 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       }
     };
 
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (isMobileMenuOpen && !target.closest('[data-sidebar]') && !target.closest('[data-mobile-menu-button]')) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    document.addEventListener('click', handleClickOutside);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isMobileMenuOpen]);
 
   if (!isAuthenticated) {
     return <LoginForm />;
@@ -51,8 +63,10 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       )}
       
       <div className="flex h-screen">
-        {/* Desktop sidebar */}
-        <div className="hidden lg:block">
+        {/* Desktop sidebar - fixed positioning */}
+        <div className={`hidden lg:block fixed left-0 top-0 h-full z-30 transition-all duration-300 ${
+          isCollapsed ? 'w-16' : 'w-64'
+        }`}>
           <Sidebar 
             isCollapsed={isCollapsed} 
             onToggleCollapse={handleToggleCollapse} 
@@ -60,7 +74,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
         </div>
         
         {/* Mobile sidebar */}
-        <div className={`lg:hidden fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ${
+        <div className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}>
           <Sidebar 
@@ -69,25 +83,27 @@ export default function AuthGuard({ children }: AuthGuardProps) {
           />
         </div>
 
-        {/* Main content */}
+        {/* Main content with proper margin */}
         <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
           isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
         }`}>
-          <Header />
+          {/* Header with mobile menu button */}
+          <div className="relative">
+            <Button
+              onClick={handleMobileMenuToggle}
+              className="lg:hidden absolute top-4 left-4 z-20 bg-primary text-primary-foreground shadow-lg hover:bg-primary/90"
+              size="icon"
+              data-mobile-menu-button
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            <Header />
+          </div>
           <main className="flex-1 overflow-auto p-4 md:p-6">
             {children}
           </main>
         </div>
       </div>
-
-      {/* Mobile menu button */}
-      <Button
-        onClick={handleMobileMenuToggle}
-        className="lg:hidden fixed top-4 left-4 z-30 bg-primary text-primary-foreground shadow-lg hover:bg-primary/90"
-        size="icon"
-      >
-        <Menu className="w-5 h-5" />
-      </Button>
     </div>
   );
 }

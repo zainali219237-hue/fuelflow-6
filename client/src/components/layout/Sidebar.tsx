@@ -114,10 +114,13 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
   const { user, logout } = useAuth();
 
   return (
-    <div className={cn(
-      "sidebar-transition h-full bg-card border-r border-border flex flex-col",
-      isCollapsed ? "w-16" : "w-64"
-    )}>
+    <div 
+      className={cn(
+        "sidebar-transition h-full bg-card border-r border-border flex flex-col",
+        isCollapsed ? "w-16" : "w-64"
+      )}
+      data-sidebar
+    >
       {/* Header */}
       <div className={cn(
         "border-b border-border flex-shrink-0",

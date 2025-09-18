@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
+import { Trash2, Smartphone, Receipt, BarChart3, Eye, DollarSign, FileText, TrendingUp } from "lucide-react";
 
 export default function AccountsReceivable() {
   const { user } = useAuth();
@@ -163,10 +164,10 @@ export default function AccountsReceivable() {
   });
 
   const creditCustomers = customers.filter((c: Customer) => parseFloat(c.outstandingAmount || '0') > 0);
-  
+
   const filteredCustomers = creditCustomers.filter((customer: Customer) => {
     const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     // Aging filter logic
     const outstanding = parseFloat(customer.outstandingAmount || '0');
     let matchesAging = true;
@@ -179,7 +180,7 @@ export default function AccountsReceivable() {
     } else if (agingFilter === "90+") {
       matchesAging = outstanding > 150000;
     }
-    
+
     return matchesSearch && matchesAging;
   });
 
@@ -318,7 +319,7 @@ export default function AccountsReceivable() {
               </Form>
             </DialogContent>
           </Dialog>
-          
+
           {/* Quick Payment Dialog */}
           <Dialog open={quickPaymentOpen} onOpenChange={setQuickPaymentOpen}>
             <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
@@ -402,7 +403,7 @@ export default function AccountsReceivable() {
               </Form>
             </DialogContent>
           </Dialog>
-          
+
           <Button variant="outline" data-testid="button-aging-report">
             📊 Aging Report
           </Button>
@@ -495,7 +496,7 @@ export default function AccountsReceivable() {
                   const outstanding = parseFloat(customer.outstandingAmount || '0');
                   const availableCredit = creditLimit - outstanding;
                   const isOverdue = outstanding > 50000;
-                  
+
                   return (
                     <tr key={customer.id} className="border-b border-border hover:bg-muted/50">
                       <td className="p-3">
@@ -536,26 +537,26 @@ export default function AccountsReceivable() {
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center space-x-2">
-                          <button 
+                          <button
                             className="text-blue-600 hover:text-blue-800"
                             onClick={() => handleViewCustomer(customer)}
                             data-testid={`button-view-ar-${index}`}
                           >
-                            👁️
+                            <Eye className="h-4 w-4" />
                           </button>
-                          <button 
+                          <button
                             className="text-green-600 hover:text-green-800"
                             onClick={() => handleQuickPayment(customer)}
                             data-testid={`button-payment-ar-${index}`}
                           >
-                            💰
+                            <DollarSign className="h-4 w-4" />
                           </button>
-                          <button 
+                          <button
                             className="text-purple-600 hover:text-purple-800"
                             onClick={() => handleGenerateStatement(customer)}
                             data-testid={`button-statement-${index}`}
                           >
-                            📄
+                            <FileText className="h-4 w-4" />
                           </button>
                         </div>
                       </td>

@@ -28,6 +28,8 @@ export default function Header() {
     <header className="bg-card shadow-sm border-b border-border px-4 md:px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4 min-w-0 flex-1">
+          {/* Add space for mobile menu button */}
+          <div className="w-12 lg:hidden flex-shrink-0"></div>
           <div className="min-w-0">
             <h2 className="text-lg md:text-xl font-semibold text-card-foreground truncate" data-testid="page-title">
               {pageTitles[location] || "Dashboard"}

@@ -155,31 +155,55 @@
   }
   
   /* Prevent horizontal scrolling on mobile */
-  body {
+  body, html {
     overflow-x: hidden;
+    width: 100%;
+  }
+  
+  /* Ensure mobile layout doesn't break */
+  * {
+    max-width: 100%;
   }
 }
 
-/* Ensure proper scroll behavior on mobile */
+/* Mobile layout fixes */
 @media (max-width: 1024px) {
-  body {
+  body, html {
     overflow-x: hidden;
+    width: 100%;
   }
   
-  /* Mobile sidebar improvements */
-  .sidebar-transition {
+  /* Ensure main content area is properly positioned */
+  .main-content {
+    margin-left: 0 !important;
+    width: 100%;
+  }
+  
+  /* Mobile sidebar should be off-screen by default */
+  .mobile-sidebar {
     transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
   }
   
-  .sidebar-transition.open {
+  .mobile-sidebar.open {
     transform: translateX(0);
   }
 }
 
-/* Desktop sidebar improvements */
+/* Desktop layout improvements */
 @media (min-width: 1024px) {
   .sidebar-transition {
     transform: translateX(0);
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    z-index: 30;
+  }
+  
+  /* Ensure main content has proper spacing */
+  .main-content {
+    transition: margin-left 0.3s ease-in-out;
   }
 }
 
