@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { useLocation } from "wouter";
+import { Trash2, Smartphone, Receipt, BarChart3 } from "lucide-react";
 
 interface POSItem {
   productId: string;
@@ -987,7 +988,7 @@ export default function PointOfSale() {
                               className="text-destructive hover:text-destructive/80"
                               data-testid={`button-remove-${index}`}
                             >
-                              🗑️
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </td>
                         </tr>
@@ -1100,21 +1101,21 @@ export default function PointOfSale() {
                   onClick={showLastTransaction}
                   data-testid="button-last-transaction"
                 >
-                  📱 Last Transaction
+                  <Smartphone className="w-4 h-4 inline mr-2" />Last Transaction
                 </button>
                 <button 
                   className="w-full text-left p-2 hover:bg-muted rounded-md text-sm transition-colors" 
                   onClick={printLastReceipt}
                   data-testid="button-print-receipt"
                 >
-                  🧾 Print Receipt
+                  <Receipt className="w-4 h-4 inline mr-2" />Print Receipt
                 </button>
                 <button 
                   className="w-full text-left p-2 hover:bg-muted rounded-md text-sm transition-colors" 
                   onClick={showDaySummary}
                   data-testid="button-day-summary"
                 >
-                  📊 Day Summary
+                  <BarChart3 className="w-4 h-4 inline mr-2" />Day Summary
                 </button>
               </div>
             </div>

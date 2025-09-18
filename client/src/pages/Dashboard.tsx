@@ -6,7 +6,7 @@ import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import type { Tank, SalesTransaction, Customer, Product } from "@shared/schema";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLocation } from "wouter";
-import { Download, FileText, ShoppingCart, Users, BarChart3, AlertCircle } from "lucide-react";
+import { Download, FileText, ShoppingCart, Users, BarChart3, AlertCircle, DollarSign, TrendingUp, Fuel, Clock, AlertTriangle, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
@@ -136,7 +136,7 @@ export default function Dashboard() {
                 </p>
                 <p className="text-green-100 text-sm">{(dashboardStats as any)?.todaysSales?.count || 0} transactions</p>
               </div>
-              <div className="text-4xl opacity-80">💰</div>
+              <div className="opacity-80"><DollarSign className="w-10 h-10" /></div>
             </div>
             <div className="mt-4 flex items-center">
               <span className="text-green-100 text-xs">+12% vs yesterday</span>
@@ -154,7 +154,7 @@ export default function Dashboard() {
                 </p>
                 <p className="text-blue-100 text-sm">{(dashboardStats as any)?.monthlySales?.count || 0} transactions total</p>
               </div>
-              <div className="text-4xl opacity-80">📈</div>
+              <div className="opacity-80"><TrendingUp className="w-10 h-10" /></div>
             </div>
             <div className="mt-4 flex items-center">
               <span className="text-blue-100 text-xs">On track for target</span>
@@ -172,7 +172,7 @@ export default function Dashboard() {
                 </p>
                 <p className="text-purple-100 text-sm">All tanks combined</p>
               </div>
-              <div className="text-4xl opacity-80">🛢️</div>
+              <div className="opacity-80"><Fuel className="w-10 h-10" /></div>
             </div>
             <div className="mt-4 flex items-center">
               <span className="text-purple-100 text-xs">3 days avg inventory</span>
@@ -190,7 +190,7 @@ export default function Dashboard() {
                 </p>
                 <p className="text-orange-100 text-sm">Credit customers</p>
               </div>
-              <div className="text-4xl opacity-80">⏰</div>
+              <div className="opacity-80"><Clock className="w-10 h-10" /></div>
             </div>
             <div className="mt-4 flex items-center">
               <span className="text-orange-100 text-xs">{getOverdueCustomersCount()} customers pending</span>
@@ -387,7 +387,7 @@ export default function Dashboard() {
                 return (
                   <div key={tank.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                     <div className="flex items-start">
-                      <span className="text-yellow-500 mr-2">⚠️</span>
+                      <AlertTriangle className="w-5 h-5 text-yellow-500 mr-2" />
                       <div>
                         <div className="text-sm font-medium text-yellow-800">Low Stock Alert</div>
                         <div className="text-xs text-yellow-600">
@@ -403,7 +403,7 @@ export default function Dashboard() {
               {customers.filter(customer => parseFloat(customer.outstandingAmount || '0') > 50000).slice(0, 1).map(customer => (
                 <div key={customer.id} className="p-3 bg-red-50 border border-red-200 rounded-md">
                   <div className="flex items-start">
-                    <span className="text-red-500 mr-2">💰</span>
+                    <DollarSign className="w-5 h-5 text-red-500 mr-2" />
                     <div>
                       <div className="text-sm font-medium text-red-800">Payment Overdue</div>
                       <div className="text-xs text-red-600">
@@ -419,7 +419,7 @@ export default function Dashboard() {
                customers.filter(customer => parseFloat(customer.outstandingAmount || '0') > 50000).length === 0 && (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-md">
                   <div className="flex items-start">
-                    <span className="text-green-500 mr-2">✓</span>
+                    <Check className="w-5 h-5 text-green-500 mr-2" />
                     <div>
                       <div className="text-sm font-medium text-green-800">All Systems Normal</div>
                       <div className="text-xs text-green-600">No critical alerts at this time</div>

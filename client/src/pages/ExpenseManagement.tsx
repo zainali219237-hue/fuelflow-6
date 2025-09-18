@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
+import { BarChart3, Eye, Edit } from "lucide-react";
 
 export default function ExpenseManagement() {
   const { user } = useAuth();
@@ -250,7 +251,7 @@ export default function ExpenseManagement() {
             </DialogContent>
           </Dialog>
           <Button variant="outline" data-testid="button-export-expenses">
-            📊 Export Report
+            <BarChart3 className="w-4 h-4 mr-2" />Export Report
           </Button>
         </div>
       </div>
@@ -428,13 +429,13 @@ export default function ExpenseManagement() {
                           className="text-blue-600 hover:text-blue-800"
                           data-testid={`button-view-expense-${index}`}
                         >
-                          👁️
+                          <Eye className="w-4 h-4" />️
                         </button>
                         <button 
                           className="text-green-600 hover:text-green-800"
                           data-testid={`button-edit-expense-${index}`}
                         >
-                          ✏️
+                          <Edit className="w-4 h-4" />️
                         </button>
                         <button 
                           className="text-purple-600 hover:text-purple-800"

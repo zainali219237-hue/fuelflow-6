@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { Fuel } from "lucide-react";
 
 export default function LoginForm() {
   const [username, setUsername] = useState("admin");
@@ -56,7 +57,7 @@ export default function LoginForm() {
         <CardContent className="pt-6">
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl text-primary-foreground">⛽</span>
+              <Fuel className="w-8 h-8 text-primary-foreground" />
             </div>
             <h2 className="text-2xl font-bold text-card-foreground" data-testid="login-title">FuelFlow Login</h2>
             <p className="text-muted-foreground">Petrol Pump Accounting System</p>

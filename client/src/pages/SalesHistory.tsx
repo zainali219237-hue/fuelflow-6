@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
-import { Eye, Edit, Trash2, Play } from "lucide-react";
+import { Eye, Edit, Trash2, Play, Download } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface DraftSale {
@@ -289,7 +289,7 @@ export default function SalesHistory() {
         </div>
         <div className="flex items-center space-x-2">
           <Button variant="outline" onClick={exportToExcel} data-testid="button-export-excel">
-            📊 Export Excel
+            <Download className="w-4 h-4 mr-2" />Export Excel
           </Button>
           <Button variant="outline" onClick={exportToPDF} data-testid="button-export-pdf">
             📄 Export PDF
