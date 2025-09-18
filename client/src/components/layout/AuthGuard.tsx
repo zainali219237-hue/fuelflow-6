@@ -1,9 +1,11 @@
+
 import { useState, useEffect } from "react";
 import LoginForm from "@/components/auth/LoginForm";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
 import { useAuth } from "@/hooks/useAuth";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -22,6 +24,18 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
+  // Close mobile menu when clicking outside or resizing to desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   if (!isAuthenticated) {
     return <LoginForm />;
   }
@@ -36,7 +50,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
         />
       )}
       
-      <div className="flex">
+      <div className="flex h-screen">
         {/* Desktop sidebar */}
         <div className="hidden lg:block">
           <Sidebar 
@@ -56,25 +70,24 @@ export default function AuthGuard({ children }: AuthGuardProps) {
         </div>
 
         {/* Main content */}
-        <div className={`flex-1 transition-all duration-300 lg:${isCollapsed ? 'ml-16' : 'ml-64'} min-h-screen`}>
+        <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
+          isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+        }`}>
           <Header />
-          <main className="p-4 md:p-6">
+          <main className="flex-1 overflow-auto p-4 md:p-6">
             {children}
           </main>
         </div>
       </div>
 
       {/* Mobile menu button */}
-      <button
+      <Button
         onClick={handleMobileMenuToggle}
-        className="lg:hidden fixed bottom-4 right-4 z-50 bg-primary text-primary-foreground p-3 rounded-full shadow-lg hover:bg-primary/90 transition-colors"
+        className="lg:hidden fixed top-4 left-4 z-30 bg-primary text-primary-foreground shadow-lg hover:bg-primary/90"
+        size="icon"
       >
-        {isMobileMenuOpen ? (
-          <ChevronLeft className="w-6 h-6" />
-        ) : (
-          <ChevronRight className="w-6 h-6" />
-        )}
-      </button>
+        <Menu className="w-5 h-5" />
+      </Button>
     </div>
   );
 }

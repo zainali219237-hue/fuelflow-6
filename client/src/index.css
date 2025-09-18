@@ -153,12 +153,33 @@
     padding-left: 1rem;
     padding-right: 1rem;
   }
+  
+  /* Prevent horizontal scrolling on mobile */
+  body {
+    overflow-x: hidden;
+  }
 }
 
 /* Ensure proper scroll behavior on mobile */
 @media (max-width: 1024px) {
   body {
     overflow-x: hidden;
+  }
+  
+  /* Mobile sidebar improvements */
+  .sidebar-transition {
+    transform: translateX(-100%);
+  }
+  
+  .sidebar-transition.open {
+    transform: translateX(0);
+  }
+}
+
+/* Desktop sidebar improvements */
+@media (min-width: 1024px) {
+  .sidebar-transition {
+    transform: translateX(0);
   }
 }
 
