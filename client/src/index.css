@@ -190,6 +190,29 @@
   }
 }
 
+/* Responsive text utilities */
+.responsive-text {
+  font-size: clamp(0.875rem, 2.5vw, 1.125rem);
+}
+
+.responsive-title {
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+}
+
+.responsive-value {
+  font-size: clamp(1.25rem, 3vw, 1.875rem);
+}
+
+/* Prevent text overflow in cards */
+.card-content {
+  overflow: hidden;
+}
+
+.card-content * {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
 /* Desktop layout improvements */
 @media (min-width: 1024px) {
   .sidebar-transition {
@@ -207,20 +230,20 @@
   }
 }
 
-/* Custom Scrollbars */
+/* Custom Scrollbars - Thinner and theme-aware */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
-  border-radius: 3px;
+  background: hsl(var(--background));
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 3px;
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 2px;
   transition: background 0.2s ease;
 }
 
@@ -229,25 +252,30 @@
 }
 
 ::-webkit-scrollbar-corner {
-  background: hsl(var(--muted));
+  background: hsl(var(--background));
 }
 
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--border)) hsl(var(--muted));
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--background));
 }
 
+/* Dark theme scrollbars */
 .dark ::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
+  background: hsl(var(--background));
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
+  background: hsl(var(--muted-foreground) / 0.4);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--accent-foreground) / 0.7);
+  background: hsl(var(--muted-foreground) / 0.6);
+}
+
+.dark * {
+  scrollbar-color: hsl(var(--muted-foreground) / 0.4) hsl(var(--background));
 }
 
 @media print {

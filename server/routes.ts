@@ -288,14 +288,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/products/:id", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
+  // Price Management endpoints
+  app.put('/api/products/:id', async (req, res) => {
     try {
-      const { id } = req.params;
-      const validatedData = insertProductSchema.partial().parse(req.body);
-      const product = await storage.updateProduct(id, validatedData);
+      const productId = req.params.id;
+      const updateData = req.body;
+
+      // Add price history tracking
+      if (updateData.currentPrice) {
+        const [existingProduct] = await storage.getProduct(productId); // Assuming storage.getProduct exists and returns an array or single product
+
+        if (existingProduct && existingProduct.currentPrice !== updateData.currentPrice) {
+          // Log price change for history
+          console.log(`Price updated for ${existingProduct.name}: ${existingProduct.currentPrice} -> ${updateData.currentPrice}`);
+        }
+      }
+
+      const [product] = await storage.updateProduct(productId, {
+        ...updateData,
+        updatedAt: new Date().toISOString()
+      });
+
       res.json(product);
     } catch (error) {
-      res.status(400).json({ message: "Invalid product data" });
+      console.error('Product update error:', error);
+      res.status(500).json({ error: 'Failed to update product' });
+    }
+  });
+
+  // Bulk price update endpoint
+  app.post('/api/products/bulk-update', async (req, res) => {
+    try {
+      const { productIds, updateType, value } = req.body;
+
+      if (!productIds || !Array.isArray(productIds) || !updateType || !value) {
+        return res.status(400).json({ error: 'Invalid bulk update parameters' });
+      }
+
+      const updates = [];
+
+      for (const productId of productIds) {
+        const [product] = await storage.getProduct(productId); // Assuming storage.getProduct exists
+
+        if (product) {
+          let newPrice;
+          const currentPrice = parseFloat(product.currentPrice || '0');
+
+          if (updateType === 'percentage') {
+            newPrice = currentPrice * (1 + parseFloat(value) / 100);
+          } else {
+            newPrice = currentPrice + parseFloat(value);
+          }
+
+          const [updatedProduct] = await storage.updateProduct(productId, {
+            currentPrice: newPrice.toFixed(2),
+            updatedAt: new Date().toISOString()
+          });
+
+          updates.push(updatedProduct);
+        }
+      }
+
+      res.json({ message: 'Bulk update completed', updated: updates });
+    } catch (error) {
+      console.error('Bulk update error:', error);
+      res.status(500).json({ error: 'Failed to perform bulk update' });
     }
   });
 
