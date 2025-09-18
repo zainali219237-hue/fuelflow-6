@@ -29,13 +29,14 @@ import AgingReports from "@/pages/AgingReports";
 import Settings from "@/pages/Settings";
 import AdminPanel from "@/pages/AdminPanel";
 import NotFound from "@/pages/not-found";
+import { StationProvider } from "./contexts/StationContext";
 
 // Global theme initialization to prevent auto-enabling dark mode on Settings page
 function ThemeBootstrap() {
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
+
     if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
       document.documentElement.classList.add('dark');
     } else {
@@ -55,17 +56,17 @@ function CurrencyBootstrap() {
   useEffect(() => {
     const fetchStationCurrency = async () => {
       if (!user?.stationId) return;
-      
+
       // Only fetch from server if no localStorage preference exists
       const savedCurrency = typeof window !== 'undefined' ? localStorage.getItem('selectedCurrency') : null;
       if (savedCurrency && savedCurrency in CURRENCY_CONFIG) {
         return; // Use localStorage preference
       }
-      
+
       try {
         const response = await apiRequest('GET', `/api/stations/${user.stationId}`);
         const station = await response.json();
-        
+
         if (station?.defaultCurrency && station.defaultCurrency in CURRENCY_CONFIG) {
           const newCurrency = station.defaultCurrency as CurrencyCode;
           setCurrency(newCurrency);

@@ -9,11 +9,13 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useStation } from "@/contexts/StationContext";
 import { CURRENCY_CONFIG, type CurrencyCode } from "@/lib/currency";
 
 export default function Settings() {
   const { toast } = useToast();
   const { currency, setCurrency } = useCurrency();
+  const { stationSettings, updateStationSettings } = useStation();
   
   // Theme state
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -34,15 +36,6 @@ export default function Settings() {
     showTips: true,
     autoRefresh: true,
     refreshInterval: "30",
-  });
-  
-  // Station settings
-  const [stationSettings, setStationSettings] = useState({
-    stationName: "Pak Petrol Station",
-    address: "Main Highway, Lahore",
-    contactNumber: "+92-300-1234567",
-    email: "station@pakpetrol.com",
-    gstNumber: "PAK-GST-123456789",
   });
 
   // Handle dark mode toggle
@@ -116,10 +109,9 @@ export default function Settings() {
 
   // Save settings
   const saveSettings = () => {
-    // Here you would normally save to the backend
+    // Save to localStorage and global context
     localStorage.setItem('notifications', JSON.stringify(notifications));
     localStorage.setItem('displayPreferences', JSON.stringify(displayPreferences));
-    localStorage.setItem('stationSettings', JSON.stringify(stationSettings));
     
     toast({
       title: "Settings saved",
@@ -371,7 +363,7 @@ export default function Settings() {
               <Input
                 id="station-name"
                 value={stationSettings.stationName}
-                onChange={(e) => setStationSettings(prev => ({ ...prev, stationName: e.target.value }))}
+                onChange={(e) => updateStationSettings({ stationName: e.target.value })}
                 data-testid="input-station-name"
                 className="mt-2"
               />
@@ -382,7 +374,7 @@ export default function Settings() {
               <Input
                 id="contact-number"
                 value={stationSettings.contactNumber}
-                onChange={(e) => setStationSettings(prev => ({ ...prev, contactNumber: e.target.value }))}
+                onChange={(e) => updateStationSettings({ contactNumber: e.target.value })}
                 data-testid="input-contact-number"
                 className="mt-2"
               />
@@ -394,7 +386,7 @@ export default function Settings() {
                 id="email"
                 type="email"
                 value={stationSettings.email}
-                onChange={(e) => setStationSettings(prev => ({ ...prev, email: e.target.value }))}
+                onChange={(e) => updateStationSettings({ email: e.target.value })}
                 data-testid="input-email"
                 className="mt-2"
               />
@@ -405,7 +397,7 @@ export default function Settings() {
               <Input
                 id="gst-number"
                 value={stationSettings.gstNumber}
-                onChange={(e) => setStationSettings(prev => ({ ...prev, gstNumber: e.target.value }))}
+                onChange={(e) => updateStationSettings({ gstNumber: e.target.value })}
                 data-testid="input-gst-number"
                 className="mt-2"
               />
@@ -416,7 +408,7 @@ export default function Settings() {
               <Input
                 id="address"
                 value={stationSettings.address}
-                onChange={(e) => setStationSettings(prev => ({ ...prev, address: e.target.value }))}
+                onChange={(e) => updateStationSettings({ address: e.target.value })}
                 data-testid="input-address"
                 className="mt-2"
               />

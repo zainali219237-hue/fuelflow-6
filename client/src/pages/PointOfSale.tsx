@@ -14,6 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useStation } from "@/contexts/StationContext";
 import { apiRequest } from "@/lib/api";
 import { useLocation } from "wouter";
 import { Trash2, Smartphone, Receipt, BarChart3 } from "lucide-react";
@@ -32,6 +33,7 @@ export default function PointOfSale() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { formatCurrency, currencyConfig } = useCurrency();
+  const { stationSettings } = useStation();
   
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [transactionItems, setTransactionItems] = useState<POSItem[]>([]);
@@ -262,14 +264,22 @@ export default function PointOfSale() {
   });
 
   const addProduct = (product: Product) => {
-    // For now, we'll create a mock tank since tank management is not fully implemented
-    // In a real system, you'd check for available tanks for this product
-    const mockTankId = `tank-${product.id}`;
+    // Find the first available tank for this product
+    const availableTank = tanks.find(tank => tank.productId === product.id);
+    
+    if (!availableTank) {
+      toast({
+        title: "No tank available",
+        description: `No tank found for ${product.name}`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     const newItem: POSItem = {
       productId: product.id,
       productName: product.name,
-      tankId: mockTankId,
+      tankId: availableTank.id,
       quantity: quickQuantity,
       unitPrice: parseFloat(product.currentPrice),
       totalPrice: quickQuantity * parseFloat(product.currentPrice),
@@ -553,11 +563,11 @@ export default function PointOfSale() {
       invoiceNumber: `INV-${Date.now()}`,
       date: new Date().toLocaleDateString(),
       customerName: selectedCustomerId ? customers.find(c => c.id === selectedCustomerId)?.name || "Walk-in Customer" : "Walk-in Customer",
-      stationName: "Station 1", // Will be made configurable via settings
-      stationAddress: "123 Main Street, Demo City",
-      stationPhone: "+1-234-567-8900",
-      stationEmail: "station@fuelflow.com",
-      stationGST: "GST123456789",
+      stationName: stationSettings.stationName,
+      stationAddress: stationSettings.address,
+      stationPhone: stationSettings.contactNumber,
+      stationEmail: stationSettings.email,
+      stationGST: stationSettings.gstNumber,
       cashierName: user?.fullName || "Admin User",
       paymentMethod: "CASH",
       paymentStatus: "PAID",

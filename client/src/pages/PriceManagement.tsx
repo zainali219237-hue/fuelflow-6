@@ -15,7 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
-import { Plus, Edit3, TrendingUp, Clock, Calendar, AlertTriangle, Download } from "lucide-react";
+import { Plus, Edit3, TrendingUp, Clock, Calendar, AlertTriangle, Download, Save, History, Bell } from "lucide-react";
 
 export default function PriceManagement() {
   const { user } = useAuth();
@@ -27,6 +27,10 @@ export default function PriceManagement() {
   const [priceEditOpen, setPriceEditOpen] = useState(false);
   const [selectedProductForPrice, setSelectedProductForPrice] = useState<Product | null>(null);
   const [newPrice, setNewPrice] = useState("");
+  const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
+  const [priceHistoryOpen, setPriceHistoryOpen] = useState(false);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [selectedProductForSchedule, setSelectedProductForSchedule] = useState<Product | null>(null);
 
   const form = useForm({
     resolver: zodResolver(insertProductSchema),
@@ -113,31 +117,21 @@ export default function PriceManagement() {
   };
 
   const handleViewHistory = (product: Product) => {
-    toast({
-      title: "Price History",
-      description: `Viewing price history for ${product.name}`,
-    });
+    setSelectedProductForPrice(product);
+    setPriceHistoryOpen(true);
   };
 
   const handleSchedulePrice = (product: Product) => {
-    toast({
-      title: "Schedule Price",
-      description: `Schedule price change for ${product.name}`,
-    });
+    setSelectedProductForSchedule(product);
+    setScheduleDialogOpen(true);
   };
 
   const handleBulkUpdate = () => {
-    toast({
-      title: "Bulk Update",
-      description: "Opening bulk price update dialog",
-    });
+    setBulkUpdateOpen(true);
   };
 
   const handlePriceHistory = () => {
-    toast({
-      title: "Price History Report",
-      description: "Generating comprehensive price history report",
-    });
+    setPriceHistoryOpen(true);
   };
 
   if (isLoading) {
@@ -527,6 +521,131 @@ export default function PriceManagement() {
               >
                 {updatePriceMutation.isPending ? "Updating..." : "Update Price"}
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Update Dialog */}
+      <Dialog open={bulkUpdateOpen} onOpenChange={setBulkUpdateOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Bulk Price Update</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 bg-muted rounded-lg">
+              <h4 className="font-medium mb-2">Update Multiple Products</h4>
+              <p className="text-sm text-muted-foreground">
+                Select products and apply percentage or fixed amount changes.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <Label>Update Type</Label>
+                <Select defaultValue="percentage">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percentage">Percentage Change</SelectItem>
+                    <SelectItem value="fixed">Fixed Amount</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Value</Label>
+                <Input placeholder="Enter percentage or amount" />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setBulkUpdateOpen(false)}>
+                Cancel
+              </Button>
+              <Button>Apply Changes</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Price History Dialog */}
+      <Dialog open={priceHistoryOpen} onOpenChange={setPriceHistoryOpen}>
+        <DialogContent className="sm:max-w-[700px]">
+          <DialogHeader>
+            <DialogTitle>
+              Price History {selectedProductForPrice ? `- ${selectedProductForPrice.name}` : 'Report'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 bg-muted rounded-lg">
+              <h4 className="font-medium mb-2">Price Change History</h4>
+              <p className="text-sm text-muted-foreground">
+                Track price changes over time for better pricing decisions.
+              </p>
+            </div>
+            <div className="space-y-2">
+              {[
+                { date: "2024-01-15", oldPrice: "285.00", newPrice: "290.00", reason: "Market adjustment" },
+                { date: "2024-01-10", oldPrice: "280.00", newPrice: "285.00", reason: "Supplier cost increase" },
+                { date: "2024-01-05", oldPrice: "275.00", newPrice: "280.00", reason: "Government tax revision" }
+              ].map((change, index) => (
+                <div key={index} className="flex justify-between items-center p-3 border rounded-lg">
+                  <div>
+                    <div className="font-medium">{change.date}</div>
+                    <div className="text-sm text-muted-foreground">{change.reason}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="line-through text-red-600">₹{change.oldPrice}</div>
+                    <div className="font-semibold text-green-600">₹{change.newPrice}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setPriceHistoryOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Price Dialog */}
+      <Dialog open={scheduleDialogOpen} onOpenChange={setScheduleDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              Schedule Price Change {selectedProductForSchedule ? `- ${selectedProductForSchedule.name}` : ''}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>New Price ({currencyConfig.symbol})</Label>
+              <Input type="number" step="0.01" placeholder="Enter new price" />
+            </div>
+            <div>
+              <Label>Effective Date</Label>
+              <Input type="datetime-local" />
+            </div>
+            <div>
+              <Label>Reason for Change</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="market">Market Adjustment</SelectItem>
+                  <SelectItem value="supplier">Supplier Cost Change</SelectItem>
+                  <SelectItem value="tax">Tax Revision</SelectItem>
+                  <SelectItem value="promotion">Promotional Pricing</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button>Schedule Change</Button>
             </div>
           </div>
         </DialogContent>
