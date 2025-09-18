@@ -20,7 +20,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const safeUsers = users.map(({ password, ...user }) => user);
       res.json(safeUsers);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch users" });
+      console.error('Error fetching users:', error);
+      res.status(500).json({ message: "Failed to fetch users", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -150,20 +151,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get current user
-  app.get("/api/auth/me", (req, res) => {
-    // This is a placeholder, real implementation should use token or session
-    // For now, we simulate a user object if session exists
-    // In a real app, you'd verify a JWT from the Authorization header
-    const users = [{ id: 1, username: 'admin', email: 'admin@example.com', fullName: 'Admin User', role: 'admin', stationId: 'stn1', password: '' }]; // Dummy user data for simulation
-    const user = users.find(u => u.id === req.session?.userId);
-    if (user) {
+  app.get("/api/auth/me", requireAuth, (req, res) => {
+    if (req.user) {
       res.json({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role,
-        stationId: user.stationId,
+        id: req.user.id,
+        username: req.user.username,
+        email: req.user.email,
+        fullName: req.user.fullName,
+        role: req.user.role,
+        stationId: req.user.stationId,
+        isGoogleAuth: req.user.isGoogleAuth,
         // Add responsive flag for mobile clients
         preferences: {
           sidebarCollapsed: false,
@@ -415,6 +412,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(sales);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch sales" });
+    }
+  });
+
+  app.get("/api/sales/:stationId/recent", requireAuth, requireStationAccess, async (req, res) => {
+    try {
+      const { stationId } = req.params;
+      const sales = await storage.getSalesTransactions(stationId, 5); // Get recent 5 sales
+      res.json(sales);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch recent sales" });
     }
   });
 

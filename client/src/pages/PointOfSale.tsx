@@ -33,26 +33,37 @@ export default function PointOfSale() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { formatCurrency, currencyConfig } = useCurrency();
-  const { stationSettings } = useStation();
   
+  // Add error boundary for useStation
+  let stationSettings;
+  try {
+    const stationContext = useStation();
+    stationSettings = stationContext.stationSettings;
+  } catch (error) {
+    console.error('Station context error:', error);
+    // Render a fallback UI or handle the error appropriately
+    // For now, we'll log and proceed with potentially undefined stationSettings
+    stationSettings = { stationName: "Unknown", address: "", contactNumber: "", email: "", gstNumber: "" }; // Provide default or null values
+  }
+
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [transactionItems, setTransactionItems] = useState<POSItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "credit" | "fleet">("cash");
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
   const [quickQuantity, setQuickQuantity] = useState(25);
   const [, setLocation] = useLocation();
-  
+
   // State to track editing mode
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
-  
+
   // Load draft or transaction data on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const draftId = urlParams.get('draft');
     const editId = urlParams.get('edit');
-    
+
     if (draftId) {
       setCurrentDraftId(draftId);
       loadDraft(draftId);
@@ -62,7 +73,7 @@ export default function PointOfSale() {
       loadTransactionForEdit(editId);
     }
   }, []);
-  
+
   const loadDraft = (draftId: string) => {
     try {
       // Load from allPosDrafts first
@@ -74,7 +85,7 @@ export default function PointOfSale() {
           setSelectedCustomerId(draft.selectedCustomerId || '');
           setTransactionItems(draft.transactionItems || []);
           setPaymentMethod(draft.paymentMethod || 'cash');
-          
+
           toast({
             title: "Draft loaded",
             description: "Previous draft has been restored",
@@ -82,7 +93,7 @@ export default function PointOfSale() {
           return;
         }
       }
-      
+
       // Fallback to single draft if not found in allDrafts
       const singleDraft = localStorage.getItem('posDraft');
       if (singleDraft && draftId.includes('draft-')) {
@@ -90,7 +101,7 @@ export default function PointOfSale() {
         setSelectedCustomerId(draft.selectedCustomerId || '');
         setTransactionItems(draft.transactionItems || []);
         setPaymentMethod(draft.paymentMethod || 'cash');
-        
+
         toast({
           title: "Draft loaded",
           description: "Previous draft has been restored",
@@ -110,14 +121,14 @@ export default function PointOfSale() {
     try {
       const response = await apiRequest('GET', `/api/sales/detail/${transactionId}`);
       const transactionData = await response.json();
-      
+
       if (transactionData && transactionData.items) {
         // Set customer
         setSelectedCustomerId(transactionData.customerId || '');
-        
+
         // Set payment method
         setPaymentMethod(transactionData.paymentMethod || 'cash');
-        
+
         // Convert transaction items to POSItem format
         const posItems = transactionData.items.map((item: any) => ({
           productId: item.productId,
@@ -127,9 +138,9 @@ export default function PointOfSale() {
           unitPrice: parseFloat(item.unitPrice || '0'),
           totalPrice: parseFloat(item.totalPrice || '0'),
         }));
-        
+
         setTransactionItems(posItems);
-        
+
         toast({
           title: "Transaction loaded",
           description: `Loaded transaction ${transactionData.invoiceNumber} for editing`,
@@ -266,7 +277,7 @@ export default function PointOfSale() {
   const addProduct = (product: Product) => {
     // Find the first available tank for this product
     const availableTank = tanks.find(tank => tank.productId === product.id);
-    
+
     if (!availableTank) {
       toast({
         title: "No tank available",
@@ -286,7 +297,7 @@ export default function PointOfSale() {
     };
 
     setTransactionItems([...transactionItems, newItem]);
-    
+
     toast({
       title: "Product added",
       description: `${product.name} added to transaction`,
@@ -310,7 +321,7 @@ export default function PointOfSale() {
     setPaymentMethod("cash");
     setIsEditMode(false);
     setEditingTransactionId(null);
-    
+
     // Remove draft if we were working with one
     if (currentDraftId) {
       removeDraftFromStorage(currentDraftId);
@@ -326,7 +337,7 @@ export default function PointOfSale() {
         const updatedDrafts = drafts.filter((d: any) => d.id !== draftId);
         localStorage.setItem('allPosDrafts', JSON.stringify(updatedDrafts));
       }
-      
+
       // Also remove single draft if it matches
       const singleDraft = localStorage.getItem('posDraft');
       if (singleDraft) {
@@ -344,11 +355,11 @@ export default function PointOfSale() {
   const taxAmount = 0; // Tax removed - will be configurable via global settings
   const totalAmount = subtotal + taxAmount;
 
-  const completeSale = () => {
-    if (transactionItems.length === 0) {
+  const completeSale = async () => {
+    if (!user?.stationId || transactionItems.length === 0) {
       toast({
-        title: "No items",
-        description: "Please add items to the transaction",
+        title: "Missing information",
+        description: "Please ensure user station ID is loaded and items are added to the transaction.",
         variant: "destructive",
       });
       return;
@@ -427,10 +438,10 @@ export default function PointOfSale() {
       });
       return;
     }
-    
+
     const totalAmount = transactionItems.reduce((sum, item) => sum + item.totalPrice, 0);
     const timestamp = Date.now();
-    
+
     // Create draft data
     const draftData = {
       id: `draft-${timestamp}`,
@@ -440,12 +451,12 @@ export default function PointOfSale() {
       timestamp,
       totalAmount
     };
-    
+
     // Save to allPosDrafts (new format)
     try {
       const existingDrafts = localStorage.getItem('allPosDrafts');
       const drafts = existingDrafts ? JSON.parse(existingDrafts) : [];
-      
+
       // Replace existing draft with same timestamp or add new one
       const existingIndex = drafts.findIndex((d: any) => d.id === draftData.id);
       if (existingIndex >= 0) {
@@ -453,12 +464,12 @@ export default function PointOfSale() {
       } else {
         drafts.push(draftData);
       }
-      
+
       localStorage.setItem('allPosDrafts', JSON.stringify(drafts));
-      
+
       // Also save as single draft for backward compatibility
       localStorage.setItem('posDraft', JSON.stringify(draftData));
-      
+
       toast({
         title: "Draft saved",
         description: "Transaction saved as draft",
@@ -478,7 +489,7 @@ export default function PointOfSale() {
     setSelectedCustomerId("");
     setPaymentMethod("cash");
     localStorage.removeItem('posDraft');
-    
+
     toast({
       title: "Transaction cancelled",
       description: "Transaction has been cleared",
@@ -502,18 +513,18 @@ export default function PointOfSale() {
     try {
       const invoiceHTML = generateInvoiceHTML();
       const printWindow = window.open('', '_blank', 'width=800,height=600');
-      
+
       if (printWindow) {
         printWindow.document.open();
         printWindow.document.write(invoiceHTML);
         printWindow.document.close();
-        
+
         // Wait for content to load before printing
         printWindow.onload = () => {
           printWindow.focus();
           printWindow.print();
         };
-        
+
         // Fallback: print after a short delay if onload doesn't fire
         setTimeout(() => {
           if (printWindow && !printWindow.closed) {
@@ -529,7 +540,7 @@ export default function PointOfSale() {
         });
         return;
       }
-      
+
       toast({
         title: "Invoice Prepared",
         description: "Invoice window opened for printing",

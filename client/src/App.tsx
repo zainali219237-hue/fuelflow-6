@@ -115,14 +115,16 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <CurrencyProvider>
-          <ThemeBootstrap />
-          <CurrencyBootstrap />
-          <TooltipProvider>
-            <Toaster />
-            <AuthGuard>
-              <Router />
-            </AuthGuard>
-          </TooltipProvider>
+          <StationProvider>
+            <ThemeBootstrap />
+            <CurrencyBootstrap />
+            <TooltipProvider>
+              <Toaster />
+              <AuthGuard>
+                <Router />
+              </AuthGuard>
+            </TooltipProvider>
+          </StationProvider>
         </CurrencyProvider>
       </AuthProvider>
     </QueryClientProvider>

@@ -22,38 +22,39 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+  getUsers(): Promise<User[]>; // Added getUsers method
+
   // Stations
   getStation(id: string): Promise<Station | undefined>;
   getStations(): Promise<Station[]>;
   createStation(station: InsertStation): Promise<Station>;
-  
+
   // Products
   getProducts(): Promise<Product[]>;
   getProduct(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product>;
-  
+
   // Tanks
   getTanksByStation(stationId: string): Promise<(Tank & { product: Product })[]>;
   getTank(id: string): Promise<Tank | undefined>;
   createTank(tank: InsertTank): Promise<Tank>;
   updateTankStock(id: string, currentStock: number): Promise<Tank>;
-  
+
   // Customers
   getCustomers(): Promise<Customer[]>;
   getCustomer(id: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, customer: Partial<InsertCustomer>): Promise<Customer>;
   updateCustomerOutstanding(customerId: string, additionalAmount: number): Promise<void>;
-  
+
   // Suppliers
   getSuppliers(): Promise<Supplier[]>;
   getSupplier(id: string): Promise<Supplier | undefined>;
   createSupplier(supplier: InsertSupplier): Promise<Supplier>;
   updateSupplier(id: string, supplier: Partial<InsertSupplier>): Promise<Supplier>;
   updateSupplierOutstanding(supplierId: string, additionalAmount: number): Promise<void>;
-  
+
   // Sales Transactions
   getSalesTransactions(stationId: string, limit?: number): Promise<SalesTransaction[]>;
   getSalesTransaction(id: string): Promise<SalesTransaction | undefined>;
@@ -62,11 +63,11 @@ export interface IStorage {
   createSalesTransaction(transaction: InsertSalesTransaction): Promise<SalesTransaction>;
   deleteSalesTransaction(id: string): Promise<void>;
   deleteSalesTransactionSecure(id: string, userStationId: string, userRole: string): Promise<void>;
-  
+
   // Sales Transaction Items
   createSalesTransactionItem(item: InsertSalesTransactionItem): Promise<SalesTransactionItem>;
   getSalesTransactionItems(transactionId: string): Promise<SalesTransactionItem[]>;
-  
+
   // Purchase Orders
   getPurchaseOrders(stationId: string): Promise<PurchaseOrder[]>;
   getPurchaseOrder(id: string): Promise<PurchaseOrder | undefined>;
@@ -75,22 +76,22 @@ export interface IStorage {
   createPurchaseOrder(order: InsertPurchaseOrder): Promise<PurchaseOrder>;
   deletePurchaseOrder(id: string): Promise<void>;
   deletePurchaseOrderSecure(id: string, userStationId: string, userRole: string): Promise<void>;
-  
+
   // Purchase Order Items
   createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem>;
-  
+
   // Expenses
   getExpenses(stationId: string): Promise<Expense[]>;
   createExpense(expense: InsertExpense): Promise<Expense>;
-  
+
   // Payments
   getPayments(stationId: string): Promise<Payment[]>;
   createPayment(payment: InsertPayment): Promise<Payment>;
-  
+
   // Stock Movements
   getStockMovements(tankId: string): Promise<StockMovement[]>;
   createStockMovement(movement: InsertStockMovement): Promise<StockMovement>;
-  
+
   // Reports and Analytics
   getDashboardStats(stationId: string): Promise<any>;
   getSalesReport(stationId: string, startDate: Date, endDate: Date): Promise<any>;
@@ -99,11 +100,6 @@ export interface IStorage {
   getAgingReport(stationId: string, type: 'receivable' | 'payable'): Promise<any>;
   deletePayment(id: string, stationId: string): Promise<void>;
   deleteExpense(id: string, stationId: string): Promise<void>;
-  
-  // Settings
-  getSettings(stationId: string): Promise<Settings | undefined>;
-  createSettings(settings: InsertSettings): Promise<Settings>;
-  updateSettings(stationId: string, settings: Partial<InsertSettings>): Promise<Settings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -120,6 +116,10 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
+  }
+
+  async getUsers(): Promise<User[]> {
+    return await db.select().from(users);
   }
 
   async getStation(id: string): Promise<Station | undefined> {
@@ -189,7 +189,7 @@ export class DatabaseStorage implements IStorage {
       .from(tanks)
       .innerJoin(products, eq(tanks.productId, products.id))
       .where(eq(tanks.stationId, stationId));
-    
+
     return result as (Tank & { product: Product })[];
   }
 
@@ -241,7 +241,7 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(customers.id, customerId))
         .returning({ id: customers.id });
-        
+
       if (result.length === 0) {
         throw new Error(`Customer ${customerId} not found`);
       }
@@ -258,7 +258,7 @@ export class DatabaseStorage implements IStorage {
         })
         .where(eq(suppliers.id, supplierId))
         .returning({ id: suppliers.id });
-        
+
       if (result.length === 0) {
         throw new Error(`Supplier ${supplierId} not found`);
       }
@@ -388,7 +388,7 @@ export class DatabaseStorage implements IStorage {
     return expense;
   }
 
-  async getPayments(stationId: string): Promise<Payment[]> {
+  async getPayments(stationId: string): Promise<Payment[]>{
     return await db.select()
       .from(payments)
       .where(eq(payments.stationId, stationId))
@@ -401,10 +401,10 @@ export class DatabaseStorage implements IStorage {
       const result = await db.transaction(async (tx) => {
         // Create the payment record
         const [payment] = await tx.insert(payments).values(insertPayment).returning();
-        
+
         // Update outstanding amounts based on payment type
         const paymentAmount = parseFloat(payment.amount);
-        
+
         if (payment.type === 'receivable' && payment.customerId) {
           // Customer payment - reduce customer's outstanding amount
           await tx.update(customers)
@@ -420,10 +420,10 @@ export class DatabaseStorage implements IStorage {
             })
             .where(eq(suppliers.id, payment.supplierId));
         }
-        
+
         return payment;
       });
-      
+
       return result;
     } catch (error) {
       throw new Error(`Failed to create payment and update outstanding amounts: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -447,7 +447,7 @@ export class DatabaseStorage implements IStorage {
 
       const currentStock = parseFloat(currentTank.currentStock || '0');
       const movementQuantity = parseFloat(insertMovement.quantity);
-      
+
       // Calculate new stock based on movement type
       let newStock: number;
       switch (insertMovement.movementType) {
@@ -479,15 +479,15 @@ export class DatabaseStorage implements IStorage {
         previousStock: currentStock.toString(),
         newStock: newStock.toString(),
       };
-      
+
       const [movement] = await tx.insert(stockMovements).values(movementData).returning();
-      
+
       // Update tank stock and set last refill date if it's an 'in' movement
       const updateData: any = { currentStock: newStock.toString() };
       if (insertMovement.movementType === 'in') {
         updateData.lastRefillDate = new Date();
       }
-      
+
       const [updatedTank] = await tx.update(tanks)
         .set(updateData)
         .where(eq(tanks.id, insertMovement.tankId))
@@ -612,7 +612,7 @@ export class DatabaseStorage implements IStorage {
       .then(results => results[0]);
 
     if (!transaction) return undefined;
-    
+
     // Ensure customer, station, and user exist - if not, the data is inconsistent
     if (!transaction.customers || !transaction.stations || !transaction.users) {
       throw new Error(`Sales transaction ${id} has missing customer, station, or user data`);
@@ -667,7 +667,7 @@ export class DatabaseStorage implements IStorage {
       .then(results => results[0]);
 
     if (!transaction) return undefined;
-    
+
     // Ensure customer, station, and user exist - if not, the data is inconsistent
     if (!transaction.customers || !transaction.stations || !transaction.users) {
       throw new Error(`Sales transaction ${id} has missing customer, station, or user data`);
@@ -720,7 +720,7 @@ export class DatabaseStorage implements IStorage {
     await db.transaction(async (tx) => {
       // Delete related transaction items first
       await tx.delete(salesTransactionItems).where(eq(salesTransactionItems.transactionId, id));
-      
+
       // Delete the transaction
       await tx.delete(salesTransactions).where(eq(salesTransactions.id, id));
     });
@@ -733,22 +733,22 @@ export class DatabaseStorage implements IStorage {
         const [transaction] = await tx.select({ stationId: salesTransactions.stationId })
           .from(salesTransactions)
           .where(eq(salesTransactions.id, id));
-        
+
         if (!transaction) {
           throw new Error('Sales transaction not found');
         }
-        
+
         if (transaction.stationId !== userStationId) {
           throw new Error('Access denied: Transaction does not belong to your station');
         }
       }
-      
+
       // Delete related transaction items first
       await tx.delete(salesTransactionItems).where(eq(salesTransactionItems.transactionId, id));
-      
+
       // Delete the transaction
       const result = await tx.delete(salesTransactions).where(eq(salesTransactions.id, id)).returning({ id: salesTransactions.id });
-      
+
       if (result.length === 0) {
         throw new Error('Sales transaction not found');
       }
@@ -764,7 +764,7 @@ export class DatabaseStorage implements IStorage {
     await db.transaction(async (tx) => {
       // Delete related order items first
       await tx.delete(purchaseOrderItems).where(eq(purchaseOrderItems.orderId, id));
-      
+
       // Delete the purchase order
       await tx.delete(purchaseOrders).where(eq(purchaseOrders.id, id));
     });
@@ -780,7 +780,7 @@ export class DatabaseStorage implements IStorage {
       .then(results => results[0]);
 
     if (!order) return undefined;
-    
+
     // Ensure supplier and station exist - if not, the data is inconsistent
     if (!order.suppliers || !order.stations) {
       throw new Error(`Purchase order ${id} has missing supplier or station data`);
@@ -809,7 +809,7 @@ export class DatabaseStorage implements IStorage {
       .then(results => results[0]);
 
     if (!order) return undefined;
-    
+
     // Ensure supplier and station exist - if not, the data is inconsistent
     if (!order.suppliers || !order.stations) {
       throw new Error(`Purchase order ${id} has missing supplier or station data`);
@@ -840,22 +840,22 @@ export class DatabaseStorage implements IStorage {
         const [order] = await tx.select({ stationId: purchaseOrders.stationId })
           .from(purchaseOrders)
           .where(eq(purchaseOrders.id, id));
-        
+
         if (!order) {
           throw new Error('Purchase order not found');
         }
-        
+
         if (order.stationId !== userStationId) {
           throw new Error('Access denied: Purchase order does not belong to your station');
         }
       }
-      
+
       // Delete related order items first
       await tx.delete(purchaseOrderItems).where(eq(purchaseOrderItems.orderId, id));
-      
+
       // Delete the purchase order
       const result = await tx.delete(purchaseOrders).where(eq(purchaseOrders.id, id)).returning({ id: purchaseOrders.id });
-      
+
       if (result.length === 0) {
         throw new Error('Purchase order not found');
       }
@@ -1035,7 +1035,7 @@ export class DatabaseStorage implements IStorage {
           eq(payments.stationId, stationId)
         )
       ).returning({ id: payments.id });
-      
+
       if (result.length === 0) {
         throw new Error(`Payment ${id} not found or not authorized for station ${stationId}`);
       }
@@ -1052,7 +1052,7 @@ export class DatabaseStorage implements IStorage {
           eq(expenses.stationId, stationId)
         )
       ).returning({ id: expenses.id });
-      
+
       if (result.length === 0) {
         throw new Error(`Expense ${id} not found or not authorized for station ${stationId}`);
       }
@@ -1060,7 +1060,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Failed to delete expense: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
+
   async getSettings(stationId: string): Promise<Settings | undefined> {
     const [setting] = await db.select().from(settings).where(eq(settings.stationId, stationId));
     return setting || undefined;

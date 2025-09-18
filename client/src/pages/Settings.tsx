@@ -11,17 +11,30 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useStation } from "@/contexts/StationContext";
 import { CURRENCY_CONFIG, type CurrencyCode } from "@/lib/currency";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Settings() {
+  const { user } = useAuth();
+
+  // Add error boundary for useStation
+  let stationInfo;
+  try {
+    const stationContext = useStation();
+    stationInfo = stationContext.stationInfo;
+  } catch (error) {
+    console.error('Station context error:', error);
+    stationInfo = null;
+  }
+
   const { toast } = useToast();
   const { currency, setCurrency } = useCurrency();
   const { stationSettings, updateStationSettings } = useStation();
-  
+
   // Theme state
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return document.documentElement.classList.contains('dark');
   });
-  
+
   // Notification preferences
   const [notifications, setNotifications] = useState({
     lowStock: true,
@@ -29,7 +42,7 @@ export default function Settings() {
     paymentReminders: true,
     systemUpdates: false,
   });
-  
+
   // Display preferences
   const [displayPreferences, setDisplayPreferences] = useState({
     compactView: false,
@@ -42,7 +55,7 @@ export default function Settings() {
   const toggleDarkMode = () => {
     const newDarkMode = !isDarkMode;
     setIsDarkMode(newDarkMode);
-    
+
     if (newDarkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -50,7 +63,7 @@ export default function Settings() {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
-    
+
     toast({
       title: "Theme updated",
       description: `Switched to ${newDarkMode ? 'dark' : 'light'} mode`,
@@ -112,7 +125,7 @@ export default function Settings() {
     // Save to localStorage and global context
     localStorage.setItem('notifications', JSON.stringify(notifications));
     localStorage.setItem('displayPreferences', JSON.stringify(displayPreferences));
-    
+
     toast({
       title: "Settings saved",
       description: "Your preferences have been saved successfully",
@@ -188,9 +201,9 @@ export default function Settings() {
                 data-testid="switch-dark-mode"
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-sm font-medium">Compact View</Label>
@@ -206,7 +219,7 @@ export default function Settings() {
                 data-testid="switch-compact-view"
               />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-sm font-medium">Show Tips</Label>
@@ -248,7 +261,7 @@ export default function Settings() {
                 data-testid="switch-low-stock"
               />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-sm font-medium">Sales Alerts</Label>
@@ -264,7 +277,7 @@ export default function Settings() {
                 data-testid="switch-sales-alerts"
               />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-sm font-medium">Payment Reminders</Label>
@@ -280,7 +293,7 @@ export default function Settings() {
                 data-testid="switch-payment-reminders"
               />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-sm font-medium">System Updates</Label>
@@ -322,7 +335,7 @@ export default function Settings() {
                 data-testid="switch-auto-refresh"
               />
             </div>
-            
+
             {displayPreferences.autoRefresh && (
               <div>
                 <Label className="text-sm font-medium">Refresh Interval (seconds)</Label>
@@ -368,7 +381,7 @@ export default function Settings() {
                 className="mt-2"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="contact-number" className="text-sm font-medium">Contact Number</Label>
               <Input
@@ -379,7 +392,7 @@ export default function Settings() {
                 className="mt-2"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
               <Input
@@ -391,7 +404,7 @@ export default function Settings() {
                 className="mt-2"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="gst-number" className="text-sm font-medium">GST Number</Label>
               <Input
@@ -402,7 +415,7 @@ export default function Settings() {
                 className="mt-2"
               />
             </div>
-            
+
             <div className="md:col-span-2">
               <Label htmlFor="address" className="text-sm font-medium">Address</Label>
               <Input
@@ -420,7 +433,7 @@ export default function Settings() {
       {/* Save Button */}
       <div className="flex justify-end">
         <Button onClick={saveSettings} size="lg" data-testid="button-save-settings">
-          💾 Save All Settings
+          Save All Settings
         </Button>
       </div>
     </div>
