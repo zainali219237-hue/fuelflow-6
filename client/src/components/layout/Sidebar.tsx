@@ -102,10 +102,14 @@ const navigationItems = [
   }
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
+
+export default function Sidebar({ isCollapsed = false, onToggleCollapse }: SidebarProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
-  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
     <div className={cn(
@@ -130,14 +134,14 @@ export default function Sidebar() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 bg-card border border-border rounded-full hover:bg-accent"
+          onClick={onToggleCollapse}
+          className="absolute -right-3 top-1/2 -translate-y-1/2 h-7 w-7 bg-background border border-border rounded-full hover:bg-accent shadow-md z-50"
           data-testid="sidebar-toggle"
         >
           {isCollapsed ? (
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-4 h-4" />
           ) : (
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-4 h-4" />
           )}
         </Button>
       </div>

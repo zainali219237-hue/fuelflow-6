@@ -16,9 +16,9 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex">
       <Sidebar />
-      <div className="ml-64 min-h-screen">
+      <div className="flex-1 transition-all duration-300 ml-64">
         <Header />
         <main className="p-6">
           {children}
