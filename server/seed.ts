@@ -144,12 +144,11 @@ export async function seedInitialData() {
     const customers = await Promise.all([
       storage.createCustomer({
         name: "Ahmed Transport Co.",
-        contactPerson: "Ahmed Ali",
-        phone: "+92-300-1234567",
-        email: "ahmed@transport.com",
+        contactPhone: "+92-300-1234567",
+        contactEmail: "ahmed@transport.com",
         address: "123 Transport Street, Karachi",
         creditLimit: "50000.00",
-        outstandingBalance: "15000.00",
+        outstandingAmount: "15000.00",
         isActive: true
       }),
       storage.createCustomer({
@@ -190,30 +189,30 @@ export async function seedInitialData() {
       storage.createSupplier({
         name: "Pakistan State Oil (PSO)",
         contactPerson: "Ali Rahman",
-        phone: "+92-21-111222333",
-        email: "ali@pso.com.pk",
+        contactPhone: "+92-21-111222333",
+        contactEmail: "ali@pso.com.pk",
         address: "PSO House, Clifton, Karachi",
-        taxId: "PSO123456789",
+        gstNumber: "PSO123456789",
         paymentTerms: "Net 30",
         isActive: true
       }),
       storage.createSupplier({
         name: "Shell Pakistan Limited",
         contactPerson: "Sara Khan", 
-        phone: "+92-21-444555666",
-        email: "sara@shell.com.pk",
+        contactPhone: "+92-21-444555666",
+        contactEmail: "sara@shell.com.pk",
         address: "Shell Building, I.I. Chundrigar Road, Karachi",
-        taxId: "SHELL987654321",
+        gstNumber: "SHELL987654321",
         paymentTerms: "Net 15",
         isActive: true
       }),
       storage.createSupplier({
         name: "Total PARCO Pakistan Ltd",
         contactPerson: "Omar Malik",
-        phone: "+92-21-777888999",
-        email: "omar@totalparco.com.pk", 
+        contactPhone: "+92-21-777888999",
+        contactEmail: "omar@totalparco.com.pk", 
         address: "PARCO Head Office, Karachi",
-        taxId: "PARCO555444333",
+        gstNumber: "PARCO555444333",
         paymentTerms: "Net 45",
         isActive: true
       })
@@ -275,7 +274,6 @@ export async function seedInitialData() {
           totalAmount: subtotal.toFixed(2),
           paidAmount: paymentMethod === "credit" ? "0.00" : subtotal.toFixed(2),
           outstandingAmount: paymentMethod === "credit" ? subtotal.toFixed(2) : "0.00",
-          paymentStatus: paymentMethod === "credit" ? "pending" : "paid",
           notes: `Fuel transaction - ${paymentMethod} payment`,
           currencyCode: "PKR"
         });
@@ -359,9 +357,6 @@ export async function seedInitialData() {
         orderNumber: `PO-2024-${String(2000 + i).padStart(4, '0')}`,
         orderDate: orderDate,
         expectedDeliveryDate: expectedDate,
-        productId: Math.random() > 0.5 ? petrolProduct.id : dieselProduct.id,
-        quantity: quantity,
-        unitPrice: unitPrice,
         subtotal: totalAmount,
         taxAmount: "0.00",
         totalAmount: totalAmount,
