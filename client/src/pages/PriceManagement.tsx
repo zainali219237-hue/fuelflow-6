@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
+import { Plus, Edit3, TrendingUp, Clock, Calendar, AlertTriangle, Download } from "lucide-react";
 
 export default function PriceManagement() {
   const { user } = useAuth();
@@ -22,6 +23,10 @@ export default function PriceManagement() {
   const queryClient = useQueryClient();
   const { currencyConfig } = useCurrency();
   const [open, setOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [priceEditOpen, setPriceEditOpen] = useState(false);
+  const [selectedProductForPrice, setSelectedProductForPrice] = useState<Product | null>(null);
+  const [newPrice, setNewPrice] = useState("");
 
   const form = useForm({
     resolver: zodResolver(insertProductSchema),
@@ -78,6 +83,9 @@ export default function PriceManagement() {
         title: "Price updated",
         description: "Product price updated successfully",
       });
+      setPriceEditOpen(false);
+      setSelectedProductForPrice(null);
+      setNewPrice("");
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
     },
     onError: () => {
@@ -88,6 +96,49 @@ export default function PriceManagement() {
       });
     },
   });
+
+  const handleEditPrice = (product: Product) => {
+    setSelectedProductForPrice(product);
+    setNewPrice(product.currentPrice || "0");
+    setPriceEditOpen(true);
+  };
+
+  const handleUpdatePrice = () => {
+    if (selectedProductForPrice && newPrice) {
+      updatePriceMutation.mutate({
+        productId: selectedProductForPrice.id,
+        newPrice: parseFloat(newPrice)
+      });
+    }
+  };
+
+  const handleViewHistory = (product: Product) => {
+    toast({
+      title: "Price History",
+      description: `Viewing price history for ${product.name}`,
+    });
+  };
+
+  const handleSchedulePrice = (product: Product) => {
+    toast({
+      title: "Schedule Price",
+      description: `Schedule price change for ${product.name}`,
+    });
+  };
+
+  const handleBulkUpdate = () => {
+    toast({
+      title: "Bulk Update",
+      description: "Opening bulk price update dialog",
+    });
+  };
+
+  const handlePriceHistory = () => {
+    toast({
+      title: "Price History Report",
+      description: "Generating comprehensive price history report",
+    });
+  };
 
   if (isLoading) {
     return (
@@ -113,7 +164,8 @@ export default function PriceManagement() {
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-add-product">
-                + Add Product
+                <Plus className="w-4 h-4 mr-2" />
+                Add Product
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
@@ -238,11 +290,13 @@ export default function PriceManagement() {
               </Form>
             </DialogContent>
           </Dialog>
-          <Button data-testid="button-bulk-price-update">
-            📊 Bulk Update
+          <Button onClick={handleBulkUpdate} data-testid="button-bulk-price-update">
+            <Download className="w-4 h-4 mr-2" />
+            Bulk Update
           </Button>
-          <Button variant="outline" data-testid="button-price-history">
-            📈 Price History
+          <Button variant="outline" onClick={handlePriceHistory} data-testid="button-price-history">
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Price History
           </Button>
         </div>
       </div>
@@ -347,24 +401,33 @@ export default function PriceManagement() {
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center space-x-2">
-                          <button 
-                            className="text-blue-600 hover:text-blue-800"
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                            onClick={() => handleEditPrice(product)}
                             data-testid={`button-edit-price-${index}`}
                           >
-                            ✏️
-                          </button>
-                          <button 
-                            className="text-green-600 hover:text-green-800"
+                            <Edit3 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-green-600 hover:text-green-800 hover:bg-green-50"
+                            onClick={() => handleViewHistory(product)}
                             data-testid={`button-history-${index}`}
                           >
-                            📈
-                          </button>
-                          <button 
-                            className="text-purple-600 hover:text-purple-800"
+                            <TrendingUp className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-purple-600 hover:text-purple-800 hover:bg-purple-50"
+                            onClick={() => handleSchedulePrice(product)}
                             data-testid={`button-schedule-${index}`}
                           >
-                            ⏰
-                          </button>
+                            <Clock className="w-4 h-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -391,7 +454,7 @@ export default function PriceManagement() {
           <div className="space-y-3">
             <div className="p-3 bg-green-50 border border-green-200 rounded-md">
               <div className="flex items-start">
-                <span className="text-green-500 mr-2">📈</span>
+                <TrendingUp className="w-4 h-4 text-green-500 mr-2 mt-0.5" />
                 <div>
                   <div className="text-sm font-medium text-green-800">Price Increase</div>
                   <div className="text-xs text-green-600">
@@ -402,7 +465,7 @@ export default function PriceManagement() {
             </div>
             <div className="p-3 bg-red-50 border border-red-200 rounded-md">
               <div className="flex items-start">
-                <span className="text-red-500 mr-2">📉</span>
+                <TrendingUp className="w-4 h-4 text-red-500 mr-2 mt-0.5 rotate-180" />
                 <div>
                   <div className="text-sm font-medium text-red-800">Price Decrease</div>
                   <div className="text-xs text-red-600">
@@ -413,7 +476,7 @@ export default function PriceManagement() {
             </div>
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
               <div className="flex items-start">
-                <span className="text-yellow-500 mr-2">⚠️</span>
+                <AlertTriangle className="w-4 h-4 text-yellow-500 mr-2 mt-0.5" />
                 <div>
                   <div className="text-sm font-medium text-yellow-800">Margin Alert</div>
                   <div className="text-xs text-yellow-600">
@@ -425,6 +488,49 @@ export default function PriceManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Price Edit Dialog */}
+      <Dialog open={priceEditOpen} onOpenChange={setPriceEditOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Update Price - {selectedProductForPrice?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Current Price</label>
+              <div className="text-lg font-semibold text-muted-foreground">
+                {selectedProductForPrice && `₹${parseFloat(selectedProductForPrice.currentPrice || '0').toFixed(2)}`}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">New Price ({currencyConfig.symbol})</label>
+              <Input
+                type="number"
+                step="0.01"
+                value={newPrice}
+                onChange={(e) => setNewPrice(e.target.value)}
+                placeholder="Enter new price"
+                className="mt-1"
+              />
+            </div>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPriceEditOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdatePrice}
+                disabled={updatePriceMutation.isPending || !newPrice}
+              >
+                {updatePriceMutation.isPending ? "Updating..." : "Update Price"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -126,8 +126,8 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
         "border-b border-border flex-shrink-0",
         isCollapsed ? "p-3" : "p-6"
       )}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3 min-w-0">
+        <div className="flex items-center">
+          <div className="flex items-center space-x-3 min-w-0 flex-1">
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground flex-shrink-0">
               <Fuel className="w-5 h-5" />
             </div>
@@ -137,23 +137,6 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
                 <p className="text-xs text-muted-foreground truncate" data-testid="current-station">Main Station</p>
               </div>
             )}
-          </div>
-          
-          {/* Desktop toggle button */}
-          <div className="hidden lg:block">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleCollapse}
-              className="h-8 w-8 hover:bg-accent flex-shrink-0"
-              data-testid="sidebar-toggle"
-            >
-              {isCollapsed ? (
-                <ChevronRight className="w-4 h-4" />
-              ) : (
-                <ChevronLeft className="w-4 h-4" />
-              )}
-            </Button>
           </div>
 
           {/* Mobile close button */}
@@ -237,14 +220,33 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
               </div>
             </div>
           )}
-          <button 
-            onClick={logout} 
-            className="text-muted-foreground hover:text-destructive transition-colors p-1 flex-shrink-0"
-            data-testid="button-logout"
-            title={isCollapsed ? "Logout" : undefined}
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-1">
+            {/* Desktop toggle button */}
+            <div className="hidden lg:block">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggleCollapse}
+                className="h-8 w-8 hover:bg-accent flex-shrink-0"
+                data-testid="sidebar-toggle"
+                title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="w-4 h-4" />
+                ) : (
+                  <ChevronLeft className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
+            <button 
+              onClick={logout} 
+              className="text-muted-foreground hover:text-destructive transition-colors p-1 flex-shrink-0"
+              data-testid="button-logout"
+              title={isCollapsed ? "Logout" : undefined}
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

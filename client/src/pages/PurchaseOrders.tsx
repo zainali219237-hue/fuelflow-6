@@ -17,6 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
+import { TrendingUp, TrendingDown, AlertTriangle, Eye, Pencil, Printer, Trash2 } from "lucide-react";
+
 
 export default function PurchaseOrders() {
   const { user } = useAuth();
@@ -26,6 +28,7 @@ export default function PurchaseOrders() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
+  const [editOrderId, setEditOrderId] = useState<string | null>(null);
 
   const form = useForm({
     resolver: zodResolver(insertPurchaseOrderSchema.extend({
@@ -48,14 +51,11 @@ export default function PurchaseOrders() {
 
   const createPurchaseOrderMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Process form data to handle empty strings properly
       const processedData = {
         ...data,
         stationId: user?.stationId || data.stationId,
         userId: user?.id || data.userId,
-        // Convert empty strings to undefined for optional date fields
         expectedDeliveryDate: data.expectedDeliveryDate === "" ? undefined : data.expectedDeliveryDate,
-        // Add missing required field
         currencyCode: currencyConfig.code,
       };
       const response = await apiRequest("POST", "/api/purchase-orders", processedData);
@@ -79,8 +79,61 @@ export default function PurchaseOrders() {
     },
   });
 
+  const updatePurchaseOrderMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const processedData = {
+        ...data,
+        stationId: user?.stationId || data.stationId,
+        userId: user?.id || data.userId,
+        expectedDeliveryDate: data.expectedDeliveryDate === "" ? undefined : data.expectedDeliveryDate,
+        currencyCode: currencyConfig.code,
+      };
+      const response = await apiRequest("PUT", `/api/purchase-orders/${id}`, processedData);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Purchase order updated",
+        description: "Purchase order has been updated successfully",
+      });
+      setEditOrderId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders", user?.stationId] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update purchase order",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deletePurchaseOrderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/purchase-orders/${id}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Purchase order deleted",
+        description: "Purchase order has been deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders", user?.stationId] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete purchase order",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: any) => {
-    createPurchaseOrderMutation.mutate(data);
+    if (editOrderId) {
+      updatePurchaseOrderMutation.mutate({ id: editOrderId, data });
+    } else {
+      createPurchaseOrderMutation.mutate(data);
+    }
   };
 
   const { data: purchaseOrders = [], isLoading } = useQuery<PurchaseOrder[]>({
@@ -126,7 +179,7 @@ export default function PurchaseOrders() {
           <h3 className="text-2xl font-semibold text-card-foreground">Purchase Orders</h3>
           <p className="text-muted-foreground">Manage fuel procurement and supplier orders</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={editOrderId !== null || open} onOpenChange={(isOpen) => { if (!isOpen) { setEditOrderId(null); form.reset(); } else { setOpen(true); } }}>
           <DialogTrigger asChild>
             <Button data-testid="button-new-purchase-order">
               + New Purchase Order
@@ -134,7 +187,7 @@ export default function PurchaseOrders() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create New Purchase Order</DialogTitle>
+              <DialogTitle>{editOrderId ? "Edit Purchase Order" : "Create New Purchase Order"}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -241,11 +294,11 @@ export default function PurchaseOrders() {
                   )}
                 />
                 <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel">
+                  <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditOrderId(null); form.reset(); }} data-testid="button-cancel">
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={createPurchaseOrderMutation.isPending} data-testid="button-submit-order">
-                    {createPurchaseOrderMutation.isPending ? "Creating..." : "Create Purchase Order"}
+                  <Button type="submit" disabled={createPurchaseOrderMutation.isPending || updatePurchaseOrderMutation.isPending} data-testid="button-submit-order">
+                    {editOrderId ? "Update Purchase Order" : "Create Purchase Order"}
                   </Button>
                 </div>
               </form>
@@ -337,7 +390,7 @@ export default function PurchaseOrders() {
               <tbody>
                 {filteredOrders.length > 0 ? filteredOrders.map((order: PurchaseOrder, index: number) => {
                   const supplier = suppliers.find(s => s.id === order.supplierId);
-                  
+
                   return (
                     <tr key={order.id} className="border-b border-border hover:bg-muted/50">
                       <td className="p-3">
@@ -373,20 +426,49 @@ export default function PurchaseOrders() {
                           <button 
                             className="text-blue-600 hover:text-blue-800"
                             data-testid={`button-view-${index}`}
+                            onClick={() => { /* View logic here */ }}
                           >
-                            👁️
+                            <Eye className="w-4 h-4" />
                           </button>
                           <button 
                             className="text-green-600 hover:text-green-800"
                             data-testid={`button-edit-${index}`}
+                            onClick={() => {
+                              setEditOrderId(order.id);
+                              form.reset({
+                                orderNumber: order.orderNumber,
+                                supplierId: order.supplierId,
+                                expectedDeliveryDate: order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toISOString().split('T')[0] : undefined,
+                                status: order.status,
+                                subtotal: order.subtotal,
+                                taxAmount: order.taxAmount,
+                                totalAmount: order.totalAmount,
+                                notes: order.notes,
+                                stationId: order.stationId,
+                                userId: order.userId,
+                              });
+                              setOpen(true);
+                            }}
                           >
-                            ✏️
+                            <Pencil className="w-4 h-4" />
                           </button>
                           <button 
                             className="text-purple-600 hover:text-purple-800"
                             data-testid={`button-print-${index}`}
+                            onClick={() => { /* Print logic here */ }}
                           >
-                            🖨️
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button
+                            className="text-red-600 hover:text-red-800"
+                            data-testid={`button-delete-${index}`}
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete purchase order ${order.orderNumber}?`)) {
+                                deletePurchaseOrderMutation.mutate(order.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>

@@ -374,12 +374,12 @@ export default function PointOfSale() {
     }
 
     const transaction = {
-      invoiceNumber: `INV-${user.stationId}-${Date.now()}`, // Always include unique invoice number
+      invoiceNumber: `INV-${user.stationId}-${Date.now()}`,
       stationId: user.stationId,
       customerId: selectedCustomerId || walkInCustomer?.id,
       userId: user.id,
       paymentMethod,
-      currencyCode: currencyConfig.code, // Required field for schema validation
+      currencyCode: currencyConfig.code,
       subtotal: subtotal.toFixed(2),
       taxAmount: taxAmount.toFixed(2),
       totalAmount: totalAmount.toFixed(2),
@@ -389,21 +389,21 @@ export default function PointOfSale() {
 
     const items = transactionItems.map(item => ({
       productId: item.productId,
-      tankId: item.tankId || null, // Use null instead of undefined for optional field
-      quantity: item.quantity.toFixed(3), // Use toFixed for proper decimal formatting
+      tankId: item.tankId || null,
+      quantity: item.quantity.toFixed(3),
       unitPrice: item.unitPrice.toFixed(2),
       totalPrice: item.totalPrice.toFixed(2),
     }));
 
+    console.log('Completing sale with data:', { transaction, items });
+
     if (isEditMode && editingTransactionId) {
-      // Update existing transaction
       updateSaleMutation.mutate({ 
         transactionId: editingTransactionId, 
         transaction, 
         items 
       });
     } else {
-      // Create new transaction
       createSaleMutation.mutate({ transaction, items });
     }
   };
