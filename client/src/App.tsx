@@ -27,6 +27,7 @@ import TankMonitoring from "@/pages/TankMonitoring";
 import DailyReports from "@/pages/DailyReports";
 import AgingReports from "@/pages/AgingReports";
 import Settings from "@/pages/Settings";
+import AdminPanel from "@/pages/AdminPanel";
 import NotFound from "@/pages/not-found";
 
 // Global theme initialization to prevent auto-enabling dark mode on Settings page
@@ -102,6 +103,7 @@ function Router() {
       <Route path="/daily-reports" component={DailyReports} />
       <Route path="/aging-reports" component={AgingReports} />
       <Route path="/settings" component={Settings} />
+      <Route path="/admin" component={AdminPanel} />
       <Route component={NotFound} />
     </Switch>
   );

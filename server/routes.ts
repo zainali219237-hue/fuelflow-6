@@ -12,6 +12,61 @@ import { requireAuth, requireRole, requireStationAccess, generateToken, verifyFi
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  // Admin routes (admin only)
+  app.get("/api/admin/users", requireAuth, requireRole(['admin']), async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      // Remove passwords from response
+      const safeUsers = users.map(({ password, ...user }) => user);
+      res.json(safeUsers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/admin/users", requireAuth, requireRole(['admin']), async (req, res) => {
+    try {
+      const validatedData = insertUserSchema.parse(req.body);
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      const userData = { ...validatedData, password: hashedPassword };
+      const user = await storage.createUser(userData);
+      // Remove password from response
+      const { password, ...safeUser } = user;
+      res.status(201).json(safeUser);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid user data" });
+    }
+  });
+
+  app.put("/api/admin/users/:id", requireAuth, requireRole(['admin']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertUserSchema.partial().parse(req.body);
+      
+      // Hash password if provided
+      if (validatedData.password) {
+        validatedData.password = await bcrypt.hash(validatedData.password, 10);
+      }
+      
+      const user = await storage.updateUser(id, validatedData);
+      // Remove password from response
+      const { password, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid user data" });
+    }
+  });
+
+  app.delete("/api/admin/users/:id", requireAuth, requireRole(['admin']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteUser(id);
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
   // Authentication routes (unprotected)
   app.post("/api/auth/login", async (req, res) => {
     try {

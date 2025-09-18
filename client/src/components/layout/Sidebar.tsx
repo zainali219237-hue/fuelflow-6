@@ -20,9 +20,32 @@ import {
   Settings, 
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+// Define a reusable SidebarNavItem component
+function SidebarNavItem({ icon, label, to, isActive, isCollapsed }) {
+  return (
+    <Link
+      href={to}
+      className={cn(
+        "flex items-center text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-md transition-colors relative",
+        isCollapsed 
+          ? "px-3 py-3 mx-1 mb-1 justify-center" 
+          : "px-4 py-2.5 mx-2 mb-1",
+        isActive && "bg-accent text-accent-foreground"
+      )}
+      title={isCollapsed ? label : undefined}
+    >
+      {icon}
+      {!isCollapsed && (
+        <span className="ml-3">{label}</span>
+      )}
+    </Link>
+  );
+}
 
 const navigationItems = [
   {
@@ -112,13 +135,13 @@ export default function Sidebar() {
           data-testid="sidebar-toggle"
         >
           {isCollapsed ? (
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-5 h-5" />
           ) : (
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-5 h-5" />
           )}
         </Button>
       </div>
-      
+
       <nav className="mt-4 h-[calc(100vh-180px)] overflow-y-auto">
         {navigationItems.map((section) => (
           <div key={section.label}>
@@ -129,33 +152,40 @@ export default function Sidebar() {
                 </div>
               </div>
             )}
-            {section.items.map((item) => {
-              const IconComponent = item.icon;
-              return (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  className={cn(
-                    "flex items-center text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-md transition-colors relative",
-                    isCollapsed 
-                      ? "px-3 py-3 mx-1 mb-1 justify-center" 
-                      : "px-4 py-2.5 mx-2 mb-1",
-                    location === item.path && "bg-accent text-accent-foreground"
-                  )}
-                  data-testid={`nav-link-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                  title={isCollapsed ? item.name : undefined}
-                >
-                  <IconComponent className="w-5 h-5" />
-                  {!isCollapsed && (
-                    <span className="ml-3">{item.name}</span>
-                  )}
-                </Link>
-              );
-            })}
+            {section.items.map((item) => (
+              <SidebarNavItem 
+                key={item.path}
+                icon={<item.icon className="w-5 h-5" />} 
+                label={item.name} 
+                to={item.path} 
+                isActive={location === item.path}
+                isCollapsed={isCollapsed}
+              />
+            ))}
           </div>
         ))}
+
+        {/* Admin specific navigation */}
+        {user?.role === "admin" && (
+          <>
+            <SidebarNavItem 
+              icon={<Shield className="w-5 h-5" />} 
+              label="Admin Panel" 
+              to="/admin" 
+              isActive={location === "/admin"}
+              isCollapsed={isCollapsed}
+            />
+            <SidebarNavItem 
+              icon={<Settings className="w-5 h-5" />} 
+              label="Settings" 
+              to="/settings" 
+              isActive={location === "/settings"}
+              isCollapsed={isCollapsed}
+            />
+          </>
+        )}
       </nav>
-      
+
       <div className={cn(
         "absolute bottom-0 left-0 right-0 border-t border-border bg-card",
         isCollapsed ? "p-2" : "p-4"
