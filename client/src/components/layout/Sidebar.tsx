@@ -120,30 +120,32 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
         "border-b border-border relative",
         isCollapsed ? "p-3" : "p-6"
       )}>
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground">
-            <Fuel className="w-5 h-5" />
-          </div>
-          {!isCollapsed && (
-            <div>
-              <h1 className="text-lg font-bold text-card-foreground" data-testid="app-title">FuelFlow</h1>
-              <p className="text-xs text-muted-foreground" data-testid="current-station">Main Station</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground">
+              <Fuel className="w-5 h-5" />
             </div>
-          )}
+            {!isCollapsed && (
+              <div>
+                <h1 className="text-lg font-bold text-card-foreground" data-testid="app-title">FuelFlow</h1>
+                <p className="text-xs text-muted-foreground" data-testid="current-station">Main Station</p>
+              </div>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleCollapse}
+            className="h-8 w-8 hover:bg-accent"
+            data-testid="sidebar-toggle"
+          >
+            {isCollapsed ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
+              <ChevronLeft className="w-4 h-4" />
+            )}
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onToggleCollapse}
-          className="absolute -right-3 top-1/2 -translate-y-1/2 h-7 w-7 bg-background border border-border rounded-full hover:bg-accent shadow-md z-50"
-          data-testid="sidebar-toggle"
-        >
-          {isCollapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <ChevronLeft className="w-4 h-4" />
-          )}
-        </Button>
       </div>
 
       <nav className="mt-4 h-[calc(100vh-180px)] overflow-y-auto">
@@ -172,18 +174,18 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
         {/* Admin specific navigation */}
         {user?.role === "admin" && (
           <>
+            {!isCollapsed && (
+              <div className="px-4 mb-3 mt-6">
+                <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                  Admin
+                </div>
+              </div>
+            )}
             <SidebarNavItem 
               icon={<Shield className="w-5 h-5" />} 
               label="Admin Panel" 
               to="/admin" 
               isActive={location === "/admin"}
-              isCollapsed={isCollapsed}
-            />
-            <SidebarNavItem 
-              icon={<Settings className="w-5 h-5" />} 
-              label="Settings" 
-              to="/settings" 
-              isActive={location === "/settings"}
               isCollapsed={isCollapsed}
             />
           </>

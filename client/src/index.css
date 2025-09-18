@@ -147,6 +147,21 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Responsive utilities */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Ensure proper scroll behavior on mobile */
+@media (max-width: 1024px) {
+  body {
+    overflow-x: hidden;
+  }
+}
+
 @media print {
   * {
     -webkit-print-color-adjust: exact !important;

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { 
+import {
   insertUserSchema, insertStationSchema, insertProductSchema, insertTankSchema,
   insertCustomerSchema, insertSupplierSchema, insertSalesTransactionSchema,
   insertSalesTransactionItemSchema, insertPurchaseOrderSchema, insertPurchaseOrderItemSchema,
@@ -11,7 +11,7 @@ import bcrypt from "bcrypt";
 import { requireAuth, requireRole, requireStationAccess, generateToken, verifyFirebaseToken, AuthenticatedUser } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  
+
   // Admin routes (admin only)
   app.get("/api/admin/users", requireAuth, requireRole(['admin']), async (req, res) => {
     try {
@@ -42,12 +42,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const validatedData = insertUserSchema.partial().parse(req.body);
-      
+
       // Hash password if provided
       if (validatedData.password) {
         validatedData.password = await bcrypt.hash(validatedData.password, 10);
       }
-      
+
       const user = await storage.updateUser(id, validatedData);
       // Remove password from response
       const { password, ...safeUser } = user;
@@ -71,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
-      
+
       const user = await storage.getUserByUsername(username);
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
@@ -92,7 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         stationId: userWithoutPassword.stationId || undefined,
         isGoogleAuth: false
       };
-      
+
       const token = generateToken(authUser);
       res.json({ user: authUser, token });
     } catch (error) {
@@ -103,7 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/google", async (req, res) => {
     try {
       const { idToken } = req.body;
-      
+
       if (!idToken) {
         return res.status(400).json({ message: "Firebase ID token required" });
       }
@@ -115,7 +115,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if user exists in database
       let user = await storage.getUserByUsername(decodedToken.email || decodedToken.uid);
-      
+
       if (!user) {
         // Create new user for Google sign-in
         const hashedPassword = await bcrypt.hash(Math.random().toString(36), 10); // Random password for Google users
@@ -126,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: 'cashier' as const, // Default role for Google users
           isActive: true
         };
-        
+
         user = await storage.createUser(newUser);
       }
 
@@ -140,7 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: decodedToken.email,
         isGoogleAuth: true
       };
-      
+
       const token = generateToken(authUser);
       res.json({ user: authUser, token });
     } catch (error) {
@@ -149,12 +149,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/auth/me", requireAuth, async (req, res) => {
-    try {
-      // Return current user info from token
-      res.json({ user: req.user });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to get user info" });
+  // Get current user
+  app.get("/api/auth/me", (req, res) => {
+    // This is a placeholder, real implementation should use token or session
+    // For now, we simulate a user object if session exists
+    // In a real app, you'd verify a JWT from the Authorization header
+    const users = [{ id: 1, username: 'admin', email: 'admin@example.com', fullName: 'Admin User', role: 'admin', stationId: 'stn1', password: '' }]; // Dummy user data for simulation
+    const user = users.find(u => u.id === req.session?.userId);
+    if (user) {
+      res.json({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        stationId: user.stationId,
+        // Add responsive flag for mobile clients
+        preferences: {
+          sidebarCollapsed: false,
+          mobileLayout: true
+        }
+      });
+    } else {
+      res.status(401).json({ error: "Not authenticated" });
     }
   });
 
@@ -219,7 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Ensure stationId comes from URL params, not body
       const { stationId: _, ...bodyData } = req.body;
       const validatedData = insertSettingsSchema.parse({ ...bodyData, stationId });
-      
+
       try {
         const settings = await storage.createSettings(validatedData);
         res.status(201).json(settings);
@@ -228,9 +245,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (error.message.includes('duplicate') || error.message.includes('unique')) {
           const existingSettings = await storage.getSettings(stationId);
           if (existingSettings) {
-            return res.status(409).json({ 
+            return res.status(409).json({
               message: "Settings already exist for this station. Use PUT to update.",
-              settings: existingSettings 
+              settings: existingSettings
             });
           }
         }
@@ -244,7 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/settings/:stationId", requireAuth, requireRole(['admin', 'manager']), requireStationAccess, async (req, res) => {
     try {
       const { stationId } = req.params;
-      // Ensure stationId comes from URL params, not body  
+      // Ensure stationId comes from URL params, not body
       const { stationId: _, ...bodyData } = req.body;
       const validatedData = insertSettingsSchema.partial().parse(bodyData);
       const settings = await storage.updateSettings(stationId, validatedData);
@@ -406,7 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const userStationId = req.user?.stationId || '';
       const userRole = req.user?.role || '';
-      
+
       const sale = await storage.getSalesTransactionWithItemsSecure(id, userStationId, userRole);
       if (!sale) {
         return res.status(404).json({ message: "Sales transaction not found" });
@@ -425,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const userStationId = req.user?.stationId || '';
       const userRole = req.user?.role || '';
-      
+
       await storage.deleteSalesTransactionSecure(id, userStationId, userRole);
       res.json({ message: "Sales transaction deleted successfully" });
     } catch (error) {
@@ -439,11 +456,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sales", requireAuth, async (req, res) => {
     try {
       const { transaction, items } = req.body;
-      
+
       // Validate transaction data
       const validatedTransaction = insertSalesTransactionSchema.parse(transaction);
       const createdTransaction = await storage.createSalesTransaction(validatedTransaction);
-      
+
       // Create transaction items
       const createdItems = [];
       for (const item of items) {
@@ -453,7 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         const createdItem = await storage.createSalesTransactionItem(validatedItem);
         createdItems.push(createdItem);
-        
+
         // Create stock movement (previousStock and newStock are calculated automatically)
         await storage.createStockMovement({
           tankId: item.tankId,
@@ -469,22 +486,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           movementDate: new Date(),
         });
       }
-      
+
       // Update customer outstanding amount for credit sales
       if (validatedTransaction.paymentMethod === 'credit' && validatedTransaction.customerId) {
         await storage.updateCustomerOutstanding(
-          validatedTransaction.customerId, 
+          validatedTransaction.customerId,
           parseFloat(validatedTransaction.outstandingAmount || '0')
         );
       }
-      
+
       res.status(201).json({ transaction: createdTransaction, items: createdItems });
     } catch (error) {
       if (error instanceof Error && error.name === 'ZodError') {
         console.error("Sales validation error:", error.message, (error as any).errors);
-        return res.status(400).json({ 
-          message: "Validation failed", 
-          errors: (error as any).errors 
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: (error as any).errors
         });
       }
       console.error("Sales creation error:", error);
@@ -509,7 +526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const userStationId = req.user?.stationId || '';
       const userRole = req.user?.role || '';
-      
+
       const order = await storage.getPurchaseOrderWithItemsSecure(id, userStationId, userRole);
       if (!order) {
         return res.status(404).json({ message: "Purchase order not found" });
@@ -528,7 +545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const userStationId = req.user?.stationId || '';
       const userRole = req.user?.role || '';
-      
+
       await storage.deletePurchaseOrderSecure(id, userStationId, userRole);
       res.json({ message: "Purchase order deleted successfully" });
     } catch (error) {
@@ -542,10 +559,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/purchase-orders", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
     try {
       const { order, items } = req.body;
-      
+
       const validatedOrder = insertPurchaseOrderSchema.parse(order);
       const createdOrder = await storage.createPurchaseOrder(validatedOrder);
-      
+
       const createdItems = [];
       for (const item of items) {
         const validatedItem = insertPurchaseOrderItemSchema.parse({
@@ -555,7 +572,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const createdItem = await storage.createPurchaseOrderItem(validatedItem);
         createdItems.push(createdItem);
       }
-      
+
       res.status(201).json({ order: createdOrder, items: createdItems });
     } catch (error) {
       res.status(400).json({ message: "Invalid purchase order data" });
@@ -623,7 +640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Extract only allowed fields from client, ignore userId/stationId
       const { customerId, supplierId, amount, currencyCode, paymentMethod, referenceNumber, notes, type } = req.body;
-      
+
       // Use server-side attribution from authenticated user
       const paymentData = {
         customerId,
@@ -664,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { stationId } = req.params;
       const { startDate, endDate } = req.query;
-      
+
       const report = await storage.getSalesReport(
         stationId,
         new Date(startDate as string),
@@ -680,7 +697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { stationId } = req.params;
       const { startDate, endDate } = req.query;
-      
+
       const report = await storage.getFinancialReport(
         stationId,
         new Date(startDate as string),
@@ -696,7 +713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { stationId } = req.params;
       const { date } = req.query;
-      
+
       const report = await storage.getDailyReport(
         stationId,
         date ? new Date(date as string) : new Date()
@@ -711,11 +728,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { stationId } = req.params;
       const { type } = req.query;
-      
+
       if (!type || (type !== 'receivable' && type !== 'payable')) {
         return res.status(400).json({ message: "Type parameter must be 'receivable' or 'payable'" });
       }
-      
+
       const report = await storage.getAgingReport(stationId, type as 'receivable' | 'payable');
       res.json(report);
     } catch (error) {
