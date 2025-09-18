@@ -30,7 +30,7 @@ export default function PointOfSale() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, currencyConfig } = useCurrency();
   
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [transactionItems, setTransactionItems] = useState<POSItem[]>([]);
