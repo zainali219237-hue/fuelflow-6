@@ -224,7 +224,7 @@ export default function DailyReports() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Sales</p>
                 <p className="text-3xl font-bold text-green-600" data-testid="total-sales">
-                  {formatCompactNumber(totalSales, { currency: 'PKR' })}
+                  {formatCurrency(totalSales)}
                 </p>
                 <p className="text-sm text-muted-foreground">{totalTransactions} transactions</p>
               </div>
@@ -239,7 +239,7 @@ export default function DailyReports() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Expenses</p>
                 <p className="text-3xl font-bold text-red-600" data-testid="total-expenses">
-                  {formatCompactNumber(totalExpenses, { currency: 'PKR' })}
+                  {formatCurrency(totalExpenses)}
                 </p>
                 <p className="text-sm text-muted-foreground">Daily operational costs</p>
               </div>
@@ -254,7 +254,7 @@ export default function DailyReports() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Net Profit</p>
                 <p className={`text-3xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="net-profit">
-                  {formatCompactNumber(netProfit, { currency: 'PKR' })}
+                  {formatCurrency(netProfit)}
                 </p>
                 <p className="text-sm text-muted-foreground">Sales - Expenses</p>
               </div>
@@ -269,7 +269,7 @@ export default function DailyReports() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Avg Transaction</p>
                 <p className="text-3xl font-bold text-blue-600" data-testid="avg-transaction">
-                  {formatCompactNumber(totalTransactions > 0 ? totalSales / totalTransactions : 0, { currency: 'PKR' })}
+                  {formatCurrency(totalTransactions > 0 ? totalSales / totalTransactions : 0)}
                 </p>
                 <p className="text-sm text-muted-foreground">Per transaction</p>
               </div>

@@ -18,31 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
 import { Eye, Edit, CreditCard, Trash2 } from "lucide-react";
 
-// Assuming DeleteConfirmation is a component that handles the delete confirmation dialog
-// import DeleteConfirmation from "@/components/DeleteConfirmation"; // Uncomment and adjust path if DeleteConfirmation is in a separate file
-
-// Placeholder for DeleteConfirmation component if not imported
-const DeleteConfirmation = ({ isOpen, onClose, onConfirm, title, description, itemName, isLoading }) => (
-  <Dialog open={isOpen} onOpenChange={onClose}>
-    <DialogContent className="sm:max-w-[425px]">
-      <DialogHeader>
-        <DialogTitle>{title}</DialogTitle>
-      </DialogHeader>
-      <div className="space-y-4 py-4">
-        <p className="text-sm text-muted-foreground">{description}</p>
-        <p className="text-lg font-semibold">{itemName}</p>
-      </div>
-      <div className="flex justify-end space-x-2 pt-4">
-        <Button variant="outline" onClick={onClose} disabled={isLoading}>
-          Cancel
-        </Button>
-        <Button variant="destructive" onClick={onConfirm} disabled={isLoading}>
-          {isLoading ? "Deleting..." : "Delete"}
-        </Button>
-      </div>
-    </DialogContent>
-  </Dialog>
-);
+import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
 
 
 export default function CustomerManagement() {

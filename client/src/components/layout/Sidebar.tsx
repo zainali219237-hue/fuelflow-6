@@ -198,6 +198,29 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
         )}
       </nav>
 
+      {/* Collapse Button */}
+      <div className={cn(
+        "border-t border-border bg-card flex-shrink-0 hidden lg:block",
+        isCollapsed ? "p-2" : "p-4"
+      )}>
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleCollapse}
+            className="h-8 w-8 hover:bg-accent"
+            data-testid="sidebar-toggle"
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
+              <ChevronLeft className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
+      </div>
+
       {/* Footer */}
       <div className={cn(
         "border-t border-border bg-card flex-shrink-0",
@@ -220,24 +243,7 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
               </div>
             </div>
           )}
-          <div className="flex items-center space-x-1">
-            {/* Desktop toggle button */}
-            <div className="hidden lg:block">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onToggleCollapse}
-                className="h-8 w-8 hover:bg-accent flex-shrink-0"
-                data-testid="sidebar-toggle"
-                title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              >
-                {isCollapsed ? (
-                  <ChevronRight className="w-4 h-4" />
-                ) : (
-                  <ChevronLeft className="w-4 h-4" />
-                )}
-              </Button>
-            </div>
+          <div className="flex items-center">
             <button 
               onClick={logout} 
               className="text-muted-foreground hover:text-destructive transition-colors p-1 flex-shrink-0"

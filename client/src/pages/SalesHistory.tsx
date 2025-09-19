@@ -14,23 +14,7 @@ import { apiRequest } from "@/lib/api";
 import { Eye, Edit, Trash2, Play, Download } from "lucide-react";
 import { useLocation } from "wouter";
 
-// Placeholder for the new DeleteConfirmation component
-// In a real scenario, this would be imported from "@/components/ui/delete-confirmation"
-const DeleteConfirmation = ({ isOpen, onClose, onConfirm, title, description, itemName, isLoading }: any) => (
-  <dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-    <div className="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full">
-      <h3 className="text-lg font-semibold text-destructive">{title}</h3>
-      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-      <p className="mt-2 font-semibold">{itemName}</p>
-      <div className="mt-4 flex justify-end space-x-2">
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button variant="destructive" onClick={onConfirm} disabled={isLoading}>
-          {isLoading ? 'Deleting...' : 'Delete'}
-        </Button>
-      </div>
-    </div>
-  </dialog>
-);
+import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
 
 
 interface DraftSale {

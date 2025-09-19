@@ -188,7 +188,7 @@ export default function CashReconciliation() {
         <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
           <CardContent className="p-4">
             <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="opening-balance">{formatCompactNumber(cashData.openingBalance, { currency: 'PKR' })}</div>
+              <div className="text-2xl font-bold" data-testid="opening-balance">{formatCurrency(cashData.openingBalance)}</div>
               <div className="text-sm text-green-100">Opening Balance</div>
             </div>
           </CardContent>
@@ -196,7 +196,7 @@ export default function CashReconciliation() {
         <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
           <CardContent className="p-4">
             <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="expected-cash">{formatCompactNumber(cashData.expectedCash, { currency: 'PKR' })}</div>
+              <div className="text-2xl font-bold" data-testid="expected-cash">{formatCurrency(cashData.expectedCash)}</div>
               <div className="text-sm text-blue-100">Expected Cash</div>
             </div>
           </CardContent>
@@ -204,7 +204,7 @@ export default function CashReconciliation() {
         <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
           <CardContent className="p-4">
             <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="actual-cash">{formatCompactNumber(cashData.actualCash, { currency: 'PKR' })}</div>
+              <div className="text-2xl font-bold" data-testid="actual-cash">{formatCurrency(cashData.actualCash)}</div>
               <div className="text-sm text-purple-100">Actual Cash</div>
             </div>
           </CardContent>
@@ -212,7 +212,7 @@ export default function CashReconciliation() {
         <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-0">
           <CardContent className="p-4">
             <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="cash-difference">{formatCompactNumber(Math.abs(cashData.difference), { currency: 'PKR' })}</div>
+              <div className="text-2xl font-bold" data-testid="cash-difference">{formatCurrency(Math.abs(cashData.difference))}</div>
               <div className="text-sm text-red-100">
                 {cashData.difference >= 0 ? 'Excess' : 'Shortage'}
               </div>

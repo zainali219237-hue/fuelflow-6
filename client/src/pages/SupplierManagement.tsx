@@ -18,31 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
 import { Eye, Edit, Package, CreditCard, Trash2 } from "lucide-react";
 
-// Placeholder for the DeleteConfirmation component
-const DeleteConfirmation = ({ isOpen, onClose, onConfirm, title, description, itemName, isLoading }: any) => {
-  if (!isOpen) return null;
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <p className="text-sm text-muted-foreground">{description}</p>
-          <p className="text-sm font-semibold text-destructive">{itemName}</p>
-        </div>
-        <DialogFooter className="pt-4">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={isLoading}>
-            {isLoading ? "Deleting..." : "Delete"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
+import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
 
 export default function SupplierManagement() {
   const { toast } = useToast();
