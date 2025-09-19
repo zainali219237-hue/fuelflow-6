@@ -60,31 +60,15 @@ export default function InvoiceReceipt() {
     if (!invoiceElement) return;
 
     try {
-      // Create a new window for PDF generation
-      const printWindow = window.open('', '_blank', 'width=800,height=600');
-      if (!printWindow) return;
-
-      // Clone the invoice content
-      const clonedContent = invoiceElement.cloneNode(true) as HTMLElement;
-      
-      // Create a complete HTML document for PDF generation
+      // Create HTML content for PDF
       const htmlContent = `
         <!DOCTYPE html>
         <html>
           <head>
             <title>Invoice ${transaction?.invoiceNumber || 'Unknown'}</title>
             <style>
-              @page { 
-                margin: 0.5in; 
-                size: A4;
-              }
-              body { 
-                font-family: Arial, sans-serif;
-                line-height: 1.4;
-                color: #000;
-                margin: 0;
-                padding: 20px;
-              }
+              @page { margin: 0.5in; size: A4; }
+              body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
               .container { max-width: 800px; margin: 0 auto; }
               .header { text-align: center; margin-bottom: 30px; }
               .invoice-title { font-size: 28px; font-weight: bold; margin-bottom: 10px; }
@@ -97,40 +81,25 @@ export default function InvoiceReceipt() {
               th { background-color: #f5f5f5; font-weight: bold; }
               .text-right { text-align: right; }
               .total-row { background-color: #f9f9f9; font-weight: bold; }
-              .payment-status { 
-                background: #16a34a; 
-                color: white; 
-                padding: 4px 12px; 
-                border-radius: 4px; 
-                display: inline-block; 
-                margin: 10px 0;
-              }
+              .payment-status { background: #16a34a; color: white; padding: 4px 12px; border-radius: 4px; display: inline-block; margin: 10px 0; }
             </style>
           </head>
           <body>
-            ${clonedContent.textContent || ''}
+            ${invoiceElement.innerHTML}
           </body>
         </html>
       `;
 
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      
-      // Wait for content to load, then print and close
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-          printWindow.close();
-        }, 500);
-      };
-
-      // Alternative trigger for browsers that don't fire onload
-      setTimeout(() => {
-        if (printWindow && !printWindow.closed) {
-          printWindow.print();
-          printWindow.close();
-        }
-      }, 1000);
+      // Create blob and download
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${transaction?.invoiceNumber || 'unknown'}.html`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
     } catch (error) {
       console.error('PDF download failed:', error);

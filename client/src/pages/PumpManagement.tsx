@@ -32,7 +32,7 @@ const pumpConfigSchema = z.object({
   pumpNumber: z.string().min(1, "Pump number is required"),
   productId: z.string().min(1, "Product is required"),
   isActive: z.boolean().default(true),
-  stationId: z.string(),
+  stationId: z.string().optional(),
 });
 
 interface Pump {

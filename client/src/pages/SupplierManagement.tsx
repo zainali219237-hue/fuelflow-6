@@ -418,9 +418,137 @@ export default function SupplierManagement() {
             </Form>
           </DialogContent>
         </Dialog>
+
+        {/* View Supplier Dialog */}
+        <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Supplier Details</DialogTitle>
+            </DialogHeader>
+            {selectedSupplier && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Name</label>
+                    <p className="text-sm text-muted-foreground">{selectedSupplier.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Contact Person</label>
+                    <p className="text-sm text-muted-foreground">{selectedSupplier.contactPerson || 'N/A'}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Phone</label>
+                    <p className="text-sm text-muted-foreground">{selectedSupplier.contactPhone || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Email</label>
+                    <p className="text-sm text-muted-foreground">{selectedSupplier.contactEmail || 'N/A'}</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Address</label>
+                  <p className="text-sm text-muted-foreground">{selectedSupplier.address || 'N/A'}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">GST Number</label>
+                    <p className="text-sm text-muted-foreground">{selectedSupplier.gstNumber || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Outstanding</label>
+                    <p className="text-sm text-muted-foreground">{formatCurrency(parseFloat(selectedSupplier.outstandingAmount || '0'))}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Payment Dialog */}
+        <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Record Payment to {selectedSupplier?.name}</DialogTitle>
+            </DialogHeader>
+            <Form {...paymentForm}>
+              <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
+                <FormField
+                  control={paymentForm.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Amount *</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-supplier-payment-amount" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={paymentForm.control}
+                  name="paymentMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Payment Method *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-supplier-payment-method">
+                            <SelectValue placeholder="Select method" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="cash">Cash</SelectItem>
+                          <SelectItem value="card">Card</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={paymentForm.control}
+                  name="referenceNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Reference Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Transaction reference" {...field} data-testid="input-supplier-reference-number" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={paymentForm.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Payment notes" {...field} data-testid="input-supplier-payment-notes" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setPaymentDialogOpen(false)} data-testid="button-cancel-supplier-payment">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={recordPaymentMutation.isPending} data-testid="button-record-supplier-payment">
+                    {recordPaymentMutation.isPending ? "Recording..." : "Record Payment"}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Supplier Stats */}
+      {/* Supplier Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
@@ -606,59 +734,6 @@ export default function SupplierManagement() {
         </CardContent>
       </Card>
 
-      {/* View Supplier Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Supplier Details</DialogTitle>
-          </DialogHeader>
-          {selectedSupplier && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Name</label>
-                  <p className="text-sm text-muted-foreground">{selectedSupplier.name}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Contact Person</label>
-                  <p className="text-sm text-muted-foreground">{selectedSupplier.contactPerson || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Phone</label>
-                  <p className="text-sm text-muted-foreground">{selectedSupplier.contactPhone || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Email</label>
-                  <p className="text-sm text-muted-foreground">{selectedSupplier.contactEmail || 'N/A'}</p>
-                </div>
-                <div className="col-span-2">
-                  <label className="text-sm font-medium">Address</label>
-                  <p className="text-sm text-muted-foreground">{selectedSupplier.address || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">GST Number</label>
-                  <p className="text-sm text-muted-foreground">{selectedSupplier.gstNumber || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Payment Terms</label>
-                  <p className="text-sm text-muted-foreground">{selectedSupplier.paymentTerms || 'Net 30 Days'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Outstanding Amount</label>
-                  <p className="text-sm text-muted-foreground">{formatCurrency(parseFloat(selectedSupplier.outstandingAmount || '0'))}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Status</label>
-                  <Badge variant={selectedSupplier.isActive ? 'default' : 'secondary'}>
-                    {selectedSupplier.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
       {/* Edit Supplier Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
@@ -779,92 +854,6 @@ export default function SupplierManagement() {
                 </Button>
                 <Button type="submit" disabled={updateSupplierMutation.isPending} data-testid="button-update-supplier">
                   {updateSupplierMutation.isPending ? "Updating..." : "Update Supplier"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Payment Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Record Payment</DialogTitle>
-            {selectedSupplier && (
-              <p className="text-sm text-muted-foreground">
-                Recording payment to {selectedSupplier.name} (Outstanding: {formatCurrency(parseFloat(selectedSupplier.outstandingAmount || '0'))})
-              </p>
-            )}
-          </DialogHeader>
-          <Form {...paymentForm}>
-            <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4">
-              <FormField
-                control={paymentForm.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Payment Amount *</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" placeholder="Enter payment amount" {...field} data-testid="input-supplier-payment-amount" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={paymentForm.control}
-                name="paymentMethod"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Payment Method *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-supplier-payment-method">
-                          <SelectValue placeholder="Select payment method" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="card">Card</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={paymentForm.control}
-                name="referenceNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Reference Number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter reference number (optional)" {...field} data-testid="input-supplier-reference-number" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={paymentForm.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Add any notes (optional)" {...field} data-testid="input-supplier-payment-notes" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setPaymentDialogOpen(false)} data-testid="button-cancel-supplier-payment">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={recordPaymentMutation.isPending} data-testid="button-record-supplier-payment">
-                  {recordPaymentMutation.isPending ? "Recording..." : "Record Payment"}
                 </Button>
               </div>
             </form>

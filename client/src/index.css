@@ -147,22 +147,29 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Custom scrollbar */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 1px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
 /* Responsive utilities */
 @media (max-width: 768px) {
   .container {
     padding-left: 1rem;
     padding-right: 1rem;
-  }
-
-  /* Prevent horizontal scrolling on mobile */
-  body, html {
-    overflow-x: hidden;
-    width: 100%;
-  }
-
-  /* Ensure mobile layout doesn't break */
-  * {
-    max-width: 100%;
   }
 }
 

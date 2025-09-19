@@ -198,52 +198,51 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
         )}
       </nav>
 
-      {/* Collapse Button */}
-      <div className={cn(
-        "border-t border-border bg-card flex-shrink-0 hidden lg:block",
-        isCollapsed ? "p-2" : "p-4"
-      )}>
-        <div className="flex justify-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggleCollapse}
-            className="h-8 w-8 hover:bg-accent"
-            data-testid="sidebar-toggle"
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <Menu className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Footer */}
-      {!isCollapsed && (
-        <div className="border-t border-border bg-card flex-shrink-0 p-4">
-          <div className="flex items-center space-x-3">
+      {/* Footer with User Profile */}
+      <div className="border-t border-border bg-card flex-shrink-0 p-4">
+        <div className="flex items-center justify-between">
+          {/* User Avatar and Info */}
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
             <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-sm font-bold text-primary-foreground flex-shrink-0">
               <span data-testid="user-initials">{user?.fullName?.charAt(0) || "U"}</span>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-card-foreground truncate" data-testid="current-user">
-                {user?.fullName || "User"}
+            {!isCollapsed && (
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-card-foreground truncate" data-testid="current-user">
+                  {user?.fullName || "User"}
+                </div>
+                <div className="text-xs text-muted-foreground" data-testid="current-role">
+                  {user?.role || "User"}
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground" data-testid="current-role">
-                {user?.role || "User"}
-              </div>
-            </div>
-            <div className="flex items-center">
+            )}
+          </div>
+
+          {/* Menu/Collapse Button */}
+          <div className="flex items-center gap-2">
+            {!isCollapsed && (
               <button 
                 onClick={logout} 
                 className="text-muted-foreground hover:text-destructive transition-colors p-1 flex-shrink-0"
                 data-testid="button-logout"
+                title="Logout"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-4 h-4" />
               </button>
-            </div>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleCollapse}
+              className="h-8 w-8 hover:bg-accent lg:block hidden"
+              data-testid="sidebar-toggle"
+              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <Menu className="w-4 h-4" />
+            </Button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

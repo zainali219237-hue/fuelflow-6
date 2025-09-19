@@ -668,8 +668,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { transaction, items } = req.body;
 
+      // Generate a shorter invoice number, similar to purchase invoice
+      const invoiceNumber = `SAL${Date.now().toString().slice(-6)}`; // Example: SAL123456
+
       // Validate transaction data
-      const validatedTransaction = insertSalesTransactionSchema.parse(transaction);
+      const validatedTransaction = insertSalesTransactionSchema.parse({
+        ...transaction,
+        invoiceNumber: invoiceNumber
+      });
       const createdTransaction = await storage.createSalesTransaction(validatedTransaction);
 
       // Create transaction items
@@ -682,20 +688,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const createdItem = await storage.createSalesTransactionItem(validatedItem);
         createdItems.push(createdItem);
 
-        // Create stock movement (previousStock and newStock are calculated automatically)
-        await storage.createStockMovement({
-          tankId: item.tankId,
-          stationId: validatedTransaction.stationId,
-          userId: validatedTransaction.userId,
-          movementType: 'out',
-          quantity: item.quantity, // Positive quantity - method handles the direction
-          previousStock: '0', // Will be calculated automatically
-          newStock: '0', // Will be calculated automatically
-          referenceId: createdTransaction.id,
-          referenceType: 'sale',
-          notes: `Sale - Invoice ${createdTransaction.invoiceNumber}`,
-          movementDate: new Date(),
-        });
+        // Create stock movement for inventory tracking (only for fuel products with tanks)
+        if (item.tankId && item.tankId !== 'null') {
+          await storage.createStockMovement({
+            tankId: item.tankId,
+            movementType: "out",
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            remarks: `Sale - Invoice ${transaction.invoiceNumber}`,
+            referenceType: "sale",
+            referenceId: createdTransaction.id,
+            stationId: validatedTransaction.stationId,
+            userId: validatedTransaction.userId,
+          });
+        }
       }
 
       // Update customer outstanding amount for credit sales
@@ -771,7 +777,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { order, items } = req.body;
 
-      const validatedOrder = insertPurchaseOrderSchema.parse(order);
+      // Generate a shorter invoice number, similar to sale invoice
+      const invoiceNumber = `PUR${Date.now().toString().slice(-6)}`; // Example: PUR123456
+
+      const validatedOrder = insertPurchaseOrderSchema.parse({
+        ...order,
+        invoiceNumber: invoiceNumber
+      });
       const createdOrder = await storage.createPurchaseOrder(validatedOrder);
 
       const createdItems = [];

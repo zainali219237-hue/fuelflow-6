@@ -34,10 +34,11 @@ export default function ExpenseManagement() {
       userId: user?.id || "",
       category: "utilities",
       description: "",
-      amount: "0",
+      amount: "",
       receiptNumber: "",
       paymentMethod: "cash" as const,
       vendorName: "",
+      expenseDate: new Date().toISOString().split('T')[0],
     },
   });
 
@@ -216,6 +217,19 @@ export default function ExpenseManagement() {
                       )}
                     />
                   </div>
+                  <FormField
+                    control={form.control}
+                    name="expenseDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Expense Date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} data-testid="input-expense-date" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <FormField
                     control={form.control}
                     name="paymentMethod"

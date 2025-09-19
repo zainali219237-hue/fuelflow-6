@@ -31,6 +31,7 @@ import AdminPanel from "@/pages/AdminPanel";
 import NotFound from "@/pages/not-found";
 import { StationProvider } from "./contexts/StationContext";
 import PumpManagement from "@/pages/PumpManagement";
+import PurchaseInvoice from "@/pages/PurchaseInvoice";
 
 // Global theme initialization to prevent auto-enabling dark mode on Settings page
 function ThemeBootstrap() {
@@ -101,6 +102,7 @@ function Router() {
       <Route path="/pricing" component={PriceManagement} />
       <Route path="/financial-reports" component={FinancialReports} />
       <Route path="/invoice/:id" component={InvoiceReceipt} />
+      <Route path="/purchase-invoice/:id" component={PurchaseInvoice} />
       <Route path="/tanks" component={TankMonitoring} />
       <Route path="/pumps" component={PumpManagement} />
       <Route path="/daily-reports" component={DailyReports} />

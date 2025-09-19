@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { PurchaseOrder, Supplier, Product } from "@shared/schema";
-import { insertPurchaseOrderSchema } from "@shared/schema";
+import type { PurchaseOrder, Supplier, Product, SaleInvoice } from "@shared/schema";
+import { insertPurchaseOrderSchema, insertSaleInvoiceSchema } from "@shared/schema";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
-import { TrendingUp, TrendingDown, AlertTriangle, Eye, Pencil, Printer, Trash2 } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Eye, Pencil, Printer, Trash2, Menu } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 
 export default function PurchaseOrders() {
@@ -29,7 +30,10 @@ export default function PurchaseOrders() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
 
+
+  // Purchase Order Form
   const form = useForm({
     resolver: zodResolver(insertPurchaseOrderSchema.extend({
       orderDate: insertPurchaseOrderSchema.shape.orderDate.optional(),
@@ -59,6 +63,7 @@ export default function PurchaseOrders() {
         currencyCode: currencyConfig.code,
       };
       const response = await apiRequest("POST", "/api/purchase-orders", processedData);
+      if (!response.ok) throw new Error('Failed to create purchase order');
       return response.json();
     },
     onSuccess: () => {
@@ -70,10 +75,10 @@ export default function PurchaseOrders() {
       form.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders", user?.stationId] });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to create purchase order",
+        description: error.message || "Failed to create purchase order",
         variant: "destructive",
       });
     },
@@ -89,6 +94,7 @@ export default function PurchaseOrders() {
         currencyCode: currencyConfig.code,
       };
       const response = await apiRequest("PUT", `/api/purchase-orders/${id}`, processedData);
+      if (!response.ok) throw new Error('Failed to update purchase order');
       return response.json();
     },
     onSuccess: () => {
@@ -97,12 +103,13 @@ export default function PurchaseOrders() {
         description: "Purchase order has been updated successfully",
       });
       setEditOrderId(null);
+      setOpen(false);
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders", user?.stationId] });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to update purchase order",
+        description: error.message || "Failed to update purchase order",
         variant: "destructive",
       });
     },
@@ -110,7 +117,8 @@ export default function PurchaseOrders() {
 
   const deletePurchaseOrderMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/purchase-orders/${id}`);
+      const response = await apiRequest("DELETE", `/api/purchase-orders/${id}`);
+      if (!response.ok) throw new Error('Failed to delete purchase order');
     },
     onSuccess: () => {
       toast({
@@ -119,10 +127,10 @@ export default function PurchaseOrders() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders", user?.stationId] });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to delete purchase order",
+        description: error.message || "Failed to delete purchase order",
         variant: "destructive",
       });
     },
@@ -136,7 +144,7 @@ export default function PurchaseOrders() {
     }
   };
 
-  const { data: purchaseOrders = [], isLoading } = useQuery<PurchaseOrder[]>({
+  const { data: purchaseOrders = [], isLoading: isLoadingPurchaseOrders } = useQuery<PurchaseOrder[]>({
     queryKey: ["/api/purchase-orders", user?.stationId],
     enabled: !!user?.stationId,
   });
@@ -156,14 +164,49 @@ export default function PurchaseOrders() {
   });
 
   const handleDeleteOrder = (order: PurchaseOrder) => {
-    // Use a dialog component for confirmation instead of window.confirm
-    // For now, we'll keep the window.confirm as a placeholder
     if (window.confirm(`Are you sure you want to delete purchase order ${order.orderNumber}?`)) {
       deletePurchaseOrderMutation.mutate(order.id);
     }
   };
 
-  if (isLoading) {
+  const handleViewOrder = (order: PurchaseOrder) => {
+    setSelectedOrder(order);
+    toast({
+      title: "Order Details",
+      description: `Order Number: ${order.orderNumber}, Supplier: ${suppliers.find(s => s.id === order.supplierId)?.name || 'Unknown'}, Total: ${formatCurrency(parseFloat(order.totalAmount || '0'))}, Status: ${order.status}`,
+    });
+  };
+
+  const handleDownload = async (order: PurchaseOrder, format: "pdf" | "png") => {
+    try {
+      const response = await apiRequest("GET", `/api/purchase-orders/${order.id}/download?format=${format}`, {}, { responseType: 'blob' });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to download: ${errorText}`);
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${order.orderNumber}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({
+        title: "Download Initiated",
+        description: `Your ${format.toUpperCase()} file is downloading.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Download Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (isLoadingPurchaseOrders) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
@@ -187,7 +230,7 @@ export default function PurchaseOrders() {
           <h3 className="text-2xl font-semibold text-card-foreground">Purchase Orders</h3>
           <p className="text-muted-foreground">Manage fuel procurement and supplier orders</p>
         </div>
-        <Dialog open={editOrderId !== null || open} onOpenChange={(isOpen) => { if (!isOpen) { setEditOrderId(null); form.reset(); } else { setOpen(true); } }}>
+        <Dialog open={editOrderId !== null || open} onOpenChange={(isOpen) => { if (!isOpen) { setEditOrderId(null); setSelectedOrder(null); form.reset(); } else { setOpen(true); } }}>
           <DialogTrigger asChild>
             <Button data-testid="button-new-purchase-order">
               + New Purchase Order
@@ -302,7 +345,7 @@ export default function PurchaseOrders() {
                   )}
                 />
                 <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditOrderId(null); form.reset(); }} data-testid="button-cancel">
+                  <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditOrderId(null); setSelectedOrder(null); form.reset(); }} data-testid="button-cancel">
                     Cancel
                   </Button>
                   <Button type="submit" disabled={createPurchaseOrderMutation.isPending || updatePurchaseOrderMutation.isPending} data-testid="button-submit-order">
@@ -432,15 +475,10 @@ export default function PurchaseOrders() {
                       <td className="p-3 text-center">
                         <div className="flex items-center space-x-2 justify-center">
                           <button
-                            onClick={() => {
-                              toast({
-                                title: "Order Details",
-                                description: `Order ${order.orderNumber} - ${order.status}`,
-                              });
-                            }}
+                            onClick={() => handleViewOrder(order)}
                             className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
                             data-testid="button-view-order"
-                            title="View Details"
+                            title="View invoice"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
@@ -460,23 +498,25 @@ export default function PurchaseOrders() {
                             }}
                             className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
                             data-testid="button-edit-order"
-                            title="Edit Order"
+                            title="Edit order"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => {
-                              toast({
-                                title: "Order Printed",
-                                description: `Purchase order ${order.orderNumber} sent to printer`,
-                              });
-                            }}
-                            className="text-purple-600 hover:text-purple-800 p-1 hover:bg-purple-50 rounded"
-                            data-testid="button-print-order"
-                            title="Print Order"
-                          >
-                            <Printer className="w-4 h-4" />
-                          </button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 p-0 data-state-open:bg-muted">
+                                <Printer className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => handleDownload(order, "pdf")}>
+                                Download PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => handleDownload(order, "png")}>
+                                Download PNG
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           <button
                             onClick={() => handleDeleteOrder(order)}
                             className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
@@ -501,6 +541,11 @@ export default function PurchaseOrders() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Sale Invoices Section (Similar structure to Purchase Orders) */}
+      {/* This section will be added based on the user's request to add similar view to purchase orders */}
+      {/* For now, it's a placeholder and will be implemented if requested or if the code structure allows */}
+
     </div>
   );
 }

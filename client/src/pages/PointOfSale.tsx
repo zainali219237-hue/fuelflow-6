@@ -400,7 +400,7 @@ export default function PointOfSale() {
     }
 
     const transaction = {
-      invoiceNumber: isEditMode ? undefined : `INV-${user.stationId}-${Date.now()}`, // Don't change invoice number when editing
+      invoiceNumber: isEditMode ? undefined : `INV-${Date.now().toString().slice(-8)}`, // Don't change invoice number when editing
       stationId: user.stationId,
       customerId: selectedCustomerId || walkInCustomer?.id,
       userId: user.id,
