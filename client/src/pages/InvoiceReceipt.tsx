@@ -108,7 +108,7 @@ export default function InvoiceReceipt() {
             </style>
           </head>
           <body>
-            ${clonedContent.innerHTML}
+            ${clonedContent.textContent || ''}
           </body>
         </html>
       `;

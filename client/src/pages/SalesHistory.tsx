@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDelete } from "@/components/ui/confirm-delete";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +34,10 @@ export default function SalesHistory() {
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [draftSales, setDraftSales] = useState<DraftSale[]>([]);
   const [showDrafts, setShowDrafts] = useState(true);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
+  const [draftDeleteConfirmOpen, setDraftDeleteConfirmOpen] = useState(false);
+  const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
 
   const handleViewTransaction = (transactionId: string) => {
     navigate(`/invoice/${transactionId}`);
@@ -60,8 +65,15 @@ export default function SalesHistory() {
   });
 
   const handleDeleteTransaction = (transactionId: string) => {
-    if (confirm("Are you sure you want to delete this transaction? This action cannot be undone.")) {
-      deleteSaleMutation.mutate(transactionId);
+    setTransactionToDelete(transactionId);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteTransaction = () => {
+    if (transactionToDelete) {
+      deleteSaleMutation.mutate(transactionToDelete);
+      setDeleteConfirmOpen(false);
+      setTransactionToDelete(null);
     }
   };
 
@@ -76,21 +88,31 @@ export default function SalesHistory() {
   };
 
   const handleDeleteDraft = (draftId: string) => {
-    const updatedDrafts = draftSales.filter(draft => draft.id !== draftId);
-    setDraftSales(updatedDrafts);
-    
-    // Update localStorage
-    if (updatedDrafts.length > 0) {
-      localStorage.setItem('allPosDrafts', JSON.stringify(updatedDrafts));
-    } else {
-      localStorage.removeItem('allPosDrafts');
-      localStorage.removeItem('posDraft'); // Also remove single draft
+    setDraftToDelete(draftId);
+    setDraftDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteDraft = () => {
+    if (draftToDelete) {
+      const updatedDrafts = draftSales.filter(draft => draft.id !== draftToDelete);
+      setDraftSales(updatedDrafts);
+      
+      // Update localStorage
+      if (updatedDrafts.length > 0) {
+        localStorage.setItem('allPosDrafts', JSON.stringify(updatedDrafts));
+      } else {
+        localStorage.removeItem('allPosDrafts');
+        localStorage.removeItem('posDraft'); // Also remove single draft
+      }
+      
+      toast({
+        title: "Draft deleted",
+        description: "Draft sale has been removed",
+      });
+      
+      setDraftDeleteConfirmOpen(false);
+      setDraftToDelete(null);
     }
-    
-    toast({
-      title: "Draft deleted",
-      description: "Draft sale has been removed",
-    });
   };
 
   // Load drafts from localStorage
@@ -555,6 +577,28 @@ export default function SalesHistory() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Confirm Delete Transaction Dialog */}
+      <ConfirmDelete
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        onConfirm={confirmDeleteTransaction}
+        title="Delete Transaction"
+        description="Are you sure you want to delete this sales transaction? This action cannot be undone and will permanently remove all transaction data."
+        itemName="transaction"
+        isLoading={deleteSaleMutation.isPending}
+      />
+
+      {/* Confirm Delete Draft Dialog */}
+      <ConfirmDelete
+        open={draftDeleteConfirmOpen}
+        onOpenChange={setDraftDeleteConfirmOpen}
+        onConfirm={confirmDeleteDraft}
+        title="Delete Draft"
+        description="Are you sure you want to delete this draft? This action cannot be undone and you will lose all unsaved changes."
+        itemName="draft"
+        isLoading={false}
+      />
     </div>
   );
 }

@@ -132,7 +132,7 @@ export default function Dashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-green-100 text-xs sm:text-sm font-medium">Today's Sales</p>
                 <p className="text-lg sm:text-2xl lg:text-3xl font-bold truncate" data-testid="todays-sales">
-                  {formatCurrency((dashboardStats as any)?.todaysSales?.totalAmount || 0)}
+                  {formatCurrencyCompact(parseFloat((dashboardStats as any)?.todaysSales?.totalAmount || '0'))}
                 </p>
                 <p className="text-green-100 text-xs sm:text-sm">{(dashboardStats as any)?.todaysSales?.count || 0} transactions</p>
               </div>
@@ -150,7 +150,7 @@ export default function Dashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-blue-100 text-xs sm:text-sm font-medium">Monthly Revenue</p>
                 <p className="text-lg sm:text-2xl lg:text-3xl font-bold truncate" data-testid="monthly-revenue">
-                  {formatCurrency((dashboardStats as any)?.monthlySales?.totalAmount ? parseFloat((dashboardStats as any).monthlySales.totalAmount) : 0)}
+                  {formatCurrencyCompact((dashboardStats as any)?.monthlySales?.totalAmount ? parseFloat((dashboardStats as any).monthlySales.totalAmount) : 0)}
                 </p>
                 <p className="text-blue-100 text-xs sm:text-sm">{(dashboardStats as any)?.monthlySales?.count || 0} transactions total</p>
               </div>
