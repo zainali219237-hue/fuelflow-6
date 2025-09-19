@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { formatAmount } from "@/lib/currency";
+import { formatCompactNumber } from "@/lib/utils";
 import { 
   Calendar as CalendarIcon,
   TrendingUp,
@@ -223,7 +224,7 @@ export default function DailyReports() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Sales</p>
                 <p className="text-3xl font-bold text-green-600" data-testid="total-sales">
-                  {formatAmount(totalSales)}
+                  {formatCompactNumber(totalSales, { currency: 'PKR' })}
                 </p>
                 <p className="text-sm text-muted-foreground">{totalTransactions} transactions</p>
               </div>
@@ -238,7 +239,7 @@ export default function DailyReports() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Expenses</p>
                 <p className="text-3xl font-bold text-red-600" data-testid="total-expenses">
-                  {formatAmount(totalExpenses)}
+                  {formatCompactNumber(totalExpenses, { currency: 'PKR' })}
                 </p>
                 <p className="text-sm text-muted-foreground">Daily operational costs</p>
               </div>
@@ -253,7 +254,7 @@ export default function DailyReports() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Net Profit</p>
                 <p className={`text-3xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="net-profit">
-                  {formatAmount(netProfit)}
+                  {formatCompactNumber(netProfit, { currency: 'PKR' })}
                 </p>
                 <p className="text-sm text-muted-foreground">Sales - Expenses</p>
               </div>
@@ -268,7 +269,7 @@ export default function DailyReports() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Avg Transaction</p>
                 <p className="text-3xl font-bold text-blue-600" data-testid="avg-transaction">
-                  {formatAmount(totalTransactions > 0 ? totalSales / totalTransactions : 0)}
+                  {formatCompactNumber(totalTransactions > 0 ? totalSales / totalTransactions : 0, { currency: 'PKR' })}
                 </p>
                 <p className="text-sm text-muted-foreground">Per transaction</p>
               </div>

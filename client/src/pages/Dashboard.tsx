@@ -8,6 +8,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { useLocation } from "wouter";
 import { Download, FileText, ShoppingCart, Users, BarChart3, AlertCircle, DollarSign, TrendingUp, Fuel, Clock, AlertTriangle, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { formatCompactNumber } from "@/lib/utils";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -125,14 +126,14 @@ export default function Dashboard() {
   return (
     <div className="space-y-8 fade-in">
       {/* Key Performance Indicators */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
                 <p className="text-green-100 text-xs sm:text-sm font-medium">Today's Sales</p>
                 <p className="text-lg sm:text-2xl lg:text-3xl font-bold truncate" data-testid="todays-sales">
-                  {formatCurrencyCompact(parseFloat((dashboardStats as any)?.todaysSales?.totalAmount || '0'))}
+                  {formatCompactNumber(parseFloat((dashboardStats as any)?.todaysSales?.totalAmount || '0'), { currency: 'PKR' })}
                 </p>
                 <p className="text-green-100 text-xs sm:text-sm">{(dashboardStats as any)?.todaysSales?.count || 0} transactions</p>
               </div>
@@ -150,7 +151,7 @@ export default function Dashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-blue-100 text-xs sm:text-sm font-medium">Monthly Revenue</p>
                 <p className="text-lg sm:text-2xl lg:text-3xl font-bold truncate" data-testid="monthly-revenue">
-                  {formatCurrencyCompact((dashboardStats as any)?.monthlySales?.totalAmount ? parseFloat((dashboardStats as any).monthlySales.totalAmount) : 0)}
+                  {formatCompactNumber((dashboardStats as any)?.monthlySales?.totalAmount ? parseFloat((dashboardStats as any).monthlySales.totalAmount) : 0, { currency: 'PKR' })}
                 </p>
                 <p className="text-blue-100 text-xs sm:text-sm">{(dashboardStats as any)?.monthlySales?.count || 0} transactions total</p>
               </div>
@@ -168,7 +169,7 @@ export default function Dashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-purple-100 text-xs sm:text-sm font-medium">Stock Value</p>
                 <p className="text-lg sm:text-2xl lg:text-3xl font-bold truncate" data-testid="stock-value">
-                  {formatCurrencyCompact(calculateStockValue())}
+                  {formatCompactNumber(calculateStockValue(), { currency: 'PKR' })}
                 </p>
                 <p className="text-purple-100 text-xs sm:text-sm">All tanks combined</p>
               </div>
@@ -186,7 +187,7 @@ export default function Dashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-orange-100 text-xs sm:text-sm font-medium">Outstanding</p>
                 <p className="text-lg sm:text-2xl lg:text-3xl font-bold truncate" data-testid="outstanding-amount">
-                  {formatCurrencyCompact((dashboardStats as any)?.outstanding?.totalOutstanding ? parseFloat((dashboardStats as any).outstanding.totalOutstanding) : 0)}
+                  {formatCompactNumber((dashboardStats as any)?.outstanding?.totalOutstanding ? parseFloat((dashboardStats as any).outstanding.totalOutstanding) : 0, { currency: 'PKR' })}
                 </p>
                 <p className="text-orange-100 text-xs sm:text-sm">Credit customers</p>
               </div>

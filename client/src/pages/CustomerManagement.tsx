@@ -16,7 +16,34 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
-import { Eye, Edit, CreditCard } from "lucide-react";
+import { Eye, Edit, CreditCard, Trash2 } from "lucide-react";
+
+// Assuming DeleteConfirmation is a component that handles the delete confirmation dialog
+// import DeleteConfirmation from "@/components/DeleteConfirmation"; // Uncomment and adjust path if DeleteConfirmation is in a separate file
+
+// Placeholder for DeleteConfirmation component if not imported
+const DeleteConfirmation = ({ isOpen, onClose, onConfirm, title, description, itemName, isLoading }) => (
+  <Dialog open={isOpen} onOpenChange={onClose}>
+    <DialogContent className="sm:max-w-[425px]">
+      <DialogHeader>
+        <DialogTitle>{title}</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4 py-4">
+        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="text-lg font-semibold">{itemName}</p>
+      </div>
+      <div className="flex justify-end space-x-2 pt-4">
+        <Button variant="outline" onClick={onClose} disabled={isLoading}>
+          Cancel
+        </Button>
+        <Button variant="destructive" onClick={onConfirm} disabled={isLoading}>
+          {isLoading ? "Deleting..." : "Delete"}
+        </Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+);
+
 
 export default function CustomerManagement() {
   const { toast } = useToast();
@@ -30,6 +57,9 @@ export default function CustomerManagement() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+
 
   // Edit form
   const editForm = useForm({
@@ -146,6 +176,29 @@ export default function CustomerManagement() {
     },
   });
 
+  const deleteCustomerMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await apiRequest("DELETE", `/api/customers/${customerId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Customer deleted",
+        description: "Customer has been deleted successfully",
+      });
+      setDeleteConfirmOpen(false);
+      setCustomerToDelete(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete customer",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: any) => {
     createCustomerMutation.mutate(data);
   };
@@ -188,7 +241,7 @@ export default function CustomerManagement() {
 
   const onPaymentSubmit = (data: any) => {
     if (!selectedCustomer || !user) return;
-    
+
     if (!user.id) {
       toast({
         title: "Error",
@@ -197,7 +250,7 @@ export default function CustomerManagement() {
       });
       return;
     }
-    
+
     const paymentData = {
       customerId: selectedCustomer.id,
       amount: data.amount,
@@ -210,6 +263,17 @@ export default function CustomerManagement() {
       currencyCode: "PKR",
     };
     recordPaymentMutation.mutate(paymentData);
+  };
+
+  const handleDeleteCustomer = (customer: Customer) => {
+    setCustomerToDelete(customer);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteCustomer = () => {
+    if (customerToDelete) {
+      deleteCustomerMutation.mutate(customerToDelete.id);
+    }
   };
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
@@ -411,7 +475,18 @@ export default function CustomerManagement() {
         </Card>
       </div>
 
-      {/* Customer List */}
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmation
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={confirmDeleteCustomer}
+        title="Delete Customer"
+        description="Are you sure you want to delete this customer? This action cannot be undone and will remove all customer data and transaction history."
+        itemName={customerToDelete?.name || "customer"}
+        isLoading={deleteCustomerMutation.isPending}
+      />
+
+      {/* Customer Data Table */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -495,33 +570,40 @@ export default function CustomerManagement() {
                       </Badge>
                     </td>
                     <td className="p-3 text-center">
-                      <div className="flex items-center justify-center space-x-2">
+                      <div className="flex items-center space-x-2">
                         <Button
-                          variant="ghost"
                           size="sm"
+                          variant="outline"
                           onClick={() => handleViewCustomer(customer)}
-                          className="text-blue-600 hover:text-blue-800 p-1"
-                          data-testid={`button-view-${index}`}
+                          data-testid="button-view-customer"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-4 h-4 mr-2" />
+                          View
                         </Button>
                         <Button
-                          variant="ghost"
                           size="sm"
+                          variant="outline"
                           onClick={() => handleEditCustomer(customer)}
-                          className="text-green-600 hover:text-green-800 p-1"
-                          data-testid={`button-edit-${index}`}
+                          data-testid="button-edit-customer"
                         >
-                          <Edit className="w-4 h-4" />
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit
                         </Button>
                         <Button
-                          variant="ghost"
                           size="sm"
                           onClick={() => handlePaymentCustomer(customer)}
-                          className="text-purple-600 hover:text-purple-800 p-1"
-                          data-testid={`button-payment-${index}`}
+                          data-testid="button-payment-customer"
                         >
-                          <CreditCard className="w-4 h-4" />
+                          <CreditCard className="w-4 h-4 mr-2" />
+                          Payment
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteCustomer(customer)}
+                          data-testid="button-delete-customer"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </td>

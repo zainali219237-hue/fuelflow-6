@@ -244,6 +244,7 @@ export default function PointOfSale() {
 
   const updateSaleMutation = useMutation({
     mutationFn: async (saleData: { transactionId: string; transaction: any; items: any[] }) => {
+      console.log('Updating transaction with data:', saleData);
       const response = await apiRequest("PUT", `/api/sales/${saleData.transactionId}`, {
         transaction: saleData.transaction,
         items: saleData.items
@@ -395,7 +396,7 @@ export default function PointOfSale() {
     }
 
     const transaction = {
-      invoiceNumber: `INV-${user.stationId}-${Date.now()}`,
+      invoiceNumber: isEditMode ? undefined : `INV-${user.stationId}-${Date.now()}`, // Don't change invoice number when editing
       stationId: user.stationId,
       customerId: selectedCustomerId || walkInCustomer?.id,
       userId: user.id,
@@ -416,7 +417,7 @@ export default function PointOfSale() {
       totalPrice: item.totalPrice.toFixed(2),
     }));
 
-    console.log('Completing sale with data:', { transaction, items });
+    console.log('Completing sale with data:', { transaction, items, isEditMode, editingTransactionId });
 
     if (isEditMode && editingTransactionId) {
       updateSaleMutation.mutate({ 

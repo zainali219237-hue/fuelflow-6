@@ -1,5 +1,5 @@
-import { 
-  users, stations, products, tanks, customers, suppliers, 
+import {
+  users, stations, products, tanks, customers, suppliers,
   salesTransactions, salesTransactionItems, purchaseOrders, purchaseOrderItems,
   expenses, payments, stockMovements, priceHistory, settings,
   type User, type InsertUser, type Station, type InsertStation,
@@ -46,6 +46,7 @@ export interface IStorage {
   getCustomer(id: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, customer: Partial<InsertCustomer>): Promise<Customer>;
+  deleteCustomer(id: string): Promise<void>;
   updateCustomerOutstanding(customerId: string, additionalAmount: number): Promise<void>;
 
   // Suppliers
@@ -53,6 +54,7 @@ export interface IStorage {
   getSupplier(id: string): Promise<Supplier | undefined>;
   createSupplier(supplier: InsertSupplier): Promise<Supplier>;
   updateSupplier(id: string, supplier: Partial<InsertSupplier>): Promise<Supplier>;
+  deleteSupplier(id: string): Promise<void>;
   updateSupplierOutstanding(supplierId: string, additionalAmount: number): Promise<void>;
 
   // Sales Transactions
@@ -61,8 +63,10 @@ export interface IStorage {
   getSalesTransactionWithItems(id: string): Promise<(SalesTransaction & { items: (SalesTransactionItem & { product: Product })[], customer: Customer, station: Station, user: User }) | undefined>;
   getSalesTransactionWithItemsSecure(id: string, userStationId: string, userRole: string): Promise<(SalesTransaction & { items: (SalesTransactionItem & { product: Product })[], customer: Customer, station: Station, user: User }) | undefined>;
   createSalesTransaction(transaction: InsertSalesTransaction): Promise<SalesTransaction>;
+  updateSalesTransaction(id: string, transaction: Partial<InsertSalesTransaction>): Promise<SalesTransaction>;
   deleteSalesTransaction(id: string): Promise<void>;
   deleteSalesTransactionSecure(id: string, userStationId: string, userRole: string): Promise<void>;
+  deleteSalesTransactionItems(transactionId: string): Promise<void>;
 
   // Sales Transaction Items
   createSalesTransactionItem(item: InsertSalesTransactionItem): Promise<SalesTransactionItem>;
@@ -83,10 +87,12 @@ export interface IStorage {
   // Expenses
   getExpenses(stationId: string): Promise<Expense[]>;
   createExpense(expense: InsertExpense): Promise<Expense>;
+  deleteExpense(id: string, stationId: string): Promise<void>;
 
   // Payments
   getPayments(stationId: string): Promise<Payment[]>;
   createPayment(payment: InsertPayment): Promise<Payment>;
+  deletePayment(id: string, stationId: string): Promise<void>;
 
   // Stock Movements
   getStockMovements(tankId: string): Promise<StockMovement[]>;
@@ -98,60 +104,68 @@ export interface IStorage {
   getFinancialReport(stationId: string, startDate: Date, endDate: Date): Promise<any>;
   getDailyReport(stationId: string, date: Date): Promise<any>;
   getAgingReport(stationId: string, type: 'receivable' | 'payable'): Promise<any>;
-  deletePayment(id: string, stationId: string): Promise<void>;
-  deleteExpense(id: string, stationId: string): Promise<void>;
+
+  // Settings
+  getSettings(stationId: string): Promise<Settings | undefined>;
+  createSettings(settings: InsertSettings): Promise<Settings>;
+  updateSettings(stationId: string, settings: Partial<InsertSettings>): Promise<Settings>;
 }
 
 export class DatabaseStorage implements IStorage {
+  // Assuming 'db' is available in the class context or passed to the constructor.
+  // For simplicity, directly using the imported 'db'. If 'db' needs to be
+  // managed by the class, it should be a class member initialized appropriately.
+  private db = db;
+
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
+    const [user] = await this.db.select().from(users).where(eq(users.id, id));
     return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+    const [user] = await this.db.select().from(users).where(eq(users.username, username));
     return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+    const [user] = await this.db.insert(users).values(insertUser).returning();
     return user;
   }
 
   async getUsers(): Promise<User[]> {
-    return await db.select().from(users);
+    return await this.db.select().from(users);
   }
 
   async getStation(id: string): Promise<Station | undefined> {
-    const [station] = await db.select().from(stations).where(eq(stations.id, id));
+    const [station] = await this.db.select().from(stations).where(eq(stations.id, id));
     return station || undefined;
   }
 
   async getStations(): Promise<Station[]> {
-    return await db.select().from(stations).where(eq(stations.isActive, true));
+    return await this.db.select().from(stations).where(eq(stations.isActive, true));
   }
 
   async createStation(insertStation: InsertStation): Promise<Station> {
-    const [station] = await db.insert(stations).values(insertStation).returning();
+    const [station] = await this.db.insert(stations).values(insertStation).returning();
     return station;
   }
 
   async getProducts(): Promise<Product[]> {
-    return await db.select().from(products).where(eq(products.isActive, true));
+    return await this.db.select().from(products).where(eq(products.isActive, true));
   }
 
   async getProduct(id: string): Promise<Product | undefined> {
-    const [product] = await db.select().from(products).where(eq(products.id, id));
+    const [product] = await this.db.select().from(products).where(eq(products.id, id));
     return product || undefined;
   }
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
-    const [product] = await db.insert(products).values(insertProduct).returning();
+    const [product] = await this.db.insert(products).values(insertProduct).returning();
     return product;
   }
 
   async updateProduct(id: string, productData: Partial<InsertProduct>): Promise<Product> {
-    const [product] = await db.update(products)
+    const [product] = await this.db.update(products)
       .set({ ...productData })
       .where(eq(products.id, id))
       .returning();
@@ -159,7 +173,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTanksByStation(stationId: string): Promise<(Tank & { product: Product })[]> {
-    const result = await db
+    const result = await this.db
       .select({
         // Tank fields
         id: tanks.id,
@@ -194,17 +208,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTank(id: string): Promise<Tank | undefined> {
-    const [tank] = await db.select().from(tanks).where(eq(tanks.id, id));
+    const [tank] = await this.db.select().from(tanks).where(eq(tanks.id, id));
     return tank || undefined;
   }
 
   async createTank(insertTank: InsertTank): Promise<Tank> {
-    const [tank] = await db.insert(tanks).values(insertTank).returning();
+    const [tank] = await this.db.insert(tanks).values(insertTank).returning();
     return tank;
   }
 
   async updateTankStock(id: string, currentStock: number): Promise<Tank> {
-    const [tank] = await db.update(tanks)
+    const [tank] = await this.db.update(tanks)
       .set({ currentStock: currentStock.toString() })
       .where(eq(tanks.id, id))
       .returning();
@@ -212,32 +226,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCustomers(): Promise<Customer[]> {
-    return await db.select().from(customers).where(eq(customers.isActive, true));
+    return await this.db.select().from(customers).where(eq(customers.isActive, true));
   }
 
   async getCustomer(id: string): Promise<Customer | undefined> {
-    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
-    return customer || undefined;
+    const result = await this.db
+      .select()
+      .from(customers)
+      .where(eq(customers.id, id))
+      .limit(1);
+    return result[0];
   }
 
   async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
-    const [customer] = await db.insert(customers).values(insertCustomer).returning();
-    return customer;
+    const result = await this.db.insert(customers).values(insertCustomer).returning();
+    return result[0];
   }
 
   async updateCustomer(id: string, customerData: Partial<InsertCustomer>): Promise<Customer> {
-    const [customer] = await db.update(customers)
+    const result = await this.db
+      .update(customers)
       .set(customerData)
       .where(eq(customers.id, id))
       .returning();
-    return customer;
+
+    if (result.length === 0) {
+      throw new Error("Customer not found");
+    }
+
+    return result[0];
+  }
+
+  async deleteCustomer(id: string): Promise<void> {
+    await this.db.delete(customers).where(eq(customers.id, id));
   }
 
   async updateCustomerOutstanding(customerId: string, additionalAmount: number): Promise<void> {
     try {
-      const result = await db.update(customers)
-        .set({ 
-          outstandingAmount: sql`${customers.outstandingAmount} + ${additionalAmount}` 
+      const result = await this.db.update(customers)
+        .set({
+          outstandingAmount: sql`${customers.outstandingAmount} + ${additionalAmount}`
         })
         .where(eq(customers.id, customerId))
         .returning({ id: customers.id });
@@ -252,9 +280,9 @@ export class DatabaseStorage implements IStorage {
 
   async updateSupplierOutstanding(supplierId: string, additionalAmount: number): Promise<void> {
     try {
-      const result = await db.update(suppliers)
-        .set({ 
-          outstandingAmount: sql`${suppliers.outstandingAmount} + ${additionalAmount}` 
+      const result = await this.db.update(suppliers)
+        .set({
+          outstandingAmount: sql`${suppliers.outstandingAmount} + ${additionalAmount}`
         })
         .where(eq(suppliers.id, supplierId))
         .returning({ id: suppliers.id });
@@ -268,31 +296,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSuppliers(): Promise<Supplier[]> {
-    return await db.select().from(suppliers).where(eq(suppliers.isActive, true));
+    return await this.db.select().from(suppliers).where(eq(suppliers.isActive, true));
   }
 
   async getSupplier(id: string): Promise<Supplier | undefined> {
-    const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, id));
-    return supplier || undefined;
+    const result = await this.db
+      .select()
+      .from(suppliers)
+      .where(eq(suppliers.id, id))
+      .limit(1);
+    return result[0];
   }
 
   async createSupplier(insertSupplier: InsertSupplier): Promise<Supplier> {
-    const [supplier] = await db.insert(suppliers).values(insertSupplier).returning();
-    return supplier;
+    const result = await this.db.insert(suppliers).values(insertSupplier).returning();
+    return result[0];
   }
 
   async updateSupplier(id: string, supplierData: Partial<InsertSupplier>): Promise<Supplier> {
-    const [supplier] = await db.update(suppliers)
+    const result = await this.db
+      .update(suppliers)
       .set(supplierData)
       .where(eq(suppliers.id, id))
       .returning();
-    if (!supplier) throw new Error("Supplier not found");
-    return supplier;
+    if (!result[0]) throw new Error("Supplier not found");
+    return result[0];
+  }
+
+  async deleteSupplier(id: string): Promise<void> {
+    await this.db.delete(suppliers).where(eq(suppliers.id, id));
   }
 
   async getSalesTransactions(stationId: string, limit = 50): Promise<any[]> {
     // First get the transactions
-    const transactions = await db.select()
+    const transactions = await this.db.select()
       .from(salesTransactions)
       .where(eq(salesTransactions.stationId, stationId))
       .orderBy(desc(salesTransactions.transactionDate))
@@ -301,7 +338,7 @@ export class DatabaseStorage implements IStorage {
     // For each transaction, get its items with product details
     const transactionsWithItems = await Promise.all(
       transactions.map(async (transaction) => {
-        const items = await db
+        const items = await this.db
           .select({
             id: salesTransactionItems.id,
             productId: salesTransactionItems.productId,
@@ -331,32 +368,93 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSalesTransaction(id: string): Promise<SalesTransaction | undefined> {
-    const [transaction] = await db.select().from(salesTransactions).where(eq(salesTransactions.id, id));
+    const [transaction] = await this.db.select().from(salesTransactions).where(eq(salesTransactions.id, id));
     return transaction || undefined;
   }
 
   async createSalesTransaction(insertTransaction: InsertSalesTransaction): Promise<SalesTransaction> {
     try {
-      const [transaction] = await db.insert(salesTransactions).values(insertTransaction).returning();
+      const [transaction] = await this.db.insert(salesTransactions).values(insertTransaction).returning();
       return transaction;
     } catch (error) {
       throw new Error(`Failed to create sales transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
+  async updateSalesTransaction(id: string, transaction: Partial<InsertSalesTransaction>): Promise<SalesTransaction> {
+    const result = await this.db
+      .update(salesTransactions)
+      .set(transaction)
+      .where(eq(salesTransactions.id, id))
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error("Transaction not found");
+    }
+
+    return result[0];
+  }
+
+  async deleteSalesTransaction(id: string): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      // Delete related transaction items first
+      await tx.delete(salesTransactionItems).where(eq(salesTransactionItems.transactionId, id));
+
+      // Delete the transaction
+      await tx.delete(salesTransactions).where(eq(salesTransactions.id, id));
+    });
+  }
+
+  async deleteSalesTransactionSecure(id: string, userStationId: string, userRole: string): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      // First verify the transaction belongs to the user's station (unless admin)
+      if (userRole !== 'admin') {
+        const [transaction] = await tx.select({ stationId: salesTransactions.stationId })
+          .from(salesTransactions)
+          .where(eq(salesTransactions.id, id));
+
+        if (!transaction) {
+          throw new Error('Sales transaction not found');
+        }
+
+        if (transaction.stationId !== userStationId) {
+          throw new Error('Access denied: Transaction does not belong to your station');
+        }
+      }
+
+      // Delete related transaction items first
+      await tx.delete(salesTransactionItems).where(eq(salesTransactionItems.transactionId, id));
+
+      // Delete the transaction
+      const result = await tx.delete(salesTransactions).where(eq(salesTransactions.id, id)).returning({ id: salesTransactions.id });
+
+      if (result.length === 0) {
+        throw new Error('Sales transaction not found');
+      }
+    });
+  }
+
+  async deleteSalesTransactionItems(transactionId: string): Promise<void> {
+    await this.db
+      .delete(salesTransactionItems)
+      .where(eq(salesTransactionItems.transactionId, transactionId));
+  }
+
   async createSalesTransactionItem(insertItem: InsertSalesTransactionItem): Promise<SalesTransactionItem> {
-    const [item] = await db.insert(salesTransactionItems).values(insertItem).returning();
+    const [item] = await this.db.insert(salesTransactionItems).values(insertItem).returning();
     return item;
   }
 
   async getSalesTransactionItems(transactionId: string): Promise<SalesTransactionItem[]> {
-    return await db.select()
+    const result = await this.db
+      .select()
       .from(salesTransactionItems)
       .where(eq(salesTransactionItems.transactionId, transactionId));
+    return result;
   }
 
   async getPurchaseOrders(stationId: string): Promise<PurchaseOrder[]> {
-    return await db.select()
+    return await this.db.select()
       .from(purchaseOrders)
       .where(eq(purchaseOrders.stationId, stationId))
       .orderBy(desc(purchaseOrders.orderDate));
@@ -364,7 +462,7 @@ export class DatabaseStorage implements IStorage {
 
   async createPurchaseOrder(insertOrder: InsertPurchaseOrder): Promise<PurchaseOrder> {
     try {
-      const [order] = await db.insert(purchaseOrders).values(insertOrder).returning();
+      const [order] = await this.db.insert(purchaseOrders).values(insertOrder).returning();
       return order;
     } catch (error) {
       throw new Error(`Failed to create purchase order: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -372,24 +470,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPurchaseOrderItem(insertItem: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
-    const [item] = await db.insert(purchaseOrderItems).values(insertItem).returning();
+    const [item] = await this.db.insert(purchaseOrderItems).values(insertItem).returning();
     return item;
   }
 
   async getExpenses(stationId: string): Promise<Expense[]> {
-    return await db.select()
+    return await this.db.select()
       .from(expenses)
       .where(eq(expenses.stationId, stationId))
       .orderBy(desc(expenses.expenseDate));
   }
 
   async createExpense(insertExpense: InsertExpense): Promise<Expense> {
-    const [expense] = await db.insert(expenses).values(insertExpense).returning();
+    const [expense] = await this.db.insert(expenses).values(insertExpense).returning();
     return expense;
   }
 
+  async deleteExpense(id: string, stationId: string): Promise<void> {
+    try {
+      const result = await this.db.delete(expenses).where(
+        and(
+          eq(expenses.id, id),
+          eq(expenses.stationId, stationId)
+        )
+      ).returning({ id: expenses.id });
+
+      if (result.length === 0) {
+        throw new Error(`Expense ${id} not found or not authorized for station ${stationId}`);
+      }
+    } catch (error) {
+      throw new Error(`Failed to delete expense: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   async getPayments(stationId: string): Promise<Payment[]>{
-    return await db.select()
+    return await this.db.select()
       .from(payments)
       .where(eq(payments.stationId, stationId))
       .orderBy(desc(payments.paymentDate));
@@ -398,7 +513,7 @@ export class DatabaseStorage implements IStorage {
   async createPayment(insertPayment: InsertPayment): Promise<Payment> {
     try {
       // Start a transaction to ensure atomicity
-      const result = await db.transaction(async (tx) => {
+      const result = await this.db.transaction(async (tx) => {
         // Create the payment record
         const [payment] = await tx.insert(payments).values(insertPayment).returning();
 
@@ -408,15 +523,15 @@ export class DatabaseStorage implements IStorage {
         if (payment.type === 'receivable' && payment.customerId) {
           // Customer payment - reduce customer's outstanding amount
           await tx.update(customers)
-            .set({ 
-              outstandingAmount: sql`${customers.outstandingAmount} - ${paymentAmount}` 
+            .set({
+              outstandingAmount: sql`${customers.outstandingAmount} - ${paymentAmount}`
             })
             .where(eq(customers.id, payment.customerId));
         } else if (payment.type === 'payable' && payment.supplierId) {
           // Supplier payment - reduce supplier's outstanding amount
           await tx.update(suppliers)
-            .set({ 
-              outstandingAmount: sql`${suppliers.outstandingAmount} - ${paymentAmount}` 
+            .set({
+              outstandingAmount: sql`${suppliers.outstandingAmount} - ${paymentAmount}`
             })
             .where(eq(suppliers.id, payment.supplierId));
         }
@@ -430,15 +545,32 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async deletePayment(id: string, stationId: string): Promise<void> {
+    try {
+      const result = await this.db.delete(payments).where(
+        and(
+          eq(payments.id, id),
+          eq(payments.stationId, stationId)
+        )
+      ).returning({ id: payments.id });
+
+      if (result.length === 0) {
+        throw new Error(`Payment ${id} not found or not authorized for station ${stationId}`);
+      }
+    } catch (error) {
+      throw new Error(`Failed to delete payment: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   async getStockMovements(tankId: string): Promise<StockMovement[]> {
-    return await db.select()
+    return await this.db.select()
       .from(stockMovements)
       .where(eq(stockMovements.tankId, tankId))
       .orderBy(desc(stockMovements.movementDate));
   }
 
   async createStockMovement(insertMovement: InsertStockMovement): Promise<StockMovement & { updatedTank?: Tank }> {
-    return await db.transaction(async (tx) => {
+    return await this.db.transaction(async (tx) => {
       // Get current tank stock
       const [currentTank] = await tx.select().from(tanks).where(eq(tanks.id, insertMovement.tankId));
       if (!currentTank) {
@@ -506,7 +638,7 @@ export class DatabaseStorage implements IStorage {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
     // Today's sales
-    const todaysSales = await db
+    const todaysSales = await this.db
       .select({
         totalAmount: sum(salesTransactions.totalAmount),
         count: sql<number>`count(*)`,
@@ -520,7 +652,7 @@ export class DatabaseStorage implements IStorage {
       );
 
     // Monthly sales
-    const monthlySales = await db
+    const monthlySales = await this.db
       .select({
         totalAmount: sum(salesTransactions.totalAmount),
         count: sql<number>`count(*)`,
@@ -534,7 +666,7 @@ export class DatabaseStorage implements IStorage {
       );
 
     // Outstanding amount from customers
-    const outstanding = await db
+    const outstanding = await this.db
       .select({
         totalOutstanding: sum(customers.outstandingAmount),
       })
@@ -548,7 +680,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSalesReport(stationId: string, startDate: Date, endDate: Date): Promise<any> {
-    return await db
+    return await this.db
       .select({
         date: salesTransactions.transactionDate,
         totalAmount: sum(salesTransactions.totalAmount),
@@ -568,7 +700,7 @@ export class DatabaseStorage implements IStorage {
 
   async getFinancialReport(stationId: string, startDate: Date, endDate: Date): Promise<any> {
     // Revenue
-    const revenue = await db
+    const revenue = await this.db
       .select({
         totalRevenue: sum(salesTransactions.totalAmount),
       })
@@ -582,7 +714,7 @@ export class DatabaseStorage implements IStorage {
       );
 
     // Expenses
-    const expenseData = await db
+    const expenseData = await this.db
       .select({
         totalExpenses: sum(expenses.amount),
       })
@@ -602,7 +734,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSalesTransactionWithItems(id: string): Promise<(SalesTransaction & { items: (SalesTransactionItem & { product: Product })[], customer: Customer, station: Station, user: User }) | undefined> {
-    const transaction = await db
+    const transaction = await this.db
       .select()
       .from(salesTransactions)
       .leftJoin(customers, eq(salesTransactions.customerId, customers.id))
@@ -618,7 +750,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Sales transaction ${id} has missing customer, station, or user data`);
     }
 
-    const itemsWithProducts = await db
+    const itemsWithProducts = await this.db
       .select({
         // SalesTransactionItem fields
         id: salesTransactionItems.id,
@@ -657,7 +789,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSalesTransactionWithItemsSecure(id: string, userStationId: string, userRole: string): Promise<(SalesTransaction & { items: (SalesTransactionItem & { product: Product })[], customer: Customer, station: Station, user: User }) | undefined> {
-    const transaction = await db
+    const transaction = await this.db
       .select()
       .from(salesTransactions)
       .leftJoin(customers, eq(salesTransactions.customerId, customers.id))
@@ -678,7 +810,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Access denied: Transaction does not belong to your station');
     }
 
-    const itemsWithProducts = await db
+    const itemsWithProducts = await this.db
       .select({
         // SalesTransactionItem fields
         id: salesTransactionItems.id,
@@ -717,7 +849,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSalesTransaction(id: string): Promise<void> {
-    await db.transaction(async (tx) => {
+    await this.db.transaction(async (tx) => {
       // Delete related transaction items first
       await tx.delete(salesTransactionItems).where(eq(salesTransactionItems.transactionId, id));
 
@@ -727,7 +859,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSalesTransactionSecure(id: string, userStationId: string, userRole: string): Promise<void> {
-    await db.transaction(async (tx) => {
+    await this.db.transaction(async (tx) => {
       // First verify the transaction belongs to the user's station (unless admin)
       if (userRole !== 'admin') {
         const [transaction] = await tx.select({ stationId: salesTransactions.stationId })
@@ -756,12 +888,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPurchaseOrder(id: string): Promise<PurchaseOrder | undefined> {
-    const [order] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
+    const [order] = await this.db.select().from(purchaseOrders).where(eq(purchaseOrders.id, id));
     return order || undefined;
   }
 
   async deletePurchaseOrder(id: string): Promise<void> {
-    await db.transaction(async (tx) => {
+    await this.db.transaction(async (tx) => {
       // Delete related order items first
       await tx.delete(purchaseOrderItems).where(eq(purchaseOrderItems.orderId, id));
 
@@ -771,7 +903,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPurchaseOrderWithItems(id: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[], supplier: Supplier, station: Station }) | undefined> {
-    const order = await db
+    const order = await this.db
       .select()
       .from(purchaseOrders)
       .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
@@ -786,7 +918,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`Purchase order ${id} has missing supplier or station data`);
     }
 
-    const items = await db
+    const items = await this.db
       .select()
       .from(purchaseOrderItems)
       .where(eq(purchaseOrderItems.orderId, id));
@@ -800,7 +932,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPurchaseOrderWithItemsSecure(id: string, userStationId: string, userRole: string): Promise<(PurchaseOrder & { items: PurchaseOrderItem[], supplier: Supplier, station: Station }) | undefined> {
-    const order = await db
+    const order = await this.db
       .select()
       .from(purchaseOrders)
       .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
@@ -820,7 +952,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Access denied: Purchase order does not belong to your station');
     }
 
-    const items = await db
+    const items = await this.db
       .select()
       .from(purchaseOrderItems)
       .where(eq(purchaseOrderItems.orderId, id));
@@ -834,7 +966,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePurchaseOrderSecure(id: string, userStationId: string, userRole: string): Promise<void> {
-    await db.transaction(async (tx) => {
+    await this.db.transaction(async (tx) => {
       // First verify the order belongs to the user's station (unless admin)
       if (userRole !== 'admin') {
         const [order] = await tx.select({ stationId: purchaseOrders.stationId })
@@ -869,7 +1001,7 @@ export class DatabaseStorage implements IStorage {
     endOfDay.setHours(23, 59, 59, 999);
 
     // Sales by payment method
-    const salesByMethod = await db
+    const salesByMethod = await this.db
       .select({
         paymentMethod: salesTransactions.paymentMethod,
         totalAmount: sum(salesTransactions.totalAmount),
@@ -887,7 +1019,7 @@ export class DatabaseStorage implements IStorage {
       .groupBy(salesTransactions.paymentMethod, salesTransactions.currencyCode);
 
     // Expenses
-    const dailyExpenses = await db
+    const dailyExpenses = await this.db
       .select({
         category: expenses.category,
         totalAmount: sum(expenses.amount),
@@ -914,7 +1046,7 @@ export class DatabaseStorage implements IStorage {
     try {
       if (type === 'receivable') {
         // Get all outstanding receivables
-        const receivables = await db
+        const receivables = await this.db
           .select({
             id: salesTransactions.id,
             invoiceNumber: salesTransactions.invoiceNumber,
@@ -925,7 +1057,7 @@ export class DatabaseStorage implements IStorage {
             paidAmount: salesTransactions.paidAmount,
             outstandingAmount: salesTransactions.outstandingAmount,
             currencyCode: salesTransactions.currencyCode,
-            daysOverdue: sql<number>`CASE 
+            daysOverdue: sql<number>`CASE
               WHEN ${salesTransactions.dueDate} IS NULL THEN 0
               WHEN ${salesTransactions.dueDate} < CURRENT_DATE THEN EXTRACT(day FROM CURRENT_DATE - ${salesTransactions.dueDate})::integer
               ELSE 0
@@ -969,7 +1101,7 @@ export class DatabaseStorage implements IStorage {
 
       } else {
         // Get all outstanding payables
-        const payables = await db
+        const payables = await this.db
           .select({
             id: purchaseOrders.id,
             orderNumber: purchaseOrders.orderNumber,
@@ -980,7 +1112,7 @@ export class DatabaseStorage implements IStorage {
             paidAmount: purchaseOrders.paidAmount,
             outstandingAmount: sql<string>`${purchaseOrders.totalAmount} - ${purchaseOrders.paidAmount}`,
             currencyCode: purchaseOrders.currencyCode,
-            daysOverdue: sql<number>`CASE 
+            daysOverdue: sql<number>`CASE
               WHEN ${purchaseOrders.dueDate} IS NULL THEN 0
               WHEN ${purchaseOrders.dueDate} < CURRENT_DATE THEN EXTRACT(day FROM CURRENT_DATE - ${purchaseOrders.dueDate})::integer
               ELSE 0
@@ -1027,52 +1159,18 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async deletePayment(id: string, stationId: string): Promise<void> {
-    try {
-      const result = await db.delete(payments).where(
-        and(
-          eq(payments.id, id),
-          eq(payments.stationId, stationId)
-        )
-      ).returning({ id: payments.id });
-
-      if (result.length === 0) {
-        throw new Error(`Payment ${id} not found or not authorized for station ${stationId}`);
-      }
-    } catch (error) {
-      throw new Error(`Failed to delete payment: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async deleteExpense(id: string, stationId: string): Promise<void> {
-    try {
-      const result = await db.delete(expenses).where(
-        and(
-          eq(expenses.id, id),
-          eq(expenses.stationId, stationId)
-        )
-      ).returning({ id: expenses.id });
-
-      if (result.length === 0) {
-        throw new Error(`Expense ${id} not found or not authorized for station ${stationId}`);
-      }
-    } catch (error) {
-      throw new Error(`Failed to delete expense: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
   async getSettings(stationId: string): Promise<Settings | undefined> {
-    const [setting] = await db.select().from(settings).where(eq(settings.stationId, stationId));
+    const [setting] = await this.db.select().from(settings).where(eq(settings.stationId, stationId));
     return setting || undefined;
   }
 
   async createSettings(insertSettings: InsertSettings): Promise<Settings> {
-    const [setting] = await db.insert(settings).values(insertSettings).returning();
+    const [setting] = await this.db.insert(settings).values(insertSettings).returning();
     return setting;
   }
 
   async updateSettings(stationId: string, settingsData: Partial<InsertSettings>): Promise<Settings> {
-    const [setting] = await db.update(settings)
+    const [setting] = await this.db.update(settings)
       .set({ ...settingsData, updatedAt: new Date() })
       .where(eq(settings.stationId, stationId))
       .returning();

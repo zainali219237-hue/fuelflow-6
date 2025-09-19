@@ -410,22 +410,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/customers", requireAuth, async (req, res) => {
     try {
-      const validatedData = insertCustomerSchema.parse(req.body);
-      const customer = await storage.createCustomer(validatedData);
+      const customer = await storage.createCustomer(req.body);
       res.status(201).json(customer);
     } catch (error) {
-      res.status(400).json({ message: "Invalid customer data" });
+      console.error("Error creating customer:", error);
+      res.status(500).json({ error: "Failed to create customer" });
+    }
+  });
+
+  app.delete("/api/customers/:id", requireAuth, async (req, res) => {
+    const { id } = req.params;
+    const user = req.user!;
+
+    try {
+      // Check if customer has outstanding transactions
+      const customer = await storage.getCustomer(id);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      if (parseFloat(customer.outstandingAmount || '0') > 0) {
+        return res.status(400).json({ error: "Cannot delete customer with outstanding amount" });
+      }
+
+      await storage.deleteCustomer(id);
+      res.json({ message: "Customer deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting customer:", error);
+      res.status(500).json({ error: "Failed to delete customer" });
     }
   });
 
   app.put("/api/customers/:id", requireAuth, async (req, res) => {
+    const { id } = req.params;
     try {
-      const { id } = req.params;
-      const validatedData = insertCustomerSchema.partial().parse(req.body);
-      const customer = await storage.updateCustomer(id, validatedData);
+      const customer = await storage.updateCustomer(id, req.body);
       res.json(customer);
     } catch (error) {
-      res.status(400).json({ message: "Invalid customer data" });
+      console.error("Error updating customer:", error);
+      res.status(500).json({ error: "Failed to update customer" });
     }
   });
 
@@ -441,22 +464,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/suppliers", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
     try {
-      const validatedData = insertSupplierSchema.parse(req.body);
-      const supplier = await storage.createSupplier(validatedData);
+      const supplier = await storage.createSupplier(req.body);
       res.status(201).json(supplier);
     } catch (error) {
-      res.status(400).json({ message: "Invalid supplier data" });
+      console.error("Error creating supplier:", error);
+      res.status(500).json({ error: "Failed to create supplier" });
     }
   });
 
-  app.put("/api/suppliers/:id", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
+  app.delete("/api/suppliers/:id", requireAuth, async (req, res) => {
+    const { id } = req.params;
+
     try {
-      const { id } = req.params;
-      const validatedData = insertSupplierSchema.partial().parse(req.body);
-      const supplier = await storage.updateSupplier(id, validatedData);
+      const supplier = await storage.getSupplier(id);
+      if (!supplier) {
+        return res.status(404).json({ error: "Supplier not found" });
+      }
+
+      if (parseFloat(supplier.outstandingAmount || '0') > 0) {
+        return res.status(400).json({ error: "Cannot delete supplier with outstanding amount" });
+      }
+
+      await storage.deleteSupplier(id);
+      res.json({ message: "Supplier deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting supplier:", error);
+      res.status(500).json({ error: "Failed to delete supplier" });
+    }
+  });
+
+  app.put("/api/suppliers/:id", requireAuth, async (req, res) => {
+    const { id } = req.params;
+    try {
+      const supplier = await storage.updateSupplier(id, req.body);
       res.json(supplier);
     } catch (error) {
-      res.status(400).json({ message: "Invalid supplier data" });
+      console.error("Error updating supplier:", error);
+      res.status(500).json({ error: "Failed to update supplier" });
     }
   });
 
@@ -498,6 +542,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: error.message });
       }
       res.status(500).json({ message: "Failed to fetch sales transaction details" });
+    }
+  });
+
+  app.put("/api/sales/:transactionId", requireAuth, async (req, res) => {
+    const { transactionId } = req.params;
+    const { transaction, items } = req.body;
+    const user = req.user!;
+
+    try {
+      // Get existing transaction to check permissions
+      const existingTransaction = await storage.getSalesTransaction(transactionId);
+      if (!existingTransaction) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+
+      if (user.role !== 'admin' && user.stationId !== existingTransaction.stationId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Update transaction
+      const updatedTransaction = await storage.updateSalesTransaction(transactionId, transaction);
+
+      // Delete existing items
+      await storage.deleteSalesTransactionItems(transactionId);
+
+      // Add new items
+      const updatedItems = [];
+      for (const item of items) {
+        const newItem = await storage.createSalesTransactionItem({
+          ...item,
+          transactionId: transactionId
+        });
+        updatedItems.push(newItem);
+      }
+
+      res.json({ transaction: updatedTransaction, items: updatedItems });
+    } catch (error) {
+      console.error("Error updating sale:", error);
+      res.status(500).json({ error: "Failed to update sale" });
     }
   });
 

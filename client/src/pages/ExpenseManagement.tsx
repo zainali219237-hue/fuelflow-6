@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
+import { formatCompactNumber } from "@/lib/utils";
 import { BarChart3, Eye, Edit } from "lucide-react";
 
 export default function ExpenseManagement() {
@@ -261,7 +262,7 @@ export default function ExpenseManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-red-600" data-testid="total-expenses">
-              {formatCurrency(totalExpenses)}
+              {formatCompactNumber(totalExpenses, { currency: 'PKR' })}
             </div>
             <div className="text-sm text-muted-foreground">Total Expenses</div>
           </CardContent>
@@ -269,7 +270,7 @@ export default function ExpenseManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-orange-600" data-testid="monthly-expenses">
-              {formatCurrency(monthlyExpenses)}
+              {formatCompactNumber(monthlyExpenses, { currency: 'PKR' })}
             </div>
             <div className="text-sm text-muted-foreground">This Month</div>
           </CardContent>
@@ -277,7 +278,7 @@ export default function ExpenseManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-blue-600" data-testid="salary-expenses">
-              {formatCurrency(expensesByCategory.salary)}
+              {formatCompactNumber(expensesByCategory.salary, { currency: 'PKR' })}
             </div>
             <div className="text-sm text-muted-foreground">Staff Salaries</div>
           </CardContent>
@@ -285,7 +286,7 @@ export default function ExpenseManagement() {
         <Card>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-purple-600" data-testid="utility-expenses">
-              {formatCurrency(expensesByCategory.utilities)}
+              {formatCompactNumber(expensesByCategory.utilities, { currency: 'PKR' })}
             </div>
             <div className="text-sm text-muted-foreground">Utilities</div>
           </CardContent>

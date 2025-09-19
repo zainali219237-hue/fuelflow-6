@@ -14,6 +14,25 @@ import { apiRequest } from "@/lib/api";
 import { Eye, Edit, Trash2, Play, Download } from "lucide-react";
 import { useLocation } from "wouter";
 
+// Placeholder for the new DeleteConfirmation component
+// In a real scenario, this would be imported from "@/components/ui/delete-confirmation"
+const DeleteConfirmation = ({ isOpen, onClose, onConfirm, title, description, itemName, isLoading }: any) => (
+  <dialog open={isOpen} onClose={onClose} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full">
+      <h3 className="text-lg font-semibold text-destructive">{title}</h3>
+      <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+      <p className="mt-2 font-semibold">{itemName}</p>
+      <div className="mt-4 flex justify-end space-x-2">
+        <Button variant="outline" onClick={onClose}>Cancel</Button>
+        <Button variant="destructive" onClick={onConfirm} disabled={isLoading}>
+          {isLoading ? 'Deleting...' : 'Delete'}
+        </Button>
+      </div>
+    </div>
+  </dialog>
+);
+
+
 interface DraftSale {
   id: string;
   selectedCustomerId: string;
@@ -96,7 +115,7 @@ export default function SalesHistory() {
     if (draftToDelete) {
       const updatedDrafts = draftSales.filter(draft => draft.id !== draftToDelete);
       setDraftSales(updatedDrafts);
-      
+
       // Update localStorage
       if (updatedDrafts.length > 0) {
         localStorage.setItem('allPosDrafts', JSON.stringify(updatedDrafts));
@@ -104,12 +123,12 @@ export default function SalesHistory() {
         localStorage.removeItem('allPosDrafts');
         localStorage.removeItem('posDraft'); // Also remove single draft
       }
-      
+
       toast({
         title: "Draft deleted",
         description: "Draft sale has been removed",
       });
-      
+
       setDraftDeleteConfirmOpen(false);
       setDraftToDelete(null);
     }
@@ -126,7 +145,7 @@ export default function SalesHistory() {
           setDraftSales(drafts);
           return;
         }
-        
+
         // Check for single draft (legacy support)
         const singleDraft = localStorage.getItem('posDraft');
         if (singleDraft) {
@@ -134,7 +153,7 @@ export default function SalesHistory() {
           const totalAmount = draft.transactionItems?.reduce((sum: number, item: any) => {
             return sum + (item.totalPrice || 0);
           }, 0) || 0;
-          
+
           const draftSale: DraftSale = {
             id: `draft-${draft.timestamp || Date.now()}`,
             selectedCustomerId: draft.selectedCustomerId || '',
@@ -143,9 +162,9 @@ export default function SalesHistory() {
             timestamp: draft.timestamp || Date.now(),
             totalAmount: totalAmount
           };
-          
+
           setDraftSales([draftSale]);
-          
+
           // Migrate to new format
           localStorage.setItem('allPosDrafts', JSON.stringify([draftSale]));
         }
@@ -153,7 +172,7 @@ export default function SalesHistory() {
         console.error('Failed to load drafts:', error);
       }
     };
-    
+
     loadDrafts();
   }, []);
 
@@ -165,7 +184,7 @@ export default function SalesHistory() {
         const date = t.transactionDate ? new Date(t.transactionDate).toLocaleDateString() : 'N/A';
         return `${t.invoiceNumber},${customer?.name || 'Walk-in'},${t.totalAmount},${t.paymentMethod},${date}`;
       }).join("\n");
-    
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -217,7 +236,7 @@ export default function SalesHistory() {
         </body>
       </html>
     `;
-    
+
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(printContent);
@@ -243,7 +262,7 @@ export default function SalesHistory() {
     // Enhanced search across multiple fields
     const customer = customers.find(c => c.id === transaction.customerId);
     const searchLower = searchTerm.toLowerCase();
-    
+
     const matchesSearch = !searchTerm || 
       transaction.invoiceNumber?.toLowerCase().includes(searchLower) ||
       customer?.name?.toLowerCase().includes(searchLower) ||
@@ -253,13 +272,13 @@ export default function SalesHistory() {
       (customer?.contactPhone && customer.contactPhone.includes(searchTerm)) ||
       (customer?.gstNumber && customer.gstNumber.toLowerCase().includes(searchLower));
     const matchesPayment = paymentFilter === "all" || transaction.paymentMethod === paymentFilter;
-    
+
     // Date filtering
     if (!transaction.transactionDate) return false;
     const transactionDate = new Date(transaction.transactionDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     let matchesDate = true;
     if (dateFilter === "today") {
       const transactionToday = new Date(transactionDate);
@@ -280,7 +299,7 @@ export default function SalesHistory() {
       monthAgo.setMonth(monthAgo.getMonth() - 1);
       matchesDate = transactionDate >= monthAgo;
     }
-    
+
     return matchesSearch && matchesPayment && matchesDate;
   });
 
@@ -426,7 +445,7 @@ export default function SalesHistory() {
                     hour: '2-digit',
                     minute: '2-digit'
                   });
-                  
+
                   return (
                     <tr key={`draft-${draft.id}`} className="border-b border-border hover:bg-muted/50 bg-yellow-50 dark:bg-yellow-900/20">
                       <td className="p-3 text-sm">{draftTime}</td>
@@ -474,7 +493,7 @@ export default function SalesHistory() {
                     </tr>
                   );
                 })}
-                
+
                 {/* Completed Sales */}
                 {filteredTransactions.length > 0 ? filteredTransactions.map((transaction: SalesTransaction & { items?: any[] }, index: number) => {
                   const customer = customers.find(c => c.id === transaction.customerId);
@@ -484,7 +503,7 @@ export default function SalesHistory() {
                         minute: '2-digit'
                       })
                     : 'N/A';
-                  
+
                   return (
                     <tr key={transaction.id} className="border-b border-border hover:bg-muted/50">
                       <td className="p-3 text-sm">{transactionTime}</td>
@@ -561,7 +580,7 @@ export default function SalesHistory() {
                     </tr>
                   );
                 }) : null}
-                
+
                 {/* Show message when no data */}
                 {filteredTransactions.length === 0 && (!showDrafts || draftSales.length === 0) && (
                   <tr>
@@ -578,26 +597,25 @@ export default function SalesHistory() {
         </CardContent>
       </Card>
 
-      {/* Confirm Delete Transaction Dialog */}
-      <ConfirmDelete
-        open={deleteConfirmOpen}
-        onOpenChange={setDeleteConfirmOpen}
+      {/* Transaction Deletion Confirmation */}
+      <DeleteConfirmation
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={confirmDeleteTransaction}
-        title="Delete Transaction"
+        title="Delete Sales Transaction"
         description="Are you sure you want to delete this sales transaction? This action cannot be undone and will permanently remove all transaction data."
-        itemName="transaction"
+        itemName="sales transaction"
         isLoading={deleteSaleMutation.isPending}
       />
 
-      {/* Confirm Delete Draft Dialog */}
-      <ConfirmDelete
-        open={draftDeleteConfirmOpen}
-        onOpenChange={setDraftDeleteConfirmOpen}
+      {/* Draft Deletion Confirmation */}
+      <DeleteConfirmation
+        isOpen={draftDeleteConfirmOpen}
+        onClose={() => setDraftDeleteConfirmOpen(false)}
         onConfirm={confirmDeleteDraft}
-        title="Delete Draft"
-        description="Are you sure you want to delete this draft? This action cannot be undone and you will lose all unsaved changes."
-        itemName="draft"
-        isLoading={false}
+        title="Delete Draft Sale"
+        description="Are you sure you want to delete this draft sale? This action cannot be undone."
+        itemName="draft sale"
       />
     </div>
   );

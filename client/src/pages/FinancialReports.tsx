@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
+import { formatCompactNumber } from "@/lib/utils";
 
 export default function FinancialReports() {
   const { user } = useAuth();
@@ -312,20 +313,20 @@ export default function FinancialReports() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Petrol Sales</span>
-                  <span className="font-medium" data-testid="petrol-revenue">{formatCurrency(850000)}</span>
+                  <span className="font-medium" data-testid="petrol-revenue">{formatCompactNumber(850000, { currency: 'PKR' })}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Diesel Sales</span>
-                  <span className="font-medium" data-testid="diesel-revenue">{formatCurrency(420000)}</span>
+                  <span className="font-medium" data-testid="diesel-revenue">{formatCompactNumber(420000, { currency: 'PKR' })}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Other Services</span>
-                  <span className="font-medium" data-testid="other-revenue">{formatCurrency(25000)}</span>
+                  <span className="font-medium" data-testid="other-revenue">{formatCompactNumber(25000, { currency: 'PKR' })}</span>
                 </div>
                 <div className="border-t border-border pt-3 mt-4">
                   <div className="flex justify-between font-semibold">
                     <span>Total Revenue</span>
-                    <span className="text-green-600" data-testid="total-revenue">{formatCurrency(1295000)}</span>
+                    <span className="text-green-600" data-testid="total-revenue">{formatCompactNumber(1295000, { currency: 'PKR' })}</span>
                   </div>
                 </div>
               </div>

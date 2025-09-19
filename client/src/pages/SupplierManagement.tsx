@@ -16,7 +16,33 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
-import { Eye, Edit, Package, CreditCard } from "lucide-react";
+import { Eye, Edit, Package, CreditCard, Trash2 } from "lucide-react";
+
+// Placeholder for the DeleteConfirmation component
+const DeleteConfirmation = ({ isOpen, onClose, onConfirm, title, description, itemName, isLoading }: any) => {
+  if (!isOpen) return null;
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <p className="text-sm text-muted-foreground">{description}</p>
+          <p className="text-sm font-semibold text-destructive">{itemName}</p>
+        </div>
+        <DialogFooter className="pt-4">
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={onConfirm} disabled={isLoading}>
+            {isLoading ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 export default function SupplierManagement() {
   const { toast } = useToast();
@@ -30,6 +56,9 @@ export default function SupplierManagement() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
+
 
   // Edit form
   const editForm = useForm({
@@ -146,6 +175,29 @@ export default function SupplierManagement() {
     },
   });
 
+  const deleteSupplierMutation = useMutation({
+    mutationFn: async (supplierId: string) => {
+      const response = await apiRequest("DELETE", `/api/suppliers/${supplierId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Supplier deleted",
+        description: "Supplier has been deleted successfully",
+      });
+      setDeleteConfirmOpen(false);
+      setSupplierToDelete(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete supplier",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmit = (data: any) => {
     createSupplierMutation.mutate(data);
   };
@@ -188,7 +240,7 @@ export default function SupplierManagement() {
 
   const onPaymentSubmit = (data: any) => {
     if (!selectedSupplier || !user) return;
-    
+
     if (!user.id) {
       toast({
         title: "Error",
@@ -197,7 +249,7 @@ export default function SupplierManagement() {
       });
       return;
     }
-    
+
     const paymentData = {
       supplierId: selectedSupplier.id,
       amount: data.amount,
@@ -212,6 +264,17 @@ export default function SupplierManagement() {
     recordPaymentMutation.mutate(paymentData);
   };
 
+  const handleDeleteSupplier = (supplier: Supplier) => {
+    setSupplierToDelete(supplier);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteSupplier = () => {
+    if (supplierToDelete) {
+      deleteSupplierMutation.mutate(supplierToDelete.id);
+    }
+  };
+
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
     queryKey: ["/api/suppliers"],
   });
@@ -219,7 +282,7 @@ export default function SupplierManagement() {
   const filteredSuppliers = suppliers.filter((supplier: Supplier) => {
     const matchesSearch = supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          supplier.contactPerson?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || 
+    const matchesStatus = filterStatus === "all" ||
                          (filterStatus === "active" && supplier.isActive) ||
                          (filterStatus === "inactive" && !supplier.isActive);
     return matchesSearch && matchesStatus;
@@ -417,7 +480,18 @@ export default function SupplierManagement() {
         </Card>
       </div>
 
-      {/* Supplier List */}
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmation
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={confirmDeleteSupplier}
+        title="Delete Supplier"
+        description="Are you sure you want to delete this supplier? This action cannot be undone and will remove all supplier data and related records."
+        itemName={supplierToDelete?.name || "supplier"}
+        isLoading={deleteSupplierMutation.isPending}
+      />
+
+      {/* Supplier Data Table */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -461,7 +535,7 @@ export default function SupplierManagement() {
               <tbody>
                 {filteredSuppliers.length > 0 ? filteredSuppliers.map((supplier: Supplier, index: number) => {
                   const outstanding = parseFloat(supplier.outstandingAmount || '0');
-                  
+
                   return (
                     <tr key={supplier.id} className="border-b border-border hover:bg-muted/50">
                       <td className="p-3">
@@ -540,6 +614,14 @@ export default function SupplierManagement() {
                             data-testid={`button-payment-${index}`}
                           >
                             <CreditCard className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteSupplier(supplier)}
+                            data-testid={`button-delete-supplier-${index}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </td>
