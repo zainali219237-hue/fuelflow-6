@@ -20,8 +20,7 @@ import {
   Clock, 
   Settings, 
   LogOut,
-  ChevronLeft,
-  ChevronRight,
+  Menu,
   Shield,
   X
 } from "lucide-react";
@@ -68,6 +67,7 @@ const navigationItems = [
     items: [
       { name: "Stock Management", path: "/stock", icon: Package },
       { name: "Tank Monitoring", path: "/tanks", icon: Fuel },
+      { name: "Pump Management", path: "/pumps", icon: Fuel },
       { name: "Purchase Orders", path: "/purchase-orders", icon: Package },
     ]
   },
@@ -212,28 +212,18 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
             data-testid="sidebar-toggle"
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isCollapsed ? (
-              <ChevronRight className="w-4 h-4" />
-            ) : (
-              <ChevronLeft className="w-4 h-4" />
-            )}
+            <Menu className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
       {/* Footer */}
-      <div className={cn(
-        "border-t border-border bg-card flex-shrink-0",
-        isCollapsed ? "p-2" : "p-4"
-      )}>
-        <div className={cn(
-          "flex items-center",
-          isCollapsed ? "flex-col space-y-2" : "space-x-3"
-        )}>
-          <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-sm font-bold text-primary-foreground flex-shrink-0">
-            <span data-testid="user-initials">{user?.fullName?.charAt(0) || "U"}</span>
-          </div>
-          {!isCollapsed && (
+      {!isCollapsed && (
+        <div className="border-t border-border bg-card flex-shrink-0 p-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-sm font-bold text-primary-foreground flex-shrink-0">
+              <span data-testid="user-initials">{user?.fullName?.charAt(0) || "U"}</span>
+            </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-card-foreground truncate" data-testid="current-user">
                 {user?.fullName || "User"}
@@ -242,19 +232,18 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
                 {user?.role || "User"}
               </div>
             </div>
-          )}
-          <div className="flex items-center">
-            <button 
-              onClick={logout} 
-              className="text-muted-foreground hover:text-destructive transition-colors p-1 flex-shrink-0"
-              data-testid="button-logout"
-              title={isCollapsed ? "Logout" : undefined}
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+            <div className="flex items-center">
+              <button 
+                onClick={logout} 
+                className="text-muted-foreground hover:text-destructive transition-colors p-1 flex-shrink-0"
+                data-testid="button-logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

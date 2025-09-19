@@ -555,50 +555,40 @@ export default function SupplierManagement() {
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                          <button
                             onClick={() => handleViewSupplier(supplier)}
-                            className="text-blue-600 hover:text-blue-800 p-1"
+                            className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
                             data-testid={`button-view-supplier-${index}`}
+                            title="View Details"
                           >
                             <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                          </button>
+                          <button
                             onClick={() => handleEditSupplier(supplier)}
-                            className="text-green-600 hover:text-green-800 p-1"
+                            className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
                             data-testid={`button-edit-supplier-${index}`}
+                            title="Edit Supplier"
                           >
                             <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toast({ title: "Feature Coming Soon", description: "Purchase orders functionality will be available soon." })}
-                            className="text-purple-600 hover:text-purple-800 p-1"
-                            data-testid={`button-orders-${index}`}
-                          >
-                            <Package className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handlePaymentSupplier(supplier)}
-                            className="text-orange-600 hover:text-orange-800 p-1"
-                            data-testid={`button-payment-${index}`}
-                          >
-                            <CreditCard className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
+                          </button>
+                          {parseFloat(supplier.outstandingAmount || '0') > 0 && (
+                            <button
+                              onClick={() => handlePaymentSupplier(supplier)}
+                              className="text-orange-600 hover:text-orange-800 p-1 hover:bg-orange-50 rounded"
+                              data-testid={`button-payment-supplier-${index}`}
+                              title="Record Payment"
+                            >
+                              <CreditCard className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button
                             onClick={() => handleDeleteSupplier(supplier)}
+                            className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
                             data-testid={`button-delete-supplier-${index}`}
+                            title="Delete Supplier"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </button>
                         </div>
                       </td>
                     </tr>

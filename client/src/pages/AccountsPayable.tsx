@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
-import { Calendar, Eye, DollarSign, FileText } from "lucide-react";
+import { Calendar, Eye, DollarSign, FileText, History } from "lucide-react";
 
 export default function AccountsPayable() {
   const { user } = useAuth();
@@ -165,7 +165,7 @@ export default function AccountsPayable() {
 
   const filteredSuppliers = suppliers.filter((supplier: Supplier) => {
     const matchesSearch = supplier.name.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     // Status filtering
     const outstanding = parseFloat(supplier.outstandingAmount || '0');
     let matchesStatus = true;
@@ -176,7 +176,7 @@ export default function AccountsPayable() {
     } else if (statusFilter === "paid") {
       matchesStatus = outstanding === 0;
     }
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -315,7 +315,7 @@ export default function AccountsPayable() {
               </Form>
             </DialogContent>
           </Dialog>
-          
+
           {/* Quick Payment Dialog */}
           <Dialog open={quickPaymentOpen} onOpenChange={setQuickPaymentOpen}>
             <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
@@ -399,7 +399,7 @@ export default function AccountsPayable() {
               </Form>
             </DialogContent>
           </Dialog>
-          
+
           <Button variant="outline" data-testid="button-payment-schedule">
             <Calendar className="w-4 h-4 mr-2" />
             Payment Schedule
@@ -490,7 +490,7 @@ export default function AccountsPayable() {
                 {filteredSuppliers.length > 0 ? filteredSuppliers.map((supplier: Supplier, index: number) => {
                   const outstanding = parseFloat(supplier.outstandingAmount || '0');
                   const isOverdue = outstanding > 100000;
-                  
+
                   return (
                     <tr key={supplier.id} className="border-b border-border hover:bg-muted/50">
                       <td className="p-3">
@@ -530,33 +530,30 @@ export default function AccountsPayable() {
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center space-x-2">
-                          <Button 
-                            variant="ghost"
-                            size="sm"
-                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-8 w-8 p-0"
+                          <button
                             onClick={() => handleViewSupplier(supplier)}
-                            data-testid={`button-view-ap-${index}`}
+                            className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
+                            data-testid="button-view-supplier-payable"
+                            title="View Details"
                           >
                             <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost"
-                            size="sm"
-                            className="text-green-600 hover:text-green-800 hover:bg-green-50 h-8 w-8 p-0"
+                          </button>
+                          <button
                             onClick={() => handleQuickPayment(supplier)}
-                            data-testid={`button-pay-ap-${index}`}
+                            className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
+                            data-testid="button-quick-payment-payable"
+                            title="Record Payment"
                           >
                             <DollarSign className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost"
-                            size="sm"
-                            className="text-purple-600 hover:text-purple-800 hover:bg-purple-50 h-8 w-8 p-0"
+                          </button>
+                          <button
                             onClick={() => handleViewHistory(supplier)}
-                            data-testid={`button-history-ap-${index}`}
+                            className="text-orange-600 hover:text-orange-800 p-1 hover:bg-orange-50 rounded"
+                            data-testid="button-payment-history-payable"
+                            title="Payment History"
                           >
-                            <FileText className="w-4 h-4" />
-                          </Button>
+                            <History className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>

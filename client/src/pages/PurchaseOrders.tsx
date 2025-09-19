@@ -430,67 +430,61 @@ export default function PurchaseOrders() {
                         </Badge>
                       </td>
                       <td className="p-3 text-center">
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
+                        <div className="flex items-center space-x-2 justify-center">
+                          <button
                             onClick={() => {
-                              // View order details
                               toast({
                                 title: "Order Details",
                                 description: `Order ${order.orderNumber} - ${order.status}`,
                               });
                             }}
+                            className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
                             data-testid="button-view-order"
+                            title="View Details"
                           >
-                            <Eye className="w-4 h-4 mr-2" />
-                            View
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => {
                               setEditOrderId(order.id);
                               form.reset({
-                                orderNumber: order.orderNumber,
-                                supplierId: order.supplierId,
+                                orderNumber: order.orderNumber || "",
+                                supplierId: order.supplierId || "",
                                 expectedDeliveryDate: order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toISOString().split('T')[0] : '',
-                                subtotal: order.subtotal || '0',
-                                taxAmount: order.taxAmount || '0',
-                                totalAmount: order.totalAmount || '0',
-                                notes: order.notes || '',
-                                stationId: user?.stationId || '',
-                                userId: user?.id || '',
+                                status: order.status || "pending",
+                                subtotal: order.subtotal || "0",
+                                taxAmount: order.taxAmount || "0",
+                                totalAmount: order.totalAmount || "0",
+                                notes: order.notes || "",
                               });
                             }}
+                            className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
                             data-testid="button-edit-order"
+                            title="Edit Order"
                           >
-                            <Pencil className="w-4 h-4 mr-2" />
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => {
-                              // Print order
                               toast({
-                                title: "Printing",
-                                description: "Purchase order is being prepared for printing",
+                                title: "Order Printed",
+                                description: `Purchase order ${order.orderNumber} sent to printer`,
                               });
                             }}
+                            className="text-purple-600 hover:text-purple-800 p-1 hover:bg-purple-50 rounded"
                             data-testid="button-print-order"
+                            title="Print Order"
                           >
-                            <Printer className="w-4 h-4 mr-2" />
-                            Print
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleDeleteOrder(order)}
+                            className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
                             data-testid="button-delete-order"
+                            title="Delete Order"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </button>
                         </div>
                       </td>
                     </tr>

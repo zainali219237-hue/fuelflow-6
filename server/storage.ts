@@ -1,7 +1,7 @@
 import {
-  users, stations, products, tanks, customers, suppliers,
-  salesTransactions, salesTransactionItems, purchaseOrders, purchaseOrderItems,
-  expenses, payments, stockMovements, priceHistory, settings,
+  users, stations, products, tanks, customers, suppliers, salesTransactions, salesTransactionItems,
+  purchaseOrders, purchaseOrderItems, expenses, payments, stockMovements, priceHistory, settings,
+  pumps, pumpReadings,
   type User, type InsertUser, type Station, type InsertStation,
   type Product, type InsertProduct, type Tank, type InsertTank,
   type Customer, type InsertCustomer, type Supplier, type InsertSupplier,
@@ -12,7 +12,8 @@ import {
   type Expense, type InsertExpense, type Payment, type InsertPayment,
   type StockMovement, type InsertStockMovement,
   type PriceHistory, type InsertPriceHistory,
-  type Settings, type InsertSettings
+  type Settings, type InsertSettings,
+  type Pump, type PumpReading
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, lte, sum } from "drizzle-orm";
@@ -109,6 +110,16 @@ export interface IStorage {
   getSettings(stationId: string): Promise<Settings | undefined>;
   createSettings(settings: InsertSettings): Promise<Settings>;
   updateSettings(stationId: string, settings: Partial<InsertSettings>): Promise<Settings>;
+
+  // Pump Management
+  getPumpsByStation(stationId: string): Promise<Pump[]>;
+  createPump(data: Partial<Pump>): Promise<Pump>;
+  updatePump(id: string, data: Partial<Pump>): Promise<Pump>;
+  deletePump(id: string): Promise<void>;
+
+  // Pump Readings
+  getPumpReadingsByStation(stationId: string): Promise<PumpReading[]>;
+  createPumpReading(data: Partial<PumpReading>): Promise<PumpReading>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1176,6 +1187,79 @@ export class DatabaseStorage implements IStorage {
       .returning();
     if (!setting) throw new Error("Settings not found");
     return setting;
+  }
+
+  async getPumpsByStation(stationId: string): Promise<Pump[]> {
+    const result = await this.db.select({
+      id: pumps.id,
+      stationId: pumps.stationId,
+      name: pumps.name,
+      pumpNumber: pumps.pumpNumber,
+      productId: pumps.productId,
+      isActive: pumps.isActive,
+      createdAt: pumps.createdAt,
+      product: {
+        name: products.name,
+      },
+    })
+    .from(pumps)
+    .leftJoin(products, eq(pumps.productId, products.id))
+    .where(eq(pumps.stationId, stationId))
+    .orderBy(pumps.pumpNumber);
+
+    return result;
+  }
+
+  async createPump(data: Partial<Pump>): Promise<Pump> {
+    const [result] = await this.db.insert(pumps).values(data).returning();
+    return result;
+  }
+
+  async updatePump(id: string, data: Partial<Pump>): Promise<Pump> {
+    const [result] = await this.db.update(pumps)
+      .set(data)
+      .where(eq(pumps.id, id))
+      .returning();
+    return result;
+  }
+
+  async deletePump(id: string): Promise<void> {
+    await this.db.delete(pumps).where(eq(pumps.id, id));
+  }
+
+  async getPumpReadingsByStation(stationId: string): Promise<PumpReading[]> {
+    const result = await this.db.select({
+      id: pumpReadings.id,
+      pumpId: pumpReadings.pumpId,
+      stationId: pumpReadings.stationId,
+      productId: pumpReadings.productId,
+      openingReading: pumpReadings.openingReading,
+      closingReading: pumpReadings.closingReading,
+      totalSale: pumpReadings.totalSale,
+      shiftNumber: pumpReadings.shiftNumber,
+      operatorName: pumpReadings.operatorName,
+      readingDate: pumpReadings.readingDate,
+      createdAt: pumpReadings.createdAt,
+      pump: {
+        name: pumps.name,
+        pumpNumber: pumps.pumpNumber,
+      },
+      product: {
+        name: products.name,
+      },
+    })
+    .from(pumpReadings)
+    .leftJoin(pumps, eq(pumpReadings.pumpId, pumps.id))
+    .leftJoin(products, eq(pumpReadings.productId, products.id))
+    .where(eq(pumpReadings.stationId, stationId))
+    .orderBy(desc(pumpReadings.readingDate));
+
+    return result;
+  }
+
+  async createPumpReading(data: Partial<PumpReading>): Promise<PumpReading> {
+    const [result] = await this.db.insert(pumpReadings).values(data).returning();
+    return result;
   }
 }
 

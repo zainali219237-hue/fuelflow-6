@@ -516,7 +516,7 @@ export default function CustomerManagement() {
                       )}
                     </td>
                     <td className="p-3">
-                      <Badge 
+                      <Badge
                         variant={customer.type === 'credit' ? 'default' : 'secondary'}
                         data-testid={`customer-type-${index}`}
                       >
@@ -527,18 +527,18 @@ export default function CustomerManagement() {
                       {customer.type === 'credit' ? `₹${parseFloat(customer.creditLimit || '0').toLocaleString()}` : '-'}
                     </td>
                     <td className="p-3 text-right">
-                      <span 
+                      <span
                         className={`font-semibold ${parseFloat(customer.outstandingAmount || '0') > 0 ? 'text-red-600' : 'text-green-600'}`}
                         data-testid={`outstanding-${index}`}
                       >
-                        {parseFloat(customer.outstandingAmount || '0') > 0 
-                          ? `₹${parseFloat(customer.outstandingAmount || '0').toLocaleString()}` 
+                        {parseFloat(customer.outstandingAmount || '0') > 0
+                          ? `₹${parseFloat(customer.outstandingAmount || '0').toLocaleString()}`
                           : '-'}
                       </span>
                     </td>
                     <td className="p-3 text-center text-sm">2 hours ago</td>
                     <td className="p-3 text-center">
-                      <Badge 
+                      <Badge
                         variant={customer.isActive ? 'default' : 'destructive'}
                         className={customer.isActive ? 'bg-green-100 text-green-800' : ''}
                       >
@@ -546,42 +546,42 @@ export default function CustomerManagement() {
                       </Badge>
                     </td>
                     <td className="p-3 text-center">
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewCustomer(customer)}
-                          data-testid="button-view-customer"
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          View
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEditCustomer(customer)}
-                          data-testid="button-edit-customer"
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handlePaymentCustomer(customer)}
-                          data-testid="button-payment-customer"
-                        >
-                          <CreditCard className="w-4 h-4 mr-2" />
-                          Payment
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleDeleteCustomer(customer)}
-                          data-testid="button-delete-customer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      <div className="flex items-center justify-center space-x-2">
+                          <button
+                            onClick={() => handleViewCustomer(customer)}
+                            className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
+                            data-testid={`button-view-customer-${index}`}
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleEditCustomer(customer)}
+                            className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
+                            data-testid={`button-edit-customer-${index}`}
+                            title="Edit Customer"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          {customer.type === 'credit' && parseFloat(customer.outstandingAmount || '0') > 0 && (
+                            <button
+                              onClick={() => handlePaymentCustomer(customer)}
+                              className="text-orange-600 hover:text-orange-800 p-1 hover:bg-orange-50 rounded"
+                              data-testid={`button-payment-customer-${index}`}
+                              title="Record Payment"
+                            >
+                              <CreditCard className="w-4 h-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteCustomer(customer)}
+                            className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
+                            data-testid={`button-delete-customer-${index}`}
+                            title="Delete Customer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                     </td>
                   </tr>
                 ))}

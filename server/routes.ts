@@ -5,7 +5,8 @@ import {
   insertUserSchema, insertStationSchema, insertProductSchema, insertTankSchema,
   insertCustomerSchema, insertSupplierSchema, insertSalesTransactionSchema,
   insertSalesTransactionItemSchema, insertPurchaseOrderSchema, insertPurchaseOrderItemSchema,
-  insertExpenseSchema, insertPaymentSchema, insertStockMovementSchema, insertSettingsSchema
+  insertExpenseSchema, insertPaymentSchema, insertStockMovementSchema, insertSettingsSchema,
+  insertPumpSchema, insertPumpReadingSchema
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import { requireAuth, requireRole, requireStationAccess, generateToken, verifyFirebaseToken, AuthenticatedUser } from "./auth";
@@ -265,6 +266,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(settings);
     } catch (error) {
       res.status(400).json({ message: "Invalid settings data" });
+    }
+  });
+
+  // Pumps routes
+  app.get("/api/pumps/:stationId", requireAuth, requireStationAccess, async (req, res) => {
+    try {
+      const { stationId } = req.params;
+      const pumps = await storage.getPumpsByStation(stationId);
+      res.json(pumps);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch pumps" });
+    }
+  });
+
+  app.post("/api/pumps", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
+    try {
+      const validatedData = insertPumpSchema.parse(req.body);
+      const pump = await storage.createPump(validatedData);
+      res.status(201).json(pump);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid pump data" });
+    }
+  });
+
+  app.put("/api/pumps/:id", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertPumpSchema.partial().parse(req.body);
+      const pump = await storage.updatePump(id, validatedData);
+      res.json(pump);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid pump data" });
+    }
+  });
+
+  app.delete("/api/pumps/:id", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deletePump(id);
+      res.json({ message: "Pump deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete pump" });
+    }
+  });
+
+  // Pump readings routes
+  app.get("/api/pump-readings/:stationId", requireAuth, requireStationAccess, async (req, res) => {
+    try {
+      const { stationId } = req.params;
+      const readings = await storage.getPumpReadingsByStation(stationId);
+      res.json(readings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch pump readings" });
+    }
+  });
+
+  app.post("/api/pump-readings", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertPumpReadingSchema.parse(req.body);
+      const reading = await storage.createPumpReading(validatedData);
+      res.status(201).json(reading);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid pump reading data" });
     }
   });
 

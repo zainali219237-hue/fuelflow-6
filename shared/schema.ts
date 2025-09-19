@@ -242,6 +242,31 @@ export const settings = pgTable("settings", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Pump management tables
+export const pumps = pgTable("pumps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  stationId: varchar("station_id").notNull(),
+  pumpNumber: integer("pump_number").notNull(),
+  fuelType: text("fuel_type").notNull(), // e.g., petrol, diesel, cng
+  product: text("product").notNull(), // e.g., premium petrol, regular diesel
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const pumpReadings = pgTable("pump_readings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pumpId: varchar("pump_id").notNull(),
+  stationId: varchar("station_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  readingDate: timestamp("reading_date").defaultNow(),
+  openingReading: decimal("opening_reading", { precision: 10, scale: 3 }).notNull(),
+  closingReading: decimal("closing_reading", { precision: 10, scale: 3 }).notNull(),
+  shiftNumber: integer("shift_number").notNull(),
+  dayNumber: integer("day_number").notNull(),
+  fuelType: text("fuel_type").notNull(),
+  product: text("product").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   station: one(stations, { fields: [users.stationId], references: [stations.id] }),
@@ -263,6 +288,8 @@ export const stationsRelations = relations(stations, ({ one, many }) => ({
   stockMovements: many(stockMovements),
   priceHistory: many(priceHistory),
   settings: one(settings, { fields: [stations.id], references: [settings.stationId] }),
+  pumps: many(pumps),
+  pumpReadings: many(pumpReadings),
 }));
 
 export const productsRelations = relations(products, ({ many }) => ({
@@ -344,6 +371,17 @@ export const settingsRelations = relations(settings, ({ one }) => ({
   station: one(stations, { fields: [settings.stationId], references: [stations.id] }),
 }));
 
+export const pumpsRelations = relations(pumps, ({ one, many }) => ({
+  station: one(stations, { fields: [pumps.stationId], references: [stations.id] }),
+  pumpReadings: many(pumpReadings),
+}));
+
+export const pumpReadingsRelations = relations(pumpReadings, ({ one }) => ({
+  pump: one(pumps, { fields: [pumpReadings.pumpId], references: [pumps.id] }),
+  station: one(stations, { fields: [pumpReadings.stationId], references: [stations.id] }),
+  user: one(users, { fields: [pumpReadings.userId], references: [users.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertStationSchema = createInsertSchema(stations).omit({ id: true, createdAt: true });
@@ -360,35 +398,24 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true,
 export const insertStockMovementSchema = createInsertSchema(stockMovements);
 export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({ id: true, createdAt: true });
 export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPumpSchema = createInsertSchema(pumps).omit({ id: true, createdAt: true });
+export const insertPumpReadingSchema = createInsertSchema(pumpReadings).omit({ id: true, createdAt: true });
 
-// Types
+// Type exports
 export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Station = typeof stations.$inferSelect;
-export type InsertStation = z.infer<typeof insertStationSchema>;
 export type Product = typeof products.$inferSelect;
-export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Tank = typeof tanks.$inferSelect;
-export type InsertTank = z.infer<typeof insertTankSchema>;
 export type Customer = typeof customers.$inferSelect;
-export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Supplier = typeof suppliers.$inferSelect;
-export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
 export type SalesTransaction = typeof salesTransactions.$inferSelect;
-export type InsertSalesTransaction = z.infer<typeof insertSalesTransactionSchema>;
 export type SalesTransactionItem = typeof salesTransactionItems.$inferSelect;
-export type InsertSalesTransactionItem = z.infer<typeof insertSalesTransactionItemSchema>;
 export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
-export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
 export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;
-export type InsertPurchaseOrderItem = z.infer<typeof insertPurchaseOrderItemSchema>;
 export type Expense = typeof expenses.$inferSelect;
-export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type Payment = typeof payments.$inferSelect;
-export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type StockMovement = typeof stockMovements.$inferSelect;
-export type InsertStockMovement = z.infer<typeof insertStockMovementSchema>;
 export type PriceHistory = typeof priceHistory.$inferSelect;
-export type InsertPriceHistory = z.infer<typeof insertPriceHistorySchema>;
+export type Pump = typeof pumps.$inferSelect;
+export type PumpReading = typeof pumpReadings.$inferSelect;
 export type Settings = typeof settings.$inferSelect;
-export type InsertSettings = z.infer<typeof insertSettingsSchema>;

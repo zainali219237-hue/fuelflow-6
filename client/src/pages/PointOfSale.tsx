@@ -276,10 +276,11 @@ export default function PointOfSale() {
   });
 
   const addProduct = (product: Product) => {
-    // Find the first available tank for this product
+    // Check if product is fuel type (needs tank) or other type (lubricants, etc.)
     const availableTank = tanks.find(tank => tank.productId === product.id);
-
-    if (!availableTank) {
+    
+    // For fuel products, require tank
+    if (product.category === 'fuel' && !availableTank) {
       toast({
         title: "No tank available",
         description: `No tank found for ${product.name}`,
@@ -288,13 +289,16 @@ export default function PointOfSale() {
       return;
     }
 
+    // Set default quantity based on product type
+    const defaultQuantity = product.category === 'fuel' ? quickQuantity : 1;
+
     const newItem: POSItem = {
       productId: product.id,
       productName: product.name,
-      tankId: availableTank.id,
-      quantity: quickQuantity,
+      tankId: availableTank?.id || null, // Tank ID can be null for non-fuel products
+      quantity: defaultQuantity,
       unitPrice: parseFloat(product.currentPrice),
-      totalPrice: quickQuantity * parseFloat(product.currentPrice),
+      totalPrice: defaultQuantity * parseFloat(product.currentPrice),
     };
 
     setTransactionItems([...transactionItems, newItem]);
@@ -411,7 +415,7 @@ export default function PointOfSale() {
 
     const items = transactionItems.map(item => ({
       productId: item.productId,
-      tankId: item.tankId || null,
+      tankId: item.tankId || null, // Allow null for non-tank products
       quantity: item.quantity.toFixed(3),
       unitPrice: item.unitPrice.toFixed(2),
       totalPrice: item.totalPrice.toFixed(2),
