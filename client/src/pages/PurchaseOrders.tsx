@@ -19,6 +19,7 @@ import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
 import { TrendingUp, TrendingDown, AlertTriangle, Eye, Pencil, Printer, Trash2, Menu } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useLocation } from "wouter";
 
 
 export default function PurchaseOrders() {
@@ -26,6 +27,7 @@ export default function PurchaseOrders() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { formatCurrency, currencyConfig } = useCurrency();
+  const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
@@ -170,11 +172,8 @@ export default function PurchaseOrders() {
   };
 
   const handleViewOrder = (order: PurchaseOrder) => {
-    setSelectedOrder(order);
-    toast({
-      title: "Order Details",
-      description: `Order Number: ${order.orderNumber}, Supplier: ${suppliers.find(s => s.id === order.supplierId)?.name || 'Unknown'}, Total: ${formatCurrency(parseFloat(order.totalAmount || '0'))}, Status: ${order.status}`,
-    });
+    // Navigate to purchase invoice page
+    navigate(`/purchase-invoice/${order.id}`);
   };
 
   const handleDownload = async (order: PurchaseOrder, format: "pdf" | "png") => {

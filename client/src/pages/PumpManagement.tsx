@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Fuel, Settings, Eye, Edit, Trash2, Plus } from "lucide-react";
+import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
 
 const pumpReadingSchema = z.object({
   pumpId: z.string().min(1, "Pump is required"),
@@ -67,6 +68,8 @@ export default function PumpManagement() {
   const [pumpDialogOpen, setPumpDialogOpen] = useState(false);
   const [readingDialogOpen, setReadingDialogOpen] = useState(false);
   const [editPumpId, setEditPumpId] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [pumpToDelete, setPumpToDelete] = useState<Pump | null>(null);
 
   const pumpForm = useForm({
     resolver: zodResolver(pumpConfigSchema),
@@ -106,9 +109,42 @@ export default function PumpManagement() {
     queryKey: ["/api/products"],
   });
 
+  const updatePumpMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await apiRequest("PUT", `/api/pumps/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Pump updated",
+        description: "Pump has been updated successfully",
+      });
+      setPumpDialogOpen(false);
+      setEditPumpId(null);
+      pumpForm.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/pumps"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update pump",
+        variant: "destructive",
+      });
+    },
+  });
+
   const createPumpMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/pumps", data);
+      const pumpData = {
+        ...data,
+        stationId: user?.stationId,
+        isActive: data.isActive ?? true,
+      };
+      const response = await apiRequest("POST", "/api/pumps", pumpData);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -120,10 +156,11 @@ export default function PumpManagement() {
       pumpForm.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/pumps"] });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Pump creation error:", error);
       toast({
         title: "Error",
-        description: "Failed to create pump",
+        description: error?.message || "Failed to create pump",
         variant: "destructive",
       });
     },
@@ -153,10 +190,11 @@ export default function PumpManagement() {
   });
 
   const onPumpSubmit = (data: any) => {
-    createPumpMutation.mutate({
-      ...data,
-      stationId: user?.stationId,
-    });
+    if (editPumpId) {
+      updatePumpMutation.mutate({ id: editPumpId, data });
+    } else {
+      createPumpMutation.mutate(data);
+    }
   };
 
   const onReadingSubmit = (data: any) => {
@@ -183,22 +221,37 @@ export default function PumpManagement() {
     setPumpDialogOpen(true);
   };
 
-  const handleDeletePump = async (pumpId: string) => {
-    if (window.confirm("Are you sure you want to delete this pump?")) {
-      try {
-        await apiRequest("DELETE", `/api/pumps/${pumpId}`);
-        toast({
-          title: "Pump deleted",
-          description: "Pump has been deleted successfully",
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/pumps"] });
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to delete pump",
-          variant: "destructive",
-        });
-      }
+  const deletePumpMutation = useMutation({
+    mutationFn: async (pumpId: string) => {
+      const response = await apiRequest("DELETE", `/api/pumps/${pumpId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Pump deleted",
+        description: "Pump has been deleted successfully",
+      });
+      setDeleteConfirmOpen(false);
+      setPumpToDelete(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/pumps"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete pump",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeletePump = (pump: Pump) => {
+    setPumpToDelete(pump);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeletePump = () => {
+    if (pumpToDelete) {
+      deletePumpMutation.mutate(pumpToDelete.id);
     }
   };
 
@@ -231,7 +284,13 @@ export default function PumpManagement() {
           <p className="text-muted-foreground">Manage fuel pumps and daily readings</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Dialog open={pumpDialogOpen} onOpenChange={setPumpDialogOpen}>
+          <Dialog open={pumpDialogOpen} onOpenChange={(isOpen) => { 
+            if (!isOpen) { 
+              setEditPumpId(null); 
+              pumpForm.reset(); 
+            } 
+            setPumpDialogOpen(isOpen); 
+          }}>
             <DialogTrigger asChild>
               <Button data-testid="button-add-pump">
                 <Plus className="w-4 h-4 mr-2" />
@@ -300,8 +359,10 @@ export default function PumpManagement() {
                     <Button type="button" variant="outline" onClick={() => setPumpDialogOpen(false)}>
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={createPumpMutation.isPending}>
-                      {editPumpId ? "Update Pump" : "Add Pump"}
+                    <Button type="submit" disabled={createPumpMutation.isPending || updatePumpMutation.isPending}>
+                      {createPumpMutation.isPending || updatePumpMutation.isPending 
+                        ? (editPumpId ? "Updating..." : "Adding...") 
+                        : (editPumpId ? "Update Pump" : "Add Pump")}
                     </Button>
                   </div>
                 </form>
@@ -507,7 +568,7 @@ export default function PumpManagement() {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => handleDeletePump(pump.id)}
+                          onClick={() => handleDeletePump(pump)}
                           className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
                           title="Delete Pump"
                         >
@@ -565,6 +626,17 @@ export default function PumpManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmation
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={confirmDeletePump}
+        title="Delete Pump"
+        description="Are you sure you want to delete this pump? This action cannot be undone and will remove all pump data and readings."
+        itemName={pumpToDelete?.name || "pump"}
+        isLoading={deletePumpMutation.isPending}
+      />
     </div>
   );
 }

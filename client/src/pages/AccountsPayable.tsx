@@ -138,11 +138,12 @@ export default function AccountsPayable() {
     },
   });
 
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedSupplierForView, setSelectedSupplierForView] = useState<Supplier | null>(null);
+
   const handleViewSupplier = (supplier: Supplier) => {
-    toast({
-      title: "Supplier Details",
-      description: `${supplier.name} - ${supplier.contactPerson || 'No contact'} - GST: ${supplier.gstNumber || 'N/A'}`,
-    });
+    setSelectedSupplierForView(supplier);
+    setViewDialogOpen(true);
   };
 
   const handleQuickPayment = (supplier: Supplier) => {
@@ -397,6 +398,49 @@ export default function AccountsPayable() {
                   </div>
                 </form>
               </Form>
+            </DialogContent>
+          </Dialog>
+
+          {/* View Supplier Dialog */}
+          <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Supplier Details</DialogTitle>
+              </DialogHeader>
+              {selectedSupplierForView && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">Name</label>
+                      <p className="text-sm text-muted-foreground">{selectedSupplierForView.name}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Contact Person</label>
+                      <p className="text-sm text-muted-foreground">{selectedSupplierForView.contactPerson || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Phone</label>
+                      <p className="text-sm text-muted-foreground">{selectedSupplierForView.contactPhone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Email</label>
+                      <p className="text-sm text-muted-foreground">{selectedSupplierForView.contactEmail || 'N/A'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-sm font-medium">Address</label>
+                      <p className="text-sm text-muted-foreground">{selectedSupplierForView.address || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Payment Terms</label>
+                      <p className="text-sm text-muted-foreground">{selectedSupplierForView.paymentTerms || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Outstanding</label>
+                      <p className="text-sm text-muted-foreground">{formatCurrency(parseFloat(selectedSupplierForView.outstandingAmount || '0'))}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
 

@@ -197,6 +197,79 @@
   }
 }
 
+/* Small laptop screens (1280px and below) */
+@media (max-width: 1280px) {
+  .container {
+    max-width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Make grid layouts more responsive */
+  .grid-responsive {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+
+  /* Adjust font sizes for smaller screens */
+  .responsive-heading {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+  }
+
+  /* Table responsiveness */
+  .table-responsive {
+    font-size: 0.875rem;
+  }
+
+  .table-responsive th,
+  .table-responsive td {
+    padding: 0.5rem;
+  }
+
+  /* Card adjustments */
+  .card-responsive {
+    padding: 1rem;
+  }
+
+  /* Button group stacking */
+  .button-group-responsive {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .button-group-responsive > * {
+    width: 100%;
+  }
+
+  /* Form layouts */
+  .form-grid-responsive {
+    grid-template-columns: 1fr;
+  }
+
+  /* Stats cards adjustment */
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+/* Extra small laptops and tablets */
+@media (max-width: 1024px) {
+  .grid-cols-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-cols-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .lg\\:grid-cols-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .lg\\:grid-cols-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* Responsive text utilities */
 .responsive-text {
   font-size: clamp(0.875rem, 2.5vw, 1.125rem);
