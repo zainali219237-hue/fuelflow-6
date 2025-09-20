@@ -8,7 +8,11 @@ interface StationSettings {
   contactNumber: string;
   email: string;
   gstNumber: string;
+  licenseNumber: string;
   logoUrl?: string;
+  companyRegistration?: string;
+  website?: string;
+  faxNumber?: string;
 }
 
 interface StationContextType {
@@ -19,10 +23,14 @@ interface StationContextType {
 
 const defaultSettings: StationSettings = {
   stationName: "FuelFlow Station",
-  address: "Main Highway, Lahore",
+  address: "Main Highway, Lahore, Pakistan",
   contactNumber: "+92-300-1234567",
   email: "station@fuelflow.com",
   gstNumber: "PAK-GST-123456789",
+  licenseNumber: "LIC-FL-001234",
+  companyRegistration: "REG-FL-567890",
+  website: "www.fuelflow.com",
+  faxNumber: "+92-42-1234567",
 };
 
 const StationContext = createContext<StationContextType | undefined>(undefined);

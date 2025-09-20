@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useStation } from "@/contexts/StationContext";
 import { apiRequest } from "@/lib/api";
 import { ArrowLeft, Download, Printer } from "lucide-react";
 import { Link } from "wouter";
@@ -20,10 +21,18 @@ export default function PaymentHistory() {
   const { id, type } = useParams<{ id: string; type: string }>();
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
+  const { stationSettings } = useStation();
 
   const { data: payments = [], isLoading } = useQuery<PaymentWithDetails[]>({
     queryKey: ["/api/payments", user?.stationId, id, type],
-    queryFn: () => apiRequest("GET", `/api/payments/${user?.stationId}?${type}Id=${id}`).then(res => res.json()),
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/payments/${user?.stationId}`);
+      const allPayments = await response.json();
+      // Filter payments for this specific customer/supplier
+      return allPayments.filter((payment: PaymentWithDetails) => 
+        type === 'customer' ? payment.customerId === id : payment.supplierId === id
+      );
+    },
     enabled: !!user?.stationId && !!id && !!type,
   });
 

@@ -69,6 +69,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Signup route (unprotected)
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const validatedData = insertUserSchema.parse(req.body);
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(validatedData.username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+      
+      const userData = { 
+        ...validatedData, 
+        password: hashedPassword,
+        isActive: false // New users need approval
+      };
+      const user = await storage.createUser(userData);
+      
+      // Remove password from response
+      const { password, ...safeUser } = user;
+      res.status(201).json({ 
+        user: safeUser, 
+        message: "Account created successfully. Please wait for admin approval." 
+      });
+    } catch (error) {
+      console.error('Signup error:', error);
+      res.status(400).json({ message: "Invalid user data" });
+    }
+  });
+
   // Authentication routes (unprotected)
   app.post("/api/auth/login", async (req, res) => {
     try {
@@ -77,6 +108,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUserByUsername(username);
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      if (!user.isActive) {
+        return res.status(401).json({ message: "Account pending approval. Please contact administrator." });
       }
 
       const passwordMatch = await bcrypt.compare(password, user.password);

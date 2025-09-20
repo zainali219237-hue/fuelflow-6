@@ -353,9 +353,25 @@ export default function PurchaseOrders() {
                   )}
                 />
                 <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditOrderId(null); setSelectedOrder(null); form.reset(); }} data-testid="button-cancel">
-                    Cancel
-                  </Button>
+                  <Button type="button" variant="outline" onClick={() => { 
+                      setOpen(false); 
+                      setEditOrderId(null); 
+                      setSelectedOrder(null); 
+                      form.reset({
+                        orderNumber: `PO-${Date.now()}`,
+                        supplierId: "",
+                        expectedDeliveryDate: new Date().toISOString().split('T')[0],
+                        status: "pending",
+                        subtotal: "0",
+                        taxAmount: "0",
+                        totalAmount: "0",
+                        notes: "",
+                        stationId: user?.stationId || "",
+                        userId: user?.id || "",
+                      }); 
+                    }} data-testid="button-cancel">
+                      Cancel
+                    </Button>
                   <Button type="submit" disabled={createPurchaseOrderMutation.isPending || updatePurchaseOrderMutation.isPending} data-testid="button-submit-order">
                     {editOrderId ? "Update Purchase Order" : "Create Purchase Order"}
                   </Button>
@@ -510,7 +526,7 @@ export default function PurchaseOrders() {
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          
+
                           <button
                             onClick={() => handleDeleteOrder(order)}
                             className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"

@@ -112,14 +112,14 @@ export interface IStorage {
   updateSettings(stationId: string, settings: Partial<InsertSettings>): Promise<Settings>;
 
   // Pump Management
-  getPumpsByStation(stationId: string): Promise<Pump[]>;
-  createPump(data: Partial<Pump>): Promise<Pump>;
-  updatePump(id: string, data: Partial<Pump>): Promise<Pump>;
+  getPumpsByStation(stationId: string): Promise<(Pump & { product?: Product })[]>;
+  createPump(data: any): Promise<Pump>;
+  updatePump(id: string, data: any): Promise<Pump>;
   deletePump(id: string): Promise<void>;
 
   // Pump Readings
-  getPumpReadingsByStation(stationId: string): Promise<PumpReading[]>;
-  createPumpReading(data: Partial<PumpReading>): Promise<PumpReading>;
+  getPumpReadingsByStation(stationId: string): Promise<(PumpReading & { pump?: Pump & { product?: Product }; product?: Product })[]>;
+  createPumpReading(data: any): Promise<PumpReading>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1189,77 +1189,102 @@ export class DatabaseStorage implements IStorage {
     return setting;
   }
 
-  async getPumpsByStation(stationId: string): Promise<Pump[]> {
-    const result = await this.db.select({
-      id: pumps.id,
-      stationId: pumps.stationId,
-      name: pumps.name,
-      pumpNumber: pumps.pumpNumber,
-      productId: pumps.productId,
-      isActive: pumps.isActive,
-      createdAt: pumps.createdAt,
-      product: {
-        name: products.name,
-      },
-    })
-    .from(pumps)
-    .leftJoin(products, eq(pumps.productId, products.id))
-    .where(eq(pumps.stationId, stationId))
-    .orderBy(pumps.pumpNumber);
+  async getPumpsByStation(stationId: string): Promise<(Pump & { product?: Product })[]> {
+    const result = await this.db
+      .select({
+        id: pumps.id,
+        stationId: pumps.stationId,
+        name: pumps.name,
+        pumpNumber: pumps.pumpNumber,
+        productId: pumps.productId,
+        isActive: pumps.isActive,
+        createdAt: pumps.createdAt,
+        product: {
+          id: products.id,
+          name: products.name,
+          category: products.category,
+          unit: products.unit,
+          currentPrice: products.currentPrice,
+          density: products.density,
+          hsnCode: products.hsnCode,
+          taxRate: products.taxRate,
+          isActive: products.isActive,
+          createdAt: products.createdAt
+        }
+      })
+      .from(pumps)
+      .leftJoin(products, eq(pumps.productId, products.id))
+      .where(eq(pumps.stationId, stationId));
 
-    return result;
+    return result as (Pump & { product?: Product })[];
   }
 
-  async createPump(data: Partial<Pump>): Promise<Pump> {
-    const [result] = await this.db.insert(pumps).values(data).returning();
-    return result;
+  async createPump(data: any): Promise<Pump> {
+    const [pump] = await this.db.insert(pumps).values(data).returning();
+    return pump;
   }
 
-  async updatePump(id: string, data: Partial<Pump>): Promise<Pump> {
-    const [result] = await this.db.update(pumps)
+  async updatePump(id: string, data: any): Promise<Pump> {
+    const [pump] = await this.db.update(pumps)
       .set(data)
       .where(eq(pumps.id, id))
       .returning();
-    return result;
+    return pump;
   }
 
   async deletePump(id: string): Promise<void> {
     await this.db.delete(pumps).where(eq(pumps.id, id));
   }
 
-  async getPumpReadingsByStation(stationId: string): Promise<PumpReading[]> {
-    const result = await this.db.select({
-      id: pumpReadings.id,
-      pumpId: pumpReadings.pumpId,
-      stationId: pumpReadings.stationId,
-      productId: pumpReadings.productId,
-      openingReading: pumpReadings.openingReading,
-      closingReading: pumpReadings.closingReading,
-      totalSale: pumpReadings.totalSale,
-      shiftNumber: pumpReadings.shiftNumber,
-      operatorName: pumpReadings.operatorName,
-      readingDate: pumpReadings.readingDate,
-      createdAt: pumpReadings.createdAt,
-      pump: {
-        name: pumps.name,
-        pumpNumber: pumps.pumpNumber,
-      },
-      product: {
-        name: products.name,
-      },
-    })
-    .from(pumpReadings)
-    .leftJoin(pumps, eq(pumpReadings.pumpId, pumps.id))
-    .leftJoin(products, eq(pumpReadings.productId, products.id))
-    .where(eq(pumpReadings.stationId, stationId))
-    .orderBy(desc(pumpReadings.readingDate));
+  async getPumpReadingsByStation(stationId: string): Promise<(PumpReading & { pump?: Pump & { product?: Product }; product?: Product })[]> {
+    const result = await this.db
+      .select({
+        id: pumpReadings.id,
+        pumpId: pumpReadings.pumpId,
+        stationId: pumpReadings.stationId,
+        userId: pumpReadings.userId,
+        productId: pumpReadings.productId,
+        readingDate: pumpReadings.readingDate,
+        openingReading: pumpReadings.openingReading,
+        closingReading: pumpReadings.closingReading,
+        totalSale: pumpReadings.totalSale,
+        shiftNumber: pumpReadings.shiftNumber,
+        operatorName: pumpReadings.operatorName,
+        createdAt: pumpReadings.createdAt,
+        pump: {
+          id: pumps.id,
+          name: pumps.name,
+          pumpNumber: pumps.pumpNumber,
+          productId: pumps.productId,
+          isActive: pumps.isActive,
+          stationId: pumps.stationId,
+          createdAt: pumps.createdAt
+        },
+        product: {
+          id: products.id,
+          name: products.name,
+          category: products.category,
+          unit: products.unit,
+          currentPrice: products.currentPrice,
+          density: products.density,
+          hsnCode: products.hsnCode,
+          taxRate: products.taxRate,
+          isActive: products.isActive,
+          createdAt: products.createdAt
+        }
+      })
+      .from(pumpReadings)
+      .leftJoin(pumps, eq(pumpReadings.pumpId, pumps.id))
+      .leftJoin(products, eq(pumpReadings.productId, products.id))
+      .where(eq(pumpReadings.stationId, stationId))
+      .orderBy(desc(pumpReadings.readingDate));
 
-    return result;
+    return result as (PumpReading & { pump?: Pump & { product?: Product }; product?: Product })[];
   }
 
-  async createPumpReading(data: Partial<PumpReading>): Promise<PumpReading> {
-    const [result] = await this.db.insert(pumpReadings).values(data).returning();
-    return result;
+  async createPumpReading(data: any): Promise<PumpReading> {
+    const [reading] = await this.db.insert(pumpReadings).values(data).returning();
+    return reading;
   }
 }
 

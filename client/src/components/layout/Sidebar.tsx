@@ -157,8 +157,8 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
       <nav className="flex-1 overflow-y-auto py-4">
         {/* Menu/Collapse Button before navigation */}
         <div className={cn(
-          "flex",
-          isCollapsed ? "justify-center px-3 py-2 mx-1 mb-4" : "justify-start px-4 py-2 mx-2 mb-4"
+          "flex mb-2",
+          isCollapsed ? "justify-center px-2" : "justify-start px-4"
         )}>
           <Button
             variant="ghost"

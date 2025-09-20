@@ -230,11 +230,11 @@ export default function AccountsReceivable() {
                         <FormLabel>Customer *</FormLabel>
                         <FormControl>
                           <Combobox
-                            options={creditCustomers.map(c => ({ value: c.id, label: `${c.name} (${formatCurrency(parseFloat(c.outstandingAmount || '0'))} outstanding)` }))}
+                            options={customers.map(c => ({ value: c.id, label: `${c.name} (${formatCurrency(parseFloat(c.outstandingAmount || '0'))} outstanding)` }))}
                             value={field.value}
                             onValueChange={field.onChange}
                             placeholder="Select customer"
-                            emptyMessage="No customers with outstanding amounts found"
+                            emptyMessage="No customers found"
                             data-testid="select-customer"
                           />
                         </FormControl>

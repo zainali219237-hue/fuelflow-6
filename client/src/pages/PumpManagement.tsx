@@ -109,6 +109,7 @@ export default function PumpManagement() {
 
   const { data: products = [] } = useQuery<any[]>({
     queryKey: ["/api/products"],
+    queryFn: () => apiRequest("GET", "/api/products").then(res => res.json()),
   });
 
   const updatePumpMutation = useMutation({

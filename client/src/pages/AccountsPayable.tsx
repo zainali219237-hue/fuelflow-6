@@ -254,6 +254,26 @@ export default function AccountsPayable() {
     queryKey: ["/api/suppliers"],
   });
 
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+  });
+
+  // Combine suppliers and customers for payment forms
+  const allPayees = [
+    ...suppliers.map(s => ({ 
+      id: s.id, 
+      name: s.name, 
+      type: 'supplier' as const,
+      outstandingAmount: s.outstandingAmount || '0'
+    })),
+    ...customers.map(c => ({ 
+      id: c.id, 
+      name: c.name, 
+      type: 'customer' as const,
+      outstandingAmount: c.outstandingAmount || '0'
+    }))
+  ];
+
   const filteredSuppliers = suppliers.filter((supplier: Supplier) => {
     const matchesSearch = supplier.name.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -319,11 +339,11 @@ export default function AccountsPayable() {
                         <FormLabel>Supplier *</FormLabel>
                         <FormControl>
                           <Combobox
-                            options={suppliers.map(s => ({ value: s.id, label: s.name }))}
+                            options={allPayees.map(p => ({ value: p.id, label: `${p.name} (${p.type})` }))}
                             value={field.value}
                             onValueChange={field.onChange}
-                            placeholder="Select supplier"
-                            emptyMessage="No suppliers found"
+                            placeholder="Select supplier or customer"
+                            emptyMessage="No suppliers or customers found"
                             data-testid="select-supplier"
                           />
                         </FormControl>

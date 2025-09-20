@@ -45,6 +45,7 @@ export default function SignupForm({ onBack }: SignupFormProps) {
         password: formData.password,
         fullName: formData.fullName,
         role: formData.role,
+        isActive: false, // New users start inactive and need approval
       });
 
       if (response.ok) {
