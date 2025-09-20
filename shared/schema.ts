@@ -246,9 +246,10 @@ export const settings = pgTable("settings", {
 export const pumps = pgTable("pumps", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   stationId: varchar("station_id").notNull(),
-  pumpNumber: integer("pump_number").notNull(),
-  fuelType: text("fuel_type").notNull(), // e.g., petrol, diesel, cng
-  product: text("product").notNull(), // e.g., premium petrol, regular diesel
+  name: text("name").notNull(),
+  pumpNumber: text("pump_number").notNull(),
+  productId: varchar("product_id").notNull(),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -257,13 +258,13 @@ export const pumpReadings = pgTable("pump_readings", {
   pumpId: varchar("pump_id").notNull(),
   stationId: varchar("station_id").notNull(),
   userId: varchar("user_id").notNull(),
+  productId: varchar("product_id").notNull(),
   readingDate: timestamp("reading_date").defaultNow(),
   openingReading: decimal("opening_reading", { precision: 10, scale: 3 }).notNull(),
   closingReading: decimal("closing_reading", { precision: 10, scale: 3 }).notNull(),
-  shiftNumber: integer("shift_number").notNull(),
-  dayNumber: integer("day_number").notNull(),
-  fuelType: text("fuel_type").notNull(),
-  product: text("product").notNull(),
+  totalSale: decimal("total_sale", { precision: 10, scale: 3 }).notNull(),
+  shiftNumber: text("shift_number").notNull(),
+  operatorName: text("operator_name").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -373,6 +374,7 @@ export const settingsRelations = relations(settings, ({ one }) => ({
 
 export const pumpsRelations = relations(pumps, ({ one, many }) => ({
   station: one(stations, { fields: [pumps.stationId], references: [stations.id] }),
+  product: one(products, { fields: [pumps.productId], references: [products.id] }),
   pumpReadings: many(pumpReadings),
 }));
 
@@ -380,6 +382,7 @@ export const pumpReadingsRelations = relations(pumpReadings, ({ one }) => ({
   pump: one(pumps, { fields: [pumpReadings.pumpId], references: [pumps.id] }),
   station: one(stations, { fields: [pumpReadings.stationId], references: [stations.id] }),
   user: one(users, { fields: [pumpReadings.userId], references: [users.id] }),
+  product: one(products, { fields: [pumpReadings.productId], references: [products.id] }),
 }));
 
 // Insert schemas

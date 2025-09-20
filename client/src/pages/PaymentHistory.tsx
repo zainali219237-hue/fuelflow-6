@@ -1,0 +1,161 @@
+
+import { useParams } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { apiRequest } from "@/lib/api";
+import { ArrowLeft, Download, Printer } from "lucide-react";
+import { Link } from "wouter";
+import type { Payment, Customer, Supplier } from "@shared/schema";
+
+interface PaymentWithDetails extends Payment {
+  customer?: Customer;
+  supplier?: Supplier;
+}
+
+export default function PaymentHistory() {
+  const { id, type } = useParams<{ id: string; type: string }>();
+  const { user } = useAuth();
+  const { formatCurrency } = useCurrency();
+
+  const { data: payments = [], isLoading } = useQuery<PaymentWithDetails[]>({
+    queryKey: ["/api/payments", user?.stationId, id, type],
+    queryFn: () => apiRequest("GET", `/api/payments/${user?.stationId}?${type}Id=${id}`).then(res => res.json()),
+    enabled: !!user?.stationId && !!id && !!type,
+  });
+
+  const { data: entity } = useQuery({
+    queryKey: [`/api/${type === 'customer' ? 'customers' : 'suppliers'}`, id],
+    queryFn: () => apiRequest("GET", `/api/${type === 'customer' ? 'customers' : 'suppliers'}/${id}`).then(res => res.json()),
+    enabled: !!id && !!type,
+  });
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDownload = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Payment History - ${entity?.name}</title>
+          <style>
+            @page { margin: 0.5in; size: A4; }
+            body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+            .payments-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            .payments-table th, .payments-table td { padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+            .payments-table th { background: #f9fafb; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Payment History</h1>
+            <p>${entity?.name}</p>
+            <p>Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+          <table class="payments-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Method</th>
+                <th>Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${payments.map(payment => `
+                <tr>
+                  <td>${new Date(payment.paymentDate || payment.createdAt).toLocaleDateString()}</td>
+                  <td>${formatCurrency(parseFloat(payment.amount))}</td>
+                  <td>${payment.paymentMethod}</td>
+                  <td>${payment.referenceNumber || 'N/A'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 500);
+    };
+  };
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-96">Loading...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="print:hidden sticky top-0 bg-background/80 backdrop-blur-sm border-b z-10">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href={type === 'customer' ? '/accounts-receivable' : '/accounts-payable'}>
+                <Button variant="ghost" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+              </Link>
+              <h1 className="text-2xl font-bold">Payment History - {entity?.name}</h1>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button onClick={handlePrint} size="sm">
+                <Printer className="w-4 h-4 mr-2" />
+                Print
+              </Button>
+              <Button onClick={handleDownload} variant="outline" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-6 py-8 max-w-4xl">
+        <Card className="print:shadow-none print:border-none">
+          <CardHeader>
+            <CardTitle>Payment History</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {payments.length > 0 ? payments.map((payment) => (
+                <div key={payment.id} className="flex items-center justify-between p-4 border border-border rounded-md">
+                  <div>
+                    <div className="font-medium">{formatCurrency(parseFloat(payment.amount))}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {new Date(payment.paymentDate || payment.createdAt).toLocaleDateString()} • {payment.paymentMethod}
+                    </div>
+                    {payment.referenceNumber && (
+                      <div className="text-xs text-muted-foreground">Ref: {payment.referenceNumber}</div>
+                    )}
+                  </div>
+                  <Badge variant="outline">{payment.type}</Badge>
+                </div>
+              )) : (
+                <div className="text-center text-muted-foreground py-8">
+                  No payment history found
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

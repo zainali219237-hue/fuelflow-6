@@ -10,13 +10,13 @@ import { formatAmount } from "@/lib/currency";
 import { Printer, Download, ArrowLeft, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import type { 
-  SalesTransaction, 
-  SalesTransactionItem, 
-  Customer, 
-  Product, 
-  Station, 
-  User 
+import type {
+  SalesTransaction,
+  SalesTransactionItem,
+  Customer,
+  Product,
+  Station,
+  User
 } from "@shared/schema";
 
 interface TransactionWithDetails extends SalesTransaction {
@@ -26,9 +26,25 @@ interface TransactionWithDetails extends SalesTransaction {
   items: Array<SalesTransactionItem & { product: Product }>;
 }
 
+// Assuming you have a hook or context to get station settings
+// For demonstration, we'll mock it. Replace with your actual hook/context.
+const useStationSettings = () => {
+  // In a real app, this would fetch settings from an API or context
+  const [stationSettings, setStationSettings] = useState({
+    stationName: "FuelFlow Station",
+    address: "123 Fuel St, Petro City",
+    contactNumber: "555-123-4567",
+    email: "contact@fuelflow.com",
+    gstNumber: "GST123456789",
+    licenseNumber: "LICENSE987654321"
+  });
+  return { stationSettings };
+};
+
 export default function InvoiceReceipt() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { stationSettings } = useStationSettings(); // Get station settings
 
   const { data: transaction, isLoading } = useQuery<TransactionWithDetails>({
     queryKey: ["/api/sales/detail", id!],
@@ -201,7 +217,153 @@ export default function InvoiceReceipt() {
   };
 
   const handleDownloadPDF = () => {
-    handlePrint(); // Use the same print functionality for PDF
+    const invoiceElement = document.getElementById('invoice-print');
+    if (!invoiceElement) return;
+
+    const pdfHtmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Sales Invoice ${transaction?.invoiceNumber || 'Unknown'}</title>
+        <style>
+          @page { margin: 0.5in; size: A4; }
+          body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
+          .container { max-width: 800px; margin: 0 auto; }
+          .header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+          .station-info h1 { color: #2563eb; font-size: 28px; margin: 0; }
+          .station-info p { margin: 5px 0; color: #666; }
+          .invoice-title { font-size: 24px; font-weight: bold; text-align: right; }
+          .invoice-meta { text-align: right; margin-top: 10px; }
+          .invoice-meta p { margin: 5px 0; }
+          .section { margin-bottom: 30px; }
+          .section h3 { background: #f3f4f6; padding: 10px; margin: 0 0 15px 0; font-size: 16px; }
+          .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+          .detail-item { margin-bottom: 10px; }
+          .detail-label { font-weight: bold; color: #374151; }
+          .detail-value { color: #6b7280; }
+          .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          .items-table th, .items-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+          .items-table th { background: #f9fafb; font-weight: bold; }
+          .items-table .amount { text-align: right; }
+          .totals { background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px; }
+          .total-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+          .total-row.final { border-top: 2px solid #333; padding-top: 10px; margin-top: 15px; font-weight: bold; font-size: 18px; }
+          .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; }
+          .payment-badge { background: #10b981; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="station-info">
+              <h1>${stationSettings.stationName}</h1>
+              <p>Sales Invoice</p>
+              <p>Generated on ${new Date().toLocaleDateString()}</p>
+            </div>
+            <div>
+              <div class="invoice-title">SALES INVOICE</div>
+              <div class="invoice-meta">
+                <p><strong>Invoice #:</strong> ${transaction?.invoiceNumber}</p>
+                <p><strong>Date:</strong> ${new Date(transaction?.createdAt || new Date()).toLocaleDateString()}</p>
+                <div class="payment-badge">${transaction?.paymentMethod?.toUpperCase()}</div>
+              </div>
+            </div>
+          </div>
+
+          ${transaction?.customer ? `
+          <div class="section">
+            <h3>Customer Information</h3>
+            <div class="details-grid">
+              <div>
+                <div class="detail-item">
+                  <div class="detail-label">Customer Name:</div>
+                  <div class="detail-value">${transaction.customer.name}</div>
+                </div>
+                <div class="detail-item">
+                  <div class="detail-label">Customer Type:</div>
+                  <div class="detail-value">${transaction.customer.type}</div>
+                </div>
+              </div>
+              <div>
+                ${transaction.customer.contactPhone ? `
+                <div class="detail-item">
+                  <div class="detail-label">Phone:</div>
+                  <div class="detail-value">${transaction.customer.contactPhone}</div>
+                </div>` : ''}
+                ${transaction.customer.gstNumber ? `
+                <div class="detail-item">
+                  <div class="detail-label">GST Number:</div>
+                  <div class="detail-value">${transaction.customer.gstNumber}</div>
+                </div>` : ''}
+              </div>
+            </div>
+          </div>` : ''}
+
+          <div class="section">
+            <h3>Items</h3>
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Quantity</th>
+                  <th>Unit Price</th>
+                  <th class="amount">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${transaction?.items?.map(item => `
+                  <tr>
+                    <td>${item.product?.name || 'Unknown Product'}</td>
+                    <td>${parseFloat(item.quantity).toFixed(3)} ${item.product?.unit || 'L'}</td>
+                    <td>${formatAmount(parseFloat(item.unitPrice), transaction?.currencyCode || 'PKR')}</td>
+                    <td class="amount">${formatAmount(parseFloat(item.totalPrice), transaction?.currencyCode || 'PKR')}</td>
+                  </tr>
+                `).join('') || ''}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="totals">
+            <div class="total-row">
+              <span>Subtotal:</span>
+              <span>${formatAmount(parseFloat(transaction?.subtotal || '0'), transaction?.currencyCode || 'PKR')}</span>
+            </div>
+            ${parseFloat(transaction?.taxAmount || '0') > 0 ? `
+            <div class="total-row">
+              <span>Tax:</span>
+              <span>${formatAmount(parseFloat(transaction?.taxAmount || '0'), transaction?.currencyCode || 'PKR')}</span>
+            </div>` : ''}
+            <div class="total-row final">
+              <span>Total Amount:</span>
+              <span>${formatAmount(parseFloat(transaction?.totalAmount || '0'), transaction?.currencyCode || 'PKR')}</span>
+            </div>
+            ${parseFloat(transaction?.outstandingAmount || '0') > 0 ? `
+            <div class="total-row" style="color: #dc2626;">
+              <span>Outstanding Amount:</span>
+              <span>${formatAmount(parseFloat(transaction?.outstandingAmount || '0'), transaction?.currencyCode || 'PKR')}</span>
+            </div>` : ''}
+          </div>
+
+          <div class="footer">
+            <p>Thank you for your business!</p>
+            <p>This is a computer-generated invoice from FuelFlow Management System</p>
+            <p>Generated on ${new Date().toLocaleString()}</p>
+          </div>
+        </div>
+      </body>
+    </html>
+    `;
+
+    // Use a library like jsPDF or html2pdf.js to generate and download PDF
+    // For simplicity, this example falls back to opening in a new tab if no library is available
+    if (typeof (window as any).html2pdf !== 'undefined') {
+      (window as any).html2pdf().from(pdfHtmlContent).set({ margin: 0, filename: `invoice-${transaction?.invoiceNumber || 'unknown'}.pdf` }).save();
+    } else {
+      const blob = new Blob([pdfHtmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      URL.revokeObjectURL(url);
+    }
   };
 
   const handleDownloadPNG = async () => {
@@ -318,20 +480,20 @@ export default function InvoiceReceipt() {
             <div className="flex justify-between items-start mb-8">
               <div>
                 <h1 className="text-4xl font-bold text-primary mb-2" data-testid="text-station-name">
-                  {transaction.station.name}
+                  {stationSettings.stationName}
                 </h1>
                 <div className="text-muted-foreground space-y-1">
-                  {transaction.station.address && (
-                    <p data-testid="text-station-address">{transaction.station.address}</p>
+                  {stationSettings.address && (
+                    <p data-testid="text-station-address">{stationSettings.address}</p>
                   )}
-                  {transaction.station.contactPhone && (
-                    <p data-testid="text-station-phone">Phone: {transaction.station.contactPhone}</p>
+                  {stationSettings.contactNumber && (
+                    <p data-testid="text-station-phone">Phone: {stationSettings.contactNumber}</p>
                   )}
-                  {transaction.station.contactEmail && (
-                    <p data-testid="text-station-email">Email: {transaction.station.contactEmail}</p>
+                  {stationSettings.email && (
+                    <p data-testid="text-station-email">Email: {stationSettings.email}</p>
                   )}
-                  {transaction.station.gstNumber && (
-                    <p data-testid="text-station-gst">GST: {transaction.station.gstNumber}</p>
+                  {stationSettings.gstNumber && (
+                    <p data-testid="text-station-gst">GST: {stationSettings.gstNumber}</p>
                   )}
                 </div>
               </div>
@@ -453,8 +615,8 @@ export default function InvoiceReceipt() {
             <Separator className="mb-6" />
             <div className="text-center text-sm text-muted-foreground">
               <p>Thank you for your business!</p>
-              {transaction.station.licenseNumber && (
-                <p className="mt-1">License: {transaction.station.licenseNumber}</p>
+              {stationSettings.licenseNumber && (
+                <p className="mt-1">License: {stationSettings.licenseNumber}</p>
               )}
             </div>
           </CardContent>

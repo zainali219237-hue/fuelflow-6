@@ -103,6 +103,7 @@ function Router() {
       <Route path="/financial-reports" component={FinancialReports} />
       <Route path="/invoice/:id" component={InvoiceReceipt} />
       <Route path="/purchase-invoice/:id" component={PurchaseInvoice} />
+      <Route path="/payment-history/:id/:type" component={() => import("@/pages/PaymentHistory").then(m => m.default)} />
       <Route path="/tanks" component={TankMonitoring} />
       <Route path="/pumps" component={PumpManagement} />
       <Route path="/daily-reports" component={DailyReports} />

@@ -190,7 +190,6 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
                   isActive={location === item.path}
                   isCollapsed={isCollapsed}
                 />
-                
               </div>
             ))}
           </div>

@@ -7,8 +7,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { isFirebaseConfigured } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Fuel } from "lucide-react";
+import SignupForm from "./SignupForm";
 
 export default function LoginForm() {
+  const [showSignup, setShowSignup] = useState(false);
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin123");
   const [isLoading, setIsLoading] = useState(false);
@@ -153,8 +155,23 @@ export default function LoginForm() {
             <p className="font-medium mb-1">Demo Credentials:</p>
             <p>Admin: admin/admin123 | Manager: manager/manager123 | Cashier: cashier/cashier123</p>
           </div>
+
+          <div className="mt-4 text-center">
+            <p className="text-sm text-muted-foreground">
+              Don't have an account?{" "}
+              <button
+                type="button"
+                onClick={() => setShowSignup(true)}
+                className="text-primary hover:underline font-medium"
+              >
+                Sign up here
+              </button>
+            </p>
+          </div>
         </CardContent>
       </Card>
+
+      {showSignup && <SignupForm onBack={() => setShowSignup(false)} />}
     </div>
   );
 }

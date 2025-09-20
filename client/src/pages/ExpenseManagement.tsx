@@ -26,6 +26,10 @@ export default function ExpenseManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [open, setOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
 
   const form = useForm({
     resolver: zodResolver(insertExpenseSchema),
@@ -265,6 +269,77 @@ export default function ExpenseManagement() {
               </Form>
             </DialogContent>
           </Dialog>
+          {/* View Expense Dialog */}
+          <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Expense Details</DialogTitle>
+              </DialogHeader>
+              {selectedExpense && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">Description</label>
+                      <p className="text-sm text-muted-foreground">{selectedExpense.description}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Amount</label>
+                      <p className="text-sm text-muted-foreground">{formatCurrency(parseFloat(selectedExpense.amount || '0'))}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Category</label>
+                      <p className="text-sm text-muted-foreground">{selectedExpense.category}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Vendor</label>
+                      <p className="text-sm text-muted-foreground">{selectedExpense.vendorName || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Date</label>
+                      <p className="text-sm text-muted-foreground">{selectedExpense.expenseDate ? new Date(selectedExpense.expenseDate).toLocaleDateString() : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Receipt Number</label>
+                      <p className="text-sm text-muted-foreground">{selectedExpense.receiptNumber || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Expense Dialog */}
+          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Edit Expense</DialogTitle>
+              </DialogHeader>
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Edit functionality will be implemented in future updates</p>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Receipt Dialog */}
+          <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Expense Receipt</DialogTitle>
+              </DialogHeader>
+              {selectedExpense && (
+                <div className="space-y-4">
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium">Receipt #{selectedExpense.receiptNumber || 'N/A'}</h3>
+                    <p className="text-sm text-muted-foreground mt-2">{selectedExpense.description}</p>
+                    <p className="text-lg font-semibold mt-2">{formatCurrency(parseFloat(selectedExpense.amount || '0'))}</p>
+                    <p className="text-sm text-muted-foreground">{selectedExpense.expenseDate ? new Date(selectedExpense.expenseDate).toLocaleDateString() : 'N/A'}</p>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
           <Button variant="outline" onClick={() => {
             const printWindow = window.open('', '_blank');
             if (!printWindow) return;
@@ -510,12 +585,10 @@ export default function ExpenseManagement() {
                       <div className="flex items-center justify-center space-x-2">
                         <button 
                           onClick={() => {
-                            toast({
-                              title: "Expense Details",
-                              description: `Viewing details for ${expense.description}`,
-                            });
+                            setSelectedExpense(expense);
+                            setViewDialogOpen(true);
                           }}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
                           data-testid={`button-view-expense-${index}`}
                           title="View expense details"
                         >
@@ -523,12 +596,10 @@ export default function ExpenseManagement() {
                         </button>
                         <button 
                           onClick={() => {
-                            toast({
-                              title: "Edit Expense",
-                              description: `Edit functionality for ${expense.description} will be implemented`,
-                            });
+                            setSelectedExpense(expense);
+                            setEditDialogOpen(true);
                           }}
-                          className="text-green-600 hover:text-green-800"
+                          className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
                           data-testid={`button-edit-expense-${index}`}
                           title="Edit expense"
                         >
@@ -536,12 +607,10 @@ export default function ExpenseManagement() {
                         </button>
                         <button 
                           onClick={() => {
-                            toast({
-                              title: "Receipt",
-                              description: `Receipt ${expense.receiptNumber || 'N/A'} for ${expense.description}`,
-                            });
+                            setSelectedExpense(expense);
+                            setReceiptDialogOpen(true);
                           }}
-                          className="text-purple-600 hover:text-purple-800"
+                          className="text-purple-600 hover:text-purple-800 p-1 hover:bg-purple-50 rounded"
                           data-testid={`button-receipt-${index}`}
                           title="View receipt"
                         >

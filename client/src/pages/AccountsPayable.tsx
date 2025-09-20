@@ -154,7 +154,7 @@ export default function AccountsPayable() {
   };
 
   const handleViewHistory = (supplier: Supplier) => {
-    const printWindow = window.open('', '_blank');
+    window.open(`/payment-history/${supplier.id}/supplier`, '_blank');
     if (!printWindow) return;
 
     const htmlContent = `

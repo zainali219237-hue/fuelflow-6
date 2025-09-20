@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { useStation } from "@/contexts/StationContext";
 import { formatAmount } from "@/lib/currency";
 import { Printer, Download, ArrowLeft, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
@@ -21,6 +22,7 @@ interface PurchaseOrderWithDetails extends PurchaseOrder {
 export default function PurchaseInvoice() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { stationSettings } = useStation();
 
   const { data: order, isLoading } = useQuery<PurchaseOrderWithDetails>({
     queryKey: ["/api/purchase-orders/detail", id!],
@@ -28,6 +30,10 @@ export default function PurchaseInvoice() {
   });
 
   const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDownloadPDF = () => {
     const printContent = document.getElementById('purchase-invoice-print');
     if (!printContent) return;
 
@@ -152,10 +158,6 @@ export default function PurchaseInvoice() {
     };
   };
 
-  const handleDownloadPDF = () => {
-    handlePrint(); // Use the same print functionality for PDF
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -226,7 +228,7 @@ export default function PurchaseInvoice() {
             <div className="flex justify-between items-start mb-8">
               <div>
                 <h1 className="text-4xl font-bold text-primary mb-2">
-                  {order.station?.name || "Station Name"}
+                  {stationSettings.stationName}
                 </h1>
                 <div className="text-muted-foreground space-y-1">
                   <p>Purchase Order Invoice</p>
