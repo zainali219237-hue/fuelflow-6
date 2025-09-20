@@ -50,26 +50,28 @@ export async function migrate() {
       );
     `);
 
+    // Create pumps table
     await tx.execute(sql`
       CREATE TABLE IF NOT EXISTS pumps (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        station_id VARCHAR NOT NULL,
+        station_id VARCHAR NOT NULL REFERENCES stations(id),
         name TEXT NOT NULL,
         pump_number TEXT NOT NULL,
-        product_id VARCHAR NOT NULL,
+        product_id VARCHAR NOT NULL REFERENCES products(id),
         is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
+    // Create pump_readings table
     await tx.execute(sql`
       CREATE TABLE IF NOT EXISTS pump_readings (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
-        pump_id VARCHAR NOT NULL,
-        station_id VARCHAR NOT NULL,
-        user_id VARCHAR NOT NULL,
-        product_id VARCHAR NOT NULL,
-        reading_date TIMESTAMP DEFAULT NOW(),
+        pump_id VARCHAR NOT NULL REFERENCES pumps(id),
+        station_id VARCHAR NOT NULL REFERENCES stations(id),
+        user_id VARCHAR NOT NULL REFERENCES users(id),
+        product_id VARCHAR NOT NULL REFERENCES products(id),
+        reading_date DATE NOT NULL,
         opening_reading DECIMAL(10,3) NOT NULL,
         closing_reading DECIMAL(10,3) NOT NULL,
         total_sale DECIMAL(10,3) NOT NULL,

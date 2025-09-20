@@ -70,8 +70,8 @@ export default function SignupForm({ onBack }: SignupFormProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="max-w-md w-full mx-4 border shadow-xl">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-sm border shadow-xl">
         <CardContent className="pt-6">
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">

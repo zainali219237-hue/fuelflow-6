@@ -32,6 +32,7 @@ import NotFound from "@/pages/not-found";
 import { StationProvider } from "./contexts/StationContext";
 import PumpManagement from "@/pages/PumpManagement";
 import PurchaseInvoice from "@/pages/PurchaseInvoice";
+import PaymentHistory from "@/pages/PaymentHistory";
 
 // Global theme initialization to prevent auto-enabling dark mode on Settings page
 function ThemeBootstrap() {

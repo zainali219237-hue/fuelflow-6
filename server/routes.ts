@@ -55,6 +55,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { password, ...safeUser } = user;
       res.json(safeUser);
     } catch (error) {
+      console.error('User update error:', error);
       res.status(400).json({ message: "Invalid user data" });
     }
   });

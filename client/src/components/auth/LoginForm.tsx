@@ -54,8 +54,8 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="max-w-md w-full mx-4 border shadow-xl">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-sm border shadow-xl">
         <CardContent className="pt-6">
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
@@ -151,10 +151,7 @@ export default function LoginForm() {
             </Button>
           </div>
 
-          <div className="mt-6 p-3 bg-muted rounded-md text-xs text-muted-foreground">
-            <p className="font-medium mb-1">Demo Credentials:</p>
-            <p>Admin: admin/admin123 | Manager: manager/manager123 | Cashier: cashier/cashier123</p>
-          </div>
+          
 
           <div className="mt-4 text-center">
             <p className="text-sm text-muted-foreground">

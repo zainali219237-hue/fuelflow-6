@@ -17,9 +17,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
-import { TrendingUp, TrendingDown, AlertTriangle, Eye, Pencil, Printer, Trash2, Menu } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Eye, Pencil, Printer, Trash2, Menu, Plus } from "lucide-react";
 import { useLocation } from "wouter";
 import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
+import * as z from "zod";
 
 
 export default function PurchaseOrders() {
@@ -40,8 +41,16 @@ export default function PurchaseOrders() {
   // Purchase Order Form
   const form = useForm({
     resolver: zodResolver(insertPurchaseOrderSchema.extend({
-      orderDate: insertPurchaseOrderSchema.shape.orderDate.optional(),
-      expectedDeliveryDate: insertPurchaseOrderSchema.shape.expectedDeliveryDate.optional(),
+      orderDate: z.string().min(1, "Order date is required").refine((date) => {
+        // Accept any valid date format
+        const parsedDate = new Date(date);
+        return !isNaN(parsedDate.getTime());
+      }, "Invalid date format"),
+      expectedDeliveryDate: z.string().optional().refine((date) => {
+        if (!date) return true;
+        const parsedDate = new Date(date);
+        return !isNaN(parsedDate.getTime());
+      }, "Invalid date format"),
     })),
     defaultValues: {
       orderNumber: `PO-${Date.now()}`,
@@ -287,6 +296,19 @@ export default function PurchaseOrders() {
                 </div>
                 <FormField
                   control={form.control}
+                  name="orderDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Order Date *</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} data-testid="input-order-date" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="expectedDeliveryDate"
                   render={({ field }) => (
                     <FormItem>
@@ -360,7 +382,8 @@ export default function PurchaseOrders() {
                       form.reset({
                         orderNumber: `PO-${Date.now()}`,
                         supplierId: "",
-                        expectedDeliveryDate: new Date().toISOString().split('T')[0],
+                        orderDate: new Date().toISOString().split('T')[0],
+                        expectedDeliveryDate: "",
                         status: "pending",
                         subtotal: "0",
                         taxAmount: "0",
@@ -512,6 +535,7 @@ export default function PurchaseOrders() {
                               form.reset({
                                 orderNumber: order.orderNumber || "",
                                 supplierId: order.supplierId || "",
+                                orderDate: order.orderDate ? new Date(order.orderDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                                 expectedDeliveryDate: order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toISOString().split('T')[0] : '',
                                 status: order.status || "pending",
                                 subtotal: order.subtotal || "0",
