@@ -154,9 +154,99 @@ export default function AccountsPayable() {
   };
 
   const handleViewHistory = (supplier: Supplier) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Supplier Statement - ${supplier.name}</title>
+          <style>
+            @page { margin: 0.5in; size: A4; }
+            body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
+            .container { max-width: 800px; margin: 0 auto; }
+            .header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+            .station-info h1 { color: #2563eb; font-size: 28px; margin: 0; }
+            .statement-title { font-size: 24px; font-weight: bold; text-align: right; }
+            .supplier-info { background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
+            .summary-item { text-align: center; padding: 15px; background: #f3f4f6; border-radius: 8px; }
+            .summary-amount { font-size: 24px; font-weight: bold; color: #dc2626; }
+            .summary-label { font-size: 14px; color: #6b7280; }
+            .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="station-info">
+                <h1>FuelFlow Station</h1>
+                <p>Supplier Payment Statement</p>
+                <p>Generated on ${new Date().toLocaleDateString()}</p>
+              </div>
+              <div>
+                <div class="statement-title">PAYMENT STATEMENT</div>
+                <p><strong>Period:</strong> ${new Date().toLocaleDateString()}</p>
+              </div>
+            </div>
+
+            <div class="supplier-info">
+              <h3>Supplier Information</h3>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div>
+                  <p><strong>Company:</strong> ${supplier.name}</p>
+                  <p><strong>Contact Person:</strong> ${supplier.contactPerson || 'N/A'}</p>
+                  <p><strong>GST Number:</strong> ${supplier.gstNumber || 'N/A'}</p>
+                </div>
+                <div>
+                  <p><strong>Phone:</strong> ${supplier.contactPhone || 'N/A'}</p>
+                  <p><strong>Email:</strong> ${supplier.contactEmail || 'N/A'}</p>
+                  <p><strong>Payment Terms:</strong> ${supplier.paymentTerms || 'Net 30'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="summary">
+              <div class="summary-item">
+                <div class="summary-amount" style="color: #dc2626;">${formatCurrency(parseFloat(supplier.outstandingAmount || '0'))}</div>
+                <div class="summary-label">Outstanding Amount</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-amount" style="color: ${parseFloat(supplier.outstandingAmount || '0') > 100000 ? '#dc2626' : '#16a34a'};">${parseFloat(supplier.outstandingAmount || '0') > 100000 ? 'OVERDUE' : 'CURRENT'}</div>
+                <div class="summary-label">Payment Status</div>
+              </div>
+            </div>
+
+            ${parseFloat(supplier.outstandingAmount || '0') > 0 ? `
+            <div style="background: #fef2f2; padding: 20px; border-radius: 8px; border-left: 4px solid #dc2626; margin-bottom: 20px;">
+              <h4 style="margin: 0 0 10px 0; color: #dc2626;">Payment Due</h4>
+              <p style="margin: 0;">Outstanding payment of <strong>${formatCurrency(parseFloat(supplier.outstandingAmount || '0'))}</strong> is due for payment.</p>
+            </div>` : ''}
+
+            <div class="footer">
+              <p>For any queries regarding this statement, please contact our accounts department.</p>
+              <p>This is a computer-generated statement from FuelFlow Management System</p>
+              <p>Generated on ${new Date().toLocaleString()}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 500);
+    };
+
     toast({
-      title: "Payment History",
-      description: `Payment history for ${supplier.name} has been loaded`,
+      title: "Payment History Generated",
+      description: `Payment statement for ${supplier.name} has been generated`,
     });
   };
 

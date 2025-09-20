@@ -98,17 +98,6 @@ export default function Settings() {
         console.error('Failed to parse saved display preferences:', error);
       }
     }
-
-    // Load station settings
-    const savedStationSettings = localStorage.getItem('stationSettings');
-    if (savedStationSettings) {
-      try {
-        const parsedStationSettings = JSON.parse(savedStationSettings);
-        setStationSettings(parsedStationSettings);
-      } catch (error) {
-        console.error('Failed to parse saved station settings:', error);
-      }
-    }
   }, []);
 
   // Handle currency change

@@ -13,7 +13,7 @@ import {
   type StockMovement, type InsertStockMovement,
   type PriceHistory, type InsertPriceHistory,
   type Settings, type InsertSettings,
-  type Pump, type PumpReading
+  type Pump, type PumpReading, type InsertPump, type InsertPumpReading
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, lte, sum } from "drizzle-orm";
@@ -485,7 +485,7 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async getExpenses(stationId: string): Promise<Expense[]> {
+  async getExpenses(stationId: string): Promise<Expense[]>{
     return await this.db.select()
       .from(expenses)
       .where(eq(expenses.stationId, stationId))

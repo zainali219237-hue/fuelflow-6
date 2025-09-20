@@ -28,67 +28,132 @@ export default function PurchaseInvoice() {
   });
 
   const handlePrint = () => {
-    setTimeout(() => {
-      window.print();
-    }, 100);
+    const printContent = document.getElementById('purchase-invoice-print');
+    if (!printContent) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Purchase Order ${order?.orderNumber || 'Unknown'}</title>
+          <style>
+            @page { margin: 0.5in; size: A4; }
+            body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
+            .container { max-width: 800px; margin: 0 auto; }
+            .header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+            .station-info h1 { color: #2563eb; font-size: 28px; margin: 0; }
+            .station-info p { margin: 5px 0; color: #666; }
+            .order-title { font-size: 24px; font-weight: bold; text-align: right; }
+            .order-meta { text-align: right; margin-top: 10px; }
+            .order-meta p { margin: 5px 0; }
+            .section { margin-bottom: 30px; }
+            .section h3 { background: #f3f4f6; padding: 10px; margin: 0 0 15px 0; font-size: 16px; }
+            .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+            .detail-item { margin-bottom: 10px; }
+            .detail-label { font-weight: bold; color: #374151; }
+            .detail-value { color: #6b7280; }
+            .totals { background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px; }
+            .total-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+            .total-row.final { border-top: 2px solid #333; padding-top: 10px; margin-top: 15px; font-weight: bold; font-size: 18px; }
+            .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; }
+            .status-badge { background: #10b981; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="station-info">
+                <h1>${order?.station?.name || "FuelFlow Station"}</h1>
+                <p>Purchase Order Invoice</p>
+                <p>Generated on ${new Date().toLocaleDateString()}</p>
+              </div>
+              <div>
+                <div class="order-title">PURCHASE ORDER</div>
+                <div class="order-meta">
+                  <p><strong>PO #:</strong> ${order?.orderNumber}</p>
+                  <p><strong>Date:</strong> ${new Date(order?.orderDate || new Date()).toLocaleDateString()}</p>
+                  ${order?.expectedDeliveryDate ? `<p><strong>Expected Delivery:</strong> ${new Date(order.expectedDeliveryDate).toLocaleDateString()}</p>` : ''}
+                  <div class="status-badge">${order?.status?.toUpperCase()}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <h3>Supplier Information</h3>
+              <div class="details-grid">
+                <div>
+                  <div class="detail-item">
+                    <div class="detail-label">Company Name:</div>
+                    <div class="detail-value">${order?.supplier?.name || 'N/A'}</div>
+                  </div>
+                  ${order?.supplier?.contactPerson ? `
+                  <div class="detail-item">
+                    <div class="detail-label">Contact Person:</div>
+                    <div class="detail-value">${order.supplier.contactPerson}</div>
+                  </div>` : ''}
+                </div>
+                <div>
+                  ${order?.supplier?.contactPhone ? `
+                  <div class="detail-item">
+                    <div class="detail-label">Phone:</div>
+                    <div class="detail-value">${order.supplier.contactPhone}</div>
+                  </div>` : ''}
+                  ${order?.supplier?.contactEmail ? `
+                  <div class="detail-item">
+                    <div class="detail-label">Email:</div>
+                    <div class="detail-value">${order.supplier.contactEmail}</div>
+                  </div>` : ''}
+                </div>
+              </div>
+            </div>
+
+            ${order?.notes ? `
+            <div class="section">
+              <h3>Order Notes</h3>
+              <p>${order.notes}</p>
+            </div>` : ''}
+
+            <div class="totals">
+              <div class="total-row">
+                <span>Subtotal:</span>
+                <span>${formatAmount(parseFloat(order?.subtotal || '0'), order?.currencyCode || 'PKR')}</span>
+              </div>
+              ${parseFloat(order?.taxAmount || '0') > 0 ? `
+              <div class="total-row">
+                <span>Tax:</span>
+                <span>${formatAmount(parseFloat(order?.taxAmount || '0'), order?.currencyCode || 'PKR')}</span>
+              </div>` : ''}
+              <div class="total-row final">
+                <span>Total Amount:</span>
+                <span>${formatAmount(parseFloat(order?.totalAmount || '0'), order?.currencyCode || 'PKR')}</span>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p>This is a computer-generated purchase order from FuelFlow Management System</p>
+              <p>Generated on ${new Date().toLocaleString()}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 500);
+    };
   };
 
-  const handleDownloadPDF = async () => {
-    const invoiceElement = document.getElementById('purchase-invoice-print');
-    if (!invoiceElement) return;
-
-    try {
-      const printWindow = window.open('', '_blank', 'width=800,height=600');
-      if (!printWindow) return;
-
-      const clonedContent = invoiceElement.cloneNode(true) as HTMLElement;
-      
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Purchase Order ${order?.orderNumber || 'Unknown'}</title>
-            <style>
-              @page { margin: 0.5in; size: A4; }
-              body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
-              .container { max-width: 800px; margin: 0 auto; }
-              .header { text-align: center; margin-bottom: 30px; }
-              .order-title { font-size: 28px; font-weight: bold; margin-bottom: 10px; }
-              .station-info { font-size: 14px; margin-bottom: 20px; }
-              .order-details { display: flex; justify-content: space-between; margin-bottom: 30px; }
-              .supplier-to, .order-meta { font-size: 14px; }
-              .order-meta { text-align: right; }
-              .total-row { background-color: #f9f9f9; font-weight: bold; }
-              .payment-status { background: #16a34a; color: white; padding: 4px 12px; border-radius: 4px; display: inline-block; margin: 10px 0; }
-            </style>
-          </head>
-          <body>
-            ${clonedContent.innerHTML}
-          </body>
-        </html>
-      `;
-
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-          printWindow.close();
-        }, 500);
-      };
-
-      setTimeout(() => {
-        if (printWindow && !printWindow.closed) {
-          printWindow.print();
-          printWindow.close();
-        }
-      }, 1000);
-
-    } catch (error) {
-      console.error('PDF download failed:', error);
-      handlePrint();
-    }
+  const handleDownloadPDF = () => {
+    handlePrint(); // Use the same print functionality for PDF
   };
 
   if (isLoading) {

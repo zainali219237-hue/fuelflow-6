@@ -18,8 +18,8 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
 import { TrendingUp, TrendingDown, AlertTriangle, Eye, Pencil, Printer, Trash2, Menu } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useLocation } from "wouter";
+import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
 
 
 export default function PurchaseOrders() {
@@ -33,6 +33,8 @@ export default function PurchaseOrders() {
   const [open, setOpen] = useState(false);
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<PurchaseOrder | null>(null);
 
 
   // Purchase Order Form
@@ -44,7 +46,7 @@ export default function PurchaseOrders() {
     defaultValues: {
       orderNumber: `PO-${Date.now()}`,
       supplierId: "",
-      expectedDeliveryDate: undefined, // Use undefined instead of empty string for optional date
+      expectedDeliveryDate: "",
       status: "pending",
       subtotal: "0",
       taxAmount: "0",
@@ -166,8 +168,15 @@ export default function PurchaseOrders() {
   });
 
   const handleDeleteOrder = (order: PurchaseOrder) => {
-    if (window.confirm(`Are you sure you want to delete purchase order ${order.orderNumber}?`)) {
-      deletePurchaseOrderMutation.mutate(order.id);
+    setOrderToDelete(order);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteOrder = () => {
+    if (orderToDelete) {
+      deletePurchaseOrderMutation.mutate(orderToDelete.id);
+      setDeleteDialogOpen(false);
+      setOrderToDelete(null);
     }
   };
 
@@ -501,21 +510,7 @@ export default function PurchaseOrders() {
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 p-0 data-state-open:bg-muted">
-                                <Printer className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onSelect={() => handleDownload(order, "pdf")}>
-                                Download PDF
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => handleDownload(order, "png")}>
-                                Download PNG
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          
                           <button
                             onClick={() => handleDeleteOrder(order)}
                             className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
@@ -541,9 +536,16 @@ export default function PurchaseOrders() {
         </CardContent>
       </Card>
 
-      {/* Sale Invoices Section (Similar structure to Purchase Orders) */}
-      {/* This section will be added based on the user's request to add similar view to purchase orders */}
-      {/* For now, it's a placeholder and will be implemented if requested or if the code structure allows */}
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmation
+        isOpen={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={confirmDeleteOrder}
+        title="Delete Purchase Order"
+        description="Are you sure you want to delete this purchase order? This action cannot be undone and will remove all order data."
+        itemName={orderToDelete?.orderNumber || "purchase order"}
+        isLoading={deletePurchaseOrderMutation.isPending}
+      />
 
     </div>
   );

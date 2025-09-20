@@ -97,11 +97,13 @@ export default function PumpManagement() {
 
   const { data: pumps = [], isLoading: pumpsLoading } = useQuery<Pump[]>({
     queryKey: ["/api/pumps", user?.stationId],
+    queryFn: () => apiRequest("GET", `/api/pumps?stationId=${user?.stationId}`).then(res => res.json()),
     enabled: !!user?.stationId,
   });
 
   const { data: pumpReadings = [], isLoading: readingsLoading } = useQuery<PumpReading[]>({
     queryKey: ["/api/pump-readings", user?.stationId],
+    queryFn: () => apiRequest("GET", `/api/pump-readings?stationId=${user?.stationId}`).then(res => res.json()),
     enabled: !!user?.stationId,
   });
 

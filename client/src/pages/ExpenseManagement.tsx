@@ -265,7 +265,75 @@ export default function ExpenseManagement() {
               </Form>
             </DialogContent>
           </Dialog>
-          <Button variant="outline" data-testid="button-export-expenses">
+          <Button variant="outline" onClick={() => {
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) return;
+
+            const htmlContent = `
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <title>Expense Report</title>
+                  <style>
+                    @page { margin: 0.5in; size: A4; }
+                    body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
+                    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+                    .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
+                    .summary-item { padding: 15px; background: #f3f4f6; border-radius: 8px; text-align: center; }
+                    .amount { font-size: 18px; font-weight: bold; color: #dc2626; }
+                    .expenses-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    .expenses-table th, .expenses-table td { padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+                    .expenses-table th { background: #f9fafb; font-weight: bold; }
+                  </style>
+                </head>
+                <body>
+                  <div class="header">
+                    <h1>Expense Report</h1>
+                    <p>Generated on ${new Date().toLocaleDateString()}</p>
+                  </div>
+                  <div class="summary">
+                    <div class="summary-item">
+                      <div>Total Expenses</div>
+                      <div class="amount">${formatCurrency(totalExpenses)}</div>
+                    </div>
+                    <div class="summary-item">
+                      <div>Monthly Expenses</div>
+                      <div class="amount">${formatCurrency(monthlyExpenses)}</div>
+                    </div>
+                  </div>
+                  <table class="expenses-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${filteredExpenses.map(expense => `
+                        <tr>
+                          <td>${expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString() : 'N/A'}</td>
+                          <td>${expense.description}</td>
+                          <td>${expense.category}</td>
+                          <td>${formatCurrency(parseFloat(expense.amount || '0'))}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </body>
+              </html>
+            `;
+
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            printWindow.onload = () => {
+              setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+              }, 500);
+            };
+          }} data-testid="button-export-expenses">
             <BarChart3 className="w-4 h-4 mr-2" />Export Report
           </Button>
         </div>
@@ -441,20 +509,41 @@ export default function ExpenseManagement() {
                     <td className="p-3 text-center">
                       <div className="flex items-center justify-center space-x-2">
                         <button 
+                          onClick={() => {
+                            toast({
+                              title: "Expense Details",
+                              description: `Viewing details for ${expense.description}`,
+                            });
+                          }}
                           className="text-blue-600 hover:text-blue-800"
                           data-testid={`button-view-expense-${index}`}
+                          title="View expense details"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button 
+                          onClick={() => {
+                            toast({
+                              title: "Edit Expense",
+                              description: `Edit functionality for ${expense.description} will be implemented`,
+                            });
+                          }}
                           className="text-green-600 hover:text-green-800"
                           data-testid={`button-edit-expense-${index}`}
+                          title="Edit expense"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button 
+                          onClick={() => {
+                            toast({
+                              title: "Receipt",
+                              description: `Receipt ${expense.receiptNumber || 'N/A'} for ${expense.description}`,
+                            });
+                          }}
                           className="text-purple-600 hover:text-purple-800"
                           data-testid={`button-receipt-${index}`}
+                          title="View receipt"
                         >
                           <FileText className="w-4 h-4" />
                         </button>

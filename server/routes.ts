@@ -270,23 +270,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Pumps routes
-  app.get("/api/pumps/:stationId", requireAuth, requireStationAccess, async (req, res) => {
+  app.get("/api/pumps", requireAuth, async (req, res) => {
     try {
-      const { stationId } = req.params;
-      const pumps = await storage.getPumpsByStation(stationId);
+      const { stationId } = req.query;
+      if (!stationId) {
+        return res.status(400).json({ message: "Station ID is required" });
+      }
+      const pumps = await storage.getPumpsByStation(stationId as string);
       res.json(pumps);
     } catch (error) {
+      console.error('Error fetching pumps:', error);
       res.status(500).json({ message: "Failed to fetch pumps" });
     }
   });
 
   app.post("/api/pumps", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
     try {
+      console.log('Creating pump with data:', req.body);
       const validatedData = insertPumpSchema.parse(req.body);
       const pump = await storage.createPump(validatedData);
       res.status(201).json(pump);
     } catch (error) {
-      res.status(400).json({ message: "Invalid pump data" });
+      console.error('Error creating pump:', error);
+      res.status(400).json({ message: "Invalid pump data", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -297,7 +303,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pump = await storage.updatePump(id, validatedData);
       res.json(pump);
     } catch (error) {
-      res.status(400).json({ message: "Invalid pump data" });
+      console.error('Error updating pump:', error);
+      res.status(400).json({ message: "Invalid pump data", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -307,28 +314,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deletePump(id);
       res.json({ message: "Pump deleted successfully" });
     } catch (error) {
+      console.error('Error deleting pump:', error);
       res.status(500).json({ message: "Failed to delete pump" });
     }
   });
 
   // Pump readings routes
-  app.get("/api/pump-readings/:stationId", requireAuth, requireStationAccess, async (req, res) => {
+  app.get("/api/pump-readings", requireAuth, async (req, res) => {
     try {
-      const { stationId } = req.params;
-      const readings = await storage.getPumpReadingsByStation(stationId);
+      const { stationId } = req.query;
+      if (!stationId) {
+        return res.status(400).json({ message: "Station ID is required" });
+      }
+      const readings = await storage.getPumpReadingsByStation(stationId as string);
       res.json(readings);
     } catch (error) {
+      console.error('Error fetching pump readings:', error);
       res.status(500).json({ message: "Failed to fetch pump readings" });
     }
   });
 
   app.post("/api/pump-readings", requireAuth, async (req, res) => {
     try {
+      console.log('Creating pump reading with data:', req.body);
       const validatedData = insertPumpReadingSchema.parse(req.body);
       const reading = await storage.createPumpReading(validatedData);
       res.status(201).json(reading);
     } catch (error) {
-      res.status(400).json({ message: "Invalid pump reading data" });
+      console.error('Error creating pump reading:', error);
+      res.status(400).json({ message: "Invalid pump reading data", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

@@ -139,10 +139,68 @@ export default function CashReconciliation() {
           <p className="text-muted-foreground">Daily cash balancing and shift-wise reporting</p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button data-testid="button-start-reconciliation">
-            <RefreshCw className="mr-2 h-4 w-4" /> 🔄 Start Reconciliation
+          <Button onClick={() => {
+            toast({
+              title: "Reconciliation Started",
+              description: "Cash reconciliation process has been initiated",
+            });
+          }} data-testid="button-start-reconciliation">
+            <RefreshCw className="mr-2 h-4 w-4" /> Start Reconciliation
           </Button>
-          <Button variant="outline" data-testid="button-print-report">
+          <Button variant="outline" onClick={() => {
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) return;
+
+            const htmlContent = `
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <title>Cash Reconciliation Report</title>
+                  <style>
+                    @page { margin: 0.5in; size: A4; }
+                    body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
+                    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+                    .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
+                    .summary-item { padding: 15px; background: #f3f4f6; border-radius: 8px; }
+                    .amount { font-size: 18px; font-weight: bold; }
+                  </style>
+                </head>
+                <body>
+                  <div class="header">
+                    <h1>Cash Reconciliation Report</h1>
+                    <p>${shift.charAt(0).toUpperCase() + shift.slice(1)} Shift - ${new Date(reconciliationDate).toLocaleDateString()}</p>
+                  </div>
+                  <div class="summary">
+                    <div class="summary-item">
+                      <div>Opening Balance</div>
+                      <div class="amount">${formatCurrency(cashData.openingBalance)}</div>
+                    </div>
+                    <div class="summary-item">
+                      <div>Expected Cash</div>
+                      <div class="amount">${formatCurrency(cashData.expectedCash)}</div>
+                    </div>
+                    <div class="summary-item">
+                      <div>Actual Cash</div>
+                      <div class="amount">${formatCurrency(cashData.actualCash)}</div>
+                    </div>
+                    <div class="summary-item">
+                      <div>Difference</div>
+                      <div class="amount">${formatCurrency(Math.abs(cashData.difference))}</div>
+                    </div>
+                  </div>
+                </body>
+              </html>
+            `;
+
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            printWindow.onload = () => {
+              setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+              }, 500);
+            };
+          }} data-testid="button-print-report">
             <Printer className="mr-2 h-4 w-4" /> Print Report
           </Button>
         </div>
@@ -337,10 +395,26 @@ export default function CashReconciliation() {
           </div>
 
           <div className="mt-4 flex justify-end space-x-2">
-            <Button variant="outline" data-testid="button-save-draft">
+            <Button variant="outline" onClick={() => {
+              localStorage.setItem('cashReconciliationDraft', JSON.stringify({
+                shift,
+                reconciliationDate,
+                denominations,
+                cashData
+              }));
+              toast({
+                title: "Draft Saved",
+                description: "Cash reconciliation draft has been saved locally",
+              });
+            }} data-testid="button-save-draft">
               Save Draft
             </Button>
-            <Button data-testid="button-complete-reconciliation">
+            <Button onClick={() => {
+              toast({
+                title: "Reconciliation Completed",
+                description: `Cash reconciliation for ${shift} shift completed successfully`,
+              });
+            }} data-testid="button-complete-reconciliation">
               Complete Reconciliation
             </Button>
           </div>

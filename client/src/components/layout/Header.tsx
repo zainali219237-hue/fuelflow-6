@@ -14,6 +14,8 @@ const pageTitles: Record<string, string> = {
   "/suppliers": "Supplier Management",
   "/pricing": "Price Management",
   "/financial-reports": "Financial Reports",
+  "/pumps": "Pump Management",
+  "/tanks": "Tank Monitoring",
 };
 
 export default function Header() {
@@ -23,6 +25,16 @@ export default function Header() {
     month: 'short', 
     year: 'numeric' 
   });
+
+  // Determine current shift based on time
+  const getCurrentShift = () => {
+    const currentHour = new Date().getHours();
+    if (currentHour >= 6 && currentHour < 18) {
+      return "Day Shift";
+    } else {
+      return "Night Shift";
+    }
+  };
 
   return (
     <header className="bg-card shadow-sm border-b border-border px-4 md:px-6 py-4">
@@ -44,7 +56,7 @@ export default function Header() {
           </div>
           <div className="text-right hidden md:block">
             <div className="text-xs text-muted-foreground">Shift</div>
-            <div className="font-medium text-card-foreground text-sm" data-testid="current-shift">Day Shift</div>
+            <div className="font-medium text-card-foreground text-sm" data-testid="current-shift">{getCurrentShift()}</div>
           </div>
           <div className="text-right">
             <div className="text-xs text-muted-foreground">Status</div>

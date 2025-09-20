@@ -155,6 +155,23 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4">
+        {/* Menu/Collapse Button before navigation */}
+        <div className={cn(
+          "flex",
+          isCollapsed ? "justify-center px-3 py-2 mx-1 mb-4" : "justify-start px-4 py-2 mx-2 mb-4"
+        )}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleCollapse}
+            className="h-8 w-8 hover:bg-accent lg:flex hidden"
+            data-testid="sidebar-toggle"
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <Menu className="w-4 h-4" />
+          </Button>
+        </div>
+
         {navigationItems.map((section, sectionIndex) => (
           <div key={section.label}>
             {!isCollapsed && (
@@ -173,24 +190,7 @@ export default function Sidebar({ isCollapsed = false, onToggleCollapse }: Sideb
                   isActive={location === item.path}
                   isCollapsed={isCollapsed}
                 />
-                {/* Menu/Collapse Button after Dashboard */}
-                {sectionIndex === 0 && itemIndex === 0 && (
-                  <div className={cn(
-                    "flex justify-center",
-                    isCollapsed ? "px-3 py-2 mx-1 mb-1" : "px-4 py-2 mx-2 mb-1"
-                  )}>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={onToggleCollapse}
-                      className="h-8 w-8 hover:bg-accent lg:flex hidden"
-                      data-testid="sidebar-toggle"
-                      title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                    >
-                      <Menu className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
+                
               </div>
             ))}
           </div>
