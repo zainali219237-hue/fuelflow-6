@@ -5,7 +5,7 @@ export interface PrintTemplate {
   filename: string;
 }
 
-export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | 'statement' | 'expense'): PrintTemplate => {
+export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | 'statement' | 'expense' | 'purchaseOrder' | 'pumpReading'): PrintTemplate => {
   const today = new Date().toLocaleDateString();
   
   switch (type) {
@@ -212,6 +212,213 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
               <div class="footer">
                 <p>This is a computer-generated statement from FuelFlow Management System</p>
                 <p>For any queries regarding this statement, please contact our accounts department</p>
+              </div>
+            </body>
+          </html>
+        `
+      };
+
+    case 'purchaseOrder':
+      return {
+        title: `Purchase Order ${data.orderNumber}`,
+        filename: `purchase-order-${data.orderNumber}`,
+        content: `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Purchase Order ${data.orderNumber}</title>
+              <style>
+                @page { margin: 0.5in; size: A4; }
+                body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
+                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+                .header h1 { color: #2563eb; font-size: 28px; margin: 0; }
+                .order-meta { text-align: right; margin-top: 10px; }
+                .section { margin-bottom: 30px; }
+                .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                .items-table th, .items-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+                .items-table th { background: #f9fafb; font-weight: bold; }
+                .totals { background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px; }
+                .total-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+                .footer { text-align: center; margin-top: 40px; color: #666; font-size: 12px; }
+                .status-badge { background: #10b981; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h1>${data.station?.name || data.stationName || 'FuelFlow Station'}</h1>
+                <h2>Purchase Order</h2>
+                <div class="order-meta">
+                  <p><strong>Order #:</strong> ${data.orderNumber}</p>
+                  <p><strong>Date:</strong> ${new Date(data.orderDate || data.createdAt || Date.now()).toLocaleDateString()}</p>
+                  <p><strong>Supplier:</strong> ${data.supplier?.name || 'Unknown Supplier'}</p>
+                  <p><strong>Status:</strong> <span class="status-badge">${data.status || 'Pending'}</span></p>
+                </div>
+              </div>
+
+              <div class="section">
+                <h3>Supplier Details</h3>
+                <p><strong>Name:</strong> ${data.supplier?.name || 'N/A'}</p>
+                ${data.supplier?.contactPerson ? `<p><strong>Contact Person:</strong> ${data.supplier.contactPerson}</p>` : ''}
+                ${data.supplier?.contactPhone ? `<p><strong>Phone:</strong> ${data.supplier.contactPhone}</p>` : ''}
+                ${data.supplier?.contactEmail ? `<p><strong>Email:</strong> ${data.supplier.contactEmail}</p>` : ''}
+                ${data.supplier?.address ? `<p><strong>Address:</strong> ${data.supplier.address}</p>` : ''}
+              </div>
+
+              <div class="section">
+                <table class="items-table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Quantity</th>
+                      <th>Unit Price</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${data.items?.map(item => `
+                      <tr>
+                        <td>${item.product?.name || 'Product'}</td>
+                        <td>${parseFloat(item.quantity || '0').toFixed(3)} ${item.product?.unit || 'L'}</td>
+                        <td>${item.unitPrice || '0.00'}</td>
+                        <td>${item.totalPrice || '0.00'}</td>
+                      </tr>
+                    `).join('') || '<tr><td colspan="4" style="text-align: center;">No items</td></tr>'}
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="totals">
+                <div class="total-row">
+                  <span>Subtotal:</span>
+                  <span>${data.subtotal || '0.00'}</span>
+                </div>
+                <div class="total-row">
+                  <span>Tax:</span>
+                  <span>${data.taxAmount || '0.00'}</span>
+                </div>
+                <div class="total-row">
+                  <span><strong>Total Amount:</strong></span>
+                  <span><strong>${data.totalAmount || '0.00'}</strong></span>
+                </div>
+              </div>
+
+              ${data.notes ? `
+              <div class="section">
+                <h3>Notes</h3>
+                <p>${data.notes}</p>
+              </div>` : ''}
+
+              <div class="footer">
+                <p>Purchase Order generated from FuelFlow Management System</p>
+                <p>Generated on ${today}</p>
+              </div>
+            </body>
+          </html>
+        `
+      };
+
+    case 'pumpReading':
+      return {
+        title: `Pump Reading - ${data.pump?.name || 'Pump'} - ${data.shiftNumber}`,
+        filename: `pump-reading-${data.pump?.pumpNumber || data.id}`,
+        content: `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Pump Reading - ${data.pump?.name || 'Pump'}</title>
+              <style>
+                @page { margin: 0.5in; size: A4; }
+                body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
+                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+                .header h1 { color: #2563eb; font-size: 28px; margin: 0; }
+                .reading-meta { text-align: right; margin-top: 10px; }
+                .section { margin-bottom: 30px; }
+                .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+                .detail-item { margin-bottom: 15px; padding: 10px; background: #f9fafb; border-radius: 5px; }
+                .detail-label { font-weight: bold; color: #374151; }
+                .detail-value { color: #6b7280; margin-top: 5px; }
+                .readings-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                .readings-table th, .readings-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+                .readings-table th { background: #f9fafb; font-weight: bold; }
+                .footer { text-align: center; margin-top: 40px; color: #666; font-size: 12px; }
+                .summary { background: #f0f9ff; padding: 20px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #2563eb; }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h1>${data.station?.name || 'FuelFlow Station'}</h1>
+                <h2>Pump Reading Report</h2>
+                <div class="reading-meta">
+                  <p><strong>Reading Date:</strong> ${new Date(data.readingDate || data.createdAt || Date.now()).toLocaleDateString()}</p>
+                  <p><strong>Shift Number:</strong> ${data.shiftNumber}</p>
+                  <p><strong>Operator:</strong> ${data.operatorName}</p>
+                </div>
+              </div>
+
+              <div class="section">
+                <h3>Pump Information</h3>
+                <div class="details-grid">
+                  <div class="detail-item">
+                    <div class="detail-label">Pump Name</div>
+                    <div class="detail-value">${data.pump?.name || 'N/A'}</div>
+                  </div>
+                  <div class="detail-item">
+                    <div class="detail-label">Pump Number</div>
+                    <div class="detail-value">${data.pump?.pumpNumber || 'N/A'}</div>
+                  </div>
+                  <div class="detail-item">
+                    <div class="detail-label">Product</div>
+                    <div class="detail-value">${data.product?.name || 'N/A'}</div>
+                  </div>
+                  <div class="detail-item">
+                    <div class="detail-label">Product Category</div>
+                    <div class="detail-value">${data.product?.category || 'N/A'}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="section">
+                <h3>Reading Details</h3>
+                <table class="readings-table">
+                  <thead>
+                    <tr>
+                      <th>Measurement</th>
+                      <th>Value</th>
+                      <th>Unit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Opening Reading</td>
+                      <td>${parseFloat(data.openingReading || '0').toFixed(3)}</td>
+                      <td>Litres</td>
+                    </tr>
+                    <tr>
+                      <td>Closing Reading</td>
+                      <td>${parseFloat(data.closingReading || '0').toFixed(3)}</td>
+                      <td>Litres</td>
+                    </tr>
+                    <tr style="background: #f0f9ff;">
+                      <td><strong>Total Sale</strong></td>
+                      <td><strong>${parseFloat(data.totalSale || '0').toFixed(3)}</strong></td>
+                      <td><strong>Litres</strong></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="summary">
+                <h3>Summary</h3>
+                <p><strong>Shift:</strong> ${data.shiftNumber}</p>
+                <p><strong>Operator:</strong> ${data.operatorName}</p>
+                <p><strong>Total Fuel Dispensed:</strong> ${parseFloat(data.totalSale || '0').toFixed(3)} Litres</p>
+                <p><strong>Reading Period:</strong> ${new Date(data.readingDate || data.createdAt || Date.now()).toLocaleDateString()}</p>
+              </div>
+
+              <div class="footer">
+                <p>Pump Reading Report generated from FuelFlow Management System</p>
+                <p>Generated on ${today}</p>
+                <p>This is an official record of fuel dispensing activities</p>
               </div>
             </body>
           </html>

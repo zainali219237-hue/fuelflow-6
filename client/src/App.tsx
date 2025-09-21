@@ -35,6 +35,7 @@ import PaymentHistory from "@/pages/PaymentHistory";
 import ApprovalPending from "@/pages/ApprovalPending";
 import LoginPage from "@/pages/LoginPage";
 import SignupPage from "@/pages/SignupPage";
+import PrintView from "@/pages/PrintView";
 
 // Global theme initialization
 function ThemeBootstrap() {
@@ -78,6 +79,7 @@ function Router() {
       <Route path="/settings" component={Settings} />
       <Route path="/admin" component={AdminPanel} />
       <Route path="/approval-pending" component={ApprovalPending} />
+      <Route path="/print" component={PrintView} />
       <Route path="/login" component={LoginPage} />
       <Route path="/signup" component={SignupPage} />
       <Route component={NotFound} />

@@ -21,7 +21,13 @@ import { Combobox } from "@/components/ui/combobox";
 import { Eye, Edit, Printer, Trash2, Plus, Download } from "lucide-react";
 import { useLocation } from "wouter";
 import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
-import { generatePrintTemplate, printDocument, downloadAsPDF, downloadAsPNG } from "@/lib/printUtils";
+import { PrintActions } from "@/components/ui/print-actions";
+
+const lineItemSchema = z.object({
+  productId: z.string().min(1, "Product is required"),
+  quantity: z.string().min(1, "Quantity is required").refine((val) => parseFloat(val) > 0, "Quantity must be greater than 0"),
+  unitPrice: z.string().min(1, "Unit price is required").refine((val) => parseFloat(val) > 0, "Unit price must be greater than 0"),
+});
 
 const purchaseOrderSchema = z.object({
   orderNumber: z.string().min(1, "Order number is required"),
@@ -29,9 +35,7 @@ const purchaseOrderSchema = z.object({
   orderDate: z.string().min(1, "Order date is required"),
   expectedDeliveryDate: z.string().optional(),
   status: z.string().default("pending"),
-  subtotal: z.string().min(1, "Subtotal must be greater than 0").refine((val) => parseFloat(val) > 0, "Subtotal must be greater than 0"),
-  taxAmount: z.string().default("0"),
-  totalAmount: z.string().min(1, "Total amount is required"),
+  items: z.array(lineItemSchema).min(1, "At least one item is required"),
   notes: z.string().optional(),
 });
 
@@ -56,9 +60,11 @@ export default function PurchaseOrders() {
       orderDate: new Date().toISOString().split('T')[0],
       expectedDeliveryDate: "",
       status: "pending",
-      subtotal: "",
-      taxAmount: "0",
-      totalAmount: "",
+      items: [{
+        productId: "",
+        quantity: "",
+        unitPrice: "",
+      }],
       notes: "",
     },
   });
@@ -71,24 +77,40 @@ export default function PurchaseOrders() {
         throw new Error("User session not loaded properly");
       }
 
+      // Calculate totals from line items
+      const subtotal = data.items.reduce((sum: number, item: any) => 
+        sum + (parseFloat(item.quantity || '0') * parseFloat(item.unitPrice || '0')), 0
+      );
+      const taxAmount = 0; // No tax for now
+      const totalAmount = subtotal + taxAmount;
+
+      // Prepare line items with calculated totals
+      const itemsWithTotals = data.items.map((item: any) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: (parseFloat(item.quantity || '0') * parseFloat(item.unitPrice || '0')).toString(),
+      }));
+
       const orderData = {
         orderNumber: data.orderNumber,
         stationId: user.stationId,
         supplierId: data.supplierId,
         userId: user.id,
-        orderDate: data.orderDate,
-        expectedDeliveryDate: data.expectedDeliveryDate || null,
+        orderDate: new Date(data.orderDate).toISOString(),
+        expectedDeliveryDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate).toISOString() : null,
         status: data.status,
         currencyCode: currencyConfig.code,
-        subtotal: data.subtotal,
-        taxAmount: data.taxAmount,
-        totalAmount: data.totalAmount,
+        subtotal: subtotal.toString(),
+        taxAmount: taxAmount.toString(),
+        totalAmount: totalAmount.toString(),
         notes: data.notes || "",
       };
 
       console.log("Final order data being sent:", orderData);
+      console.log("Items being sent:", itemsWithTotals);
       
-      const response = await apiRequest("POST", "/api/purchase-orders", { order: orderData, items: [] });
+      const response = await apiRequest("POST", "/api/purchase-orders", { order: orderData, items: itemsWithTotals });
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: response.statusText }));
         throw new Error(error.message || 'Failed to create purchase order');
@@ -107,9 +129,11 @@ export default function PurchaseOrders() {
         orderDate: new Date().toISOString().split('T')[0],
         expectedDeliveryDate: "",
         status: "pending",
-        subtotal: "",
-        taxAmount: "0",
-        totalAmount: "",
+        items: [{
+          productId: "",
+          quantity: "",
+          unitPrice: "",
+        }],
         notes: "",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders", user?.stationId] });
@@ -126,13 +150,38 @@ export default function PurchaseOrders() {
 
   const updatePurchaseOrderMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      // Calculate totals from line items (same as create)
+      const subtotal = data.items.reduce((sum: number, item: any) => 
+        sum + (parseFloat(item.quantity || '0') * parseFloat(item.unitPrice || '0')), 0
+      );
+      const taxAmount = 0; // No tax for now
+      const totalAmount = subtotal + taxAmount;
+
+      // Prepare line items with calculated totals
+      const itemsWithTotals = data.items.map((item: any) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: (parseFloat(item.quantity || '0') * parseFloat(item.unitPrice || '0')).toString(),
+      }));
+
+      // Normalize dates to ISO timestamps
       const orderData = {
-        ...data,
+        orderNumber: data.orderNumber,
         stationId: user?.stationId,
+        supplierId: data.supplierId,
         userId: user?.id,
+        orderDate: new Date(data.orderDate).toISOString(),
+        expectedDeliveryDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate).toISOString() : null,
+        status: data.status,
         currencyCode: currencyConfig.code,
+        subtotal: subtotal.toString(),
+        taxAmount: taxAmount.toString(),
+        totalAmount: totalAmount.toString(),
+        notes: data.notes || "",
       };
-      const response = await apiRequest("PUT", `/api/purchase-orders/${id}`, orderData);
+
+      const response = await apiRequest("PUT", `/api/purchase-orders/${id}`, { order: orderData, items: itemsWithTotals });
       if (!response.ok) throw new Error('Failed to update purchase order');
       return response.json();
     },
@@ -194,6 +243,10 @@ export default function PurchaseOrders() {
     queryKey: ["/api/suppliers"],
   });
 
+  const { data: products = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+
   const filteredOrders = purchaseOrders.filter((order: PurchaseOrder) => {
     const matchesSearch = order.orderNumber?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
@@ -217,38 +270,6 @@ export default function PurchaseOrders() {
     navigate(`/purchase-invoice/${order.id}`);
   };
 
-  const handlePrint = (order: PurchaseOrder) => {
-    const supplier = suppliers.find(s => s.id === order.supplierId);
-    const orderData = {
-      ...order,
-      supplier,
-      items: []
-    };
-    const template = generatePrintTemplate(orderData, 'invoice');
-    printDocument(template);
-  };
-
-  const handleDownloadPDF = (order: PurchaseOrder) => {
-    const supplier = suppliers.find(s => s.id === order.supplierId);
-    const orderData = {
-      ...order,
-      supplier,
-      items: []
-    };
-    const template = generatePrintTemplate(orderData, 'invoice');
-    downloadAsPDF(template);
-  };
-
-  const handleDownloadPNG = (order: PurchaseOrder) => {
-    const supplier = suppliers.find(s => s.id === order.supplierId);
-    const orderData = {
-      ...order,
-      supplier,
-      items: []
-    };
-    const template = generatePrintTemplate(orderData, 'invoice');
-    downloadAsPNG(template);
-  };
 
   if (isLoadingPurchaseOrders) {
     return (
@@ -284,9 +305,11 @@ export default function PurchaseOrders() {
               orderDate: new Date().toISOString().split('T')[0],
               expectedDeliveryDate: "",
               status: "pending",
-              subtotal: "",
-              taxAmount: "0",
-              totalAmount: "",
+              items: [{
+                productId: "",
+                quantity: "",
+                unitPrice: "",
+              }],
               notes: "",
             });
           } 
@@ -365,46 +388,149 @@ export default function PurchaseOrders() {
                     )}
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="subtotal"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Subtotal ({currencyConfig.symbol}) *</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="taxAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Tax Amount ({currencyConfig.symbol})</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="totalAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Total Amount ({currencyConfig.symbol}) *</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                {/* Line Items Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium">Order Items</h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const currentItems = form.getValues("items");
+                        form.setValue("items", [...currentItems, { productId: "", quantity: "", unitPrice: "" }]);
+                      }}
+                      data-testid="button-add-item"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Item
+                    </Button>
+                  </div>
+                  
+                  {form.watch("items").map((_, index) => (
+                    <div key={index} className="grid grid-cols-12 gap-2 items-end border rounded-lg p-4">
+                      <div className="col-span-5">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.productId`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Product *</FormLabel>
+                              <FormControl>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <SelectTrigger data-testid={`select-product-${index}`}>
+                                    <SelectValue placeholder="Select product" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {products.map((product) => (
+                                      <SelectItem key={product.id} value={product.id}>
+                                        {product.name} - {formatCurrency(parseFloat(product.currentPrice))}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.quantity`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Quantity *</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.001"
+                                  placeholder="0"
+                                  {...field}
+                                  data-testid={`input-quantity-${index}`}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.unitPrice`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Unit Price *</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="0.00"
+                                  {...field}
+                                  data-testid={`input-unitprice-${index}`}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="col-span-2 flex items-center justify-between">
+                        <div className="text-sm font-medium">
+                          {formatCurrency(
+                            (parseFloat(form.watch(`items.${index}.quantity`) || '0') * 
+                             parseFloat(form.watch(`items.${index}.unitPrice`) || '0'))
+                          )}
+                        </div>
+                        {form.watch("items").length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const currentItems = form.getValues("items");
+                              form.setValue("items", currentItems.filter((_, i) => i !== index));
+                            }}
+                            data-testid={`button-remove-item-${index}`}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Totals Display */}
+                  <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Subtotal:</span>
+                      <span data-testid="text-calculated-subtotal">
+                        {formatCurrency(
+                          form.watch("items").reduce((sum, item) => 
+                            sum + (parseFloat(item.quantity || '0') * parseFloat(item.unitPrice || '0')), 0
+                          )
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Tax (0%):</span>
+                      <span>
+                        {formatCurrency(0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between font-semibold">
+                      <span>Total:</span>
+                      <span data-testid="text-calculated-total">
+                        {formatCurrency(
+                          form.watch("items").reduce((sum, item) => 
+                            sum + (parseFloat(item.quantity || '0') * parseFloat(item.unitPrice || '0')), 0
+                          )
+                        )}
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 <FormField
                   control={form.control}
@@ -562,9 +688,11 @@ export default function PurchaseOrders() {
                                 orderDate: order.orderDate ? new Date(order.orderDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                                 expectedDeliveryDate: order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toISOString().split('T')[0] : '',
                                 status: order.status || "pending",
-                                subtotal: order.subtotal || "",
-                                taxAmount: order.taxAmount || "0",
-                                totalAmount: order.totalAmount || "",
+                                items: order.items || [{
+                                  productId: "",
+                                  quantity: "",
+                                  unitPrice: "",
+                                }],
                                 notes: order.notes || "",
                               });
                             }}
@@ -573,15 +701,11 @@ export default function PurchaseOrders() {
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handlePrint(order)}
-                            className="p-2 text-purple-600 hover:text-purple-800"
-                            title="Print order"
-                          >
-                            <Printer className="w-4 h-4" />
-                          </Button>
+                          <PrintActions
+                            type="purchaseOrder"
+                            id={order.id}
+                            compact
+                          />
                           <Button
                             variant="outline"
                             size="sm"
