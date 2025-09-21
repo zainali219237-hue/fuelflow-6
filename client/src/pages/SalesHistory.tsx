@@ -15,6 +15,7 @@ import { Eye, Edit, Trash2, Play, Download } from "lucide-react";
 import { useLocation } from "wouter";
 
 import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
+import { PrintActions } from "@/components/ui/print-actions";
 
 
 interface DraftSale {
@@ -539,6 +540,13 @@ export default function SalesHistory() {
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
+                          <PrintActions
+                            type="invoice"
+                            id={transaction.id}
+                            compact={true}
+                            variant="ghost"
+                            size="sm"
+                          />
                           <Button
                             variant="ghost"
                             size="sm"

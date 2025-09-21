@@ -19,6 +19,7 @@ import { apiRequest } from "@/lib/api";
 import { Eye, Edit, CreditCard, Trash2 } from "lucide-react";
 
 import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
+import { PrintActions } from "@/components/ui/print-actions";
 
 
 export default function CustomerManagement() {
@@ -560,6 +561,13 @@ export default function CustomerManagement() {
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
+                          <PrintActions
+                            type="statement"
+                            id={customer.id}
+                            compact={true}
+                            variant="outline"
+                            size="sm"
+                          />
                           <Button
                             variant="outline"
                             size="sm"

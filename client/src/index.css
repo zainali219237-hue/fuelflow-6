@@ -329,7 +329,6 @@
   .stats-grid {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
-}
 
   /* Card adjustments */
   .card-responsive {
@@ -349,11 +348,6 @@
   /* Form layouts */
   .form-grid-responsive {
     grid-template-columns: 1fr;
-  }
-
-  /* Stats cards adjustment */
-  .stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   }
 }
 

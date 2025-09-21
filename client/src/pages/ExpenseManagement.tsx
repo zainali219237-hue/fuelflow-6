@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,6 +17,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { CreditCard, Receipt, Eye, Edit, Trash2, Plus, Download, Printer } from "lucide-react";
 import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
+import { PrintActions } from "@/components/ui/print-actions";
 
 const expenseSchema = z.object({
   description: z.string().min(1, "Description is required"),
@@ -76,7 +76,7 @@ export default function ExpenseManagement() {
   const createExpenseMutation = useMutation({
     mutationFn: async (data: any) => {
       console.log("Creating expense with data:", data);
-      
+
       if (!user?.stationId || !user?.id) {
         throw new Error("User session not properly loaded");
       }
@@ -89,7 +89,7 @@ export default function ExpenseManagement() {
       };
 
       console.log("Final expense data being sent:", expenseData);
-      
+
       const response = await apiRequest("POST", "/api/expenses", expenseData);
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: response.statusText }));
@@ -169,7 +169,7 @@ export default function ExpenseManagement() {
 
   const onSubmit = (data: any) => {
     console.log("Expense form submission:", { data, editExpenseId, user });
-    
+
     if (editExpenseId) {
       console.log("Updating expense with ID:", editExpenseId);
       updateExpenseMutation.mutate({ id: editExpenseId, data });
@@ -204,12 +204,8 @@ export default function ExpenseManagement() {
     }
   };
 
-  const handleViewReceipt = (expense: Expense) => {
-    // Generate receipt content for viewing
-    const receiptWindow = window.open('', '_blank');
-    if (!receiptWindow) return;
-
-    const htmlContent = `
+  const handlePrintReceipt = (expense: Expense) => {
+    const printContent = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -247,16 +243,9 @@ export default function ExpenseManagement() {
       </html>
     `;
 
-    receiptWindow.document.write(htmlContent);
-    receiptWindow.document.close();
-
-    receiptWindow.onload = () => {
-      setTimeout(() => {
-        receiptWindow.print();
-        receiptWindow.close();
-      }, 500);
-    };
+    PrintActions(printContent, `Expense_Receipt_${expense.receiptNumber || expense.id}`);
   };
+
 
   if (isLoading) {
     return (
@@ -280,12 +269,12 @@ export default function ExpenseManagement() {
           <h3 className="text-2xl font-semibold text-card-foreground">Expense Management</h3>
           <p className="text-muted-foreground">Track and manage business expenses</p>
         </div>
-        <Dialog open={open} onOpenChange={(isOpen) => { 
+        <Dialog open={open} onOpenChange={(isOpen) => {
           setOpen(isOpen);
-          if (!isOpen) { 
-            setEditExpenseId(null); 
+          if (!isOpen) {
+            setEditExpenseId(null);
             form.reset();
-          } 
+          }
         }}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-expense">
@@ -383,9 +372,9 @@ export default function ExpenseManagement() {
                       <FormItem>
                         <FormLabel>Date *</FormLabel>
                         <FormControl>
-                          <Input 
-                            type="date" 
-                            {...field} 
+                          <Input
+                            type="date"
+                            {...field}
                             max="9999-12-31"
                           />
                         </FormControl>
@@ -495,11 +484,11 @@ export default function ExpenseManagement() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleViewReceipt(expense)}
+                          onClick={() => handlePrintReceipt(expense)}
                           className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                          title="View Receipt"
+                          title="Print Receipt"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Printer className="w-4 h-4" />
                         </Button>
                         <Button
                           variant="outline"
