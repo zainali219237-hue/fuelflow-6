@@ -1,430 +1,325 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
+import { Save, Building2, DollarSign, FileText, Users } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useCurrency } from "@/contexts/CurrencyContext";
-import { useStation } from "@/contexts/StationContext";
-import { CURRENCY_CONFIG, type CurrencyCode } from "@/lib/currency";
 import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/api";
+
+const settingsSchema = z.object({
+  taxEnabled: z.boolean(),
+  taxRate: z.string().optional(),
+  currencyCode: z.string(),
+  companyName: z.string().optional(),
+  companyAddress: z.string().optional(),
+  companyPhone: z.string().optional(),
+  companyEmail: z.string().optional(),
+  receiptFooter: z.string().optional(),
+});
+
+type SettingsForm = z.infer<typeof settingsSchema>;
+
+interface Settings {
+  stationId: string;
+  taxEnabled: boolean;
+  taxRate: string;
+  currencyCode: string;
+  companyName?: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  receiptFooter?: string;
+}
 
 export default function Settings() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Add error boundary for useStation
-  let stationInfo;
-  try {
-    const stationContext = useStation();
-    stationInfo = stationContext.stationInfo;
-  } catch (error) {
-    console.error('Station context error:', error);
-    stationInfo = null;
+  const { data: settings, isLoading } = useQuery<Settings>({
+    queryKey: ["/api/settings", user?.stationId],
+    queryFn: () => {
+      if (!user?.stationId) throw new Error("Station ID required");
+      return apiRequest("GET", `/api/settings/${user.stationId}`).then(res => res.json());
+    },
+    enabled: !!user?.stationId,
+  });
+
+  const form = useForm<SettingsForm>({
+    resolver: zodResolver(settingsSchema),
+    defaultValues: {
+      taxEnabled: false,
+      taxRate: "0",
+      currencyCode: "PKR",
+      companyName: "",
+      companyAddress: "",
+      companyPhone: "",
+      companyEmail: "",
+      receiptFooter: "",
+    },
+    values: settings ? {
+      taxEnabled: settings.taxEnabled,
+      taxRate: settings.taxRate,
+      currencyCode: settings.currencyCode,
+      companyName: settings.companyName || "",
+      companyAddress: settings.companyAddress || "",
+      companyPhone: settings.companyPhone || "",
+      companyEmail: settings.companyEmail || "",
+      receiptFooter: settings.receiptFooter || "",
+    } : undefined,
+  });
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (data: SettingsForm) => {
+      if (!user?.stationId) throw new Error("Station ID required");
+      
+      // Try to update existing settings first
+      try {
+        const response = await apiRequest("PUT", `/api/settings/${user.stationId}`, data);
+        return response.json();
+      } catch (error) {
+        // If update fails, try to create new settings
+        const response = await apiRequest("POST", `/api/settings/${user.stationId}`, data);
+        return response.json();
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: "Settings updated",
+        description: "Your settings have been saved successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+    },
+    onError: (error) => {
+      console.error("Settings update error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update settings",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: SettingsForm) => {
+    console.log("💾 Saving settings:", data);
+    updateSettingsMutation.mutate(data);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-muted rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-muted rounded w-1/2 mb-8"></div>
+          <div className="h-96 bg-muted rounded"></div>
+        </div>
+      </div>
+    );
   }
 
-  const { toast } = useToast();
-  const { currency, setCurrency } = useCurrency();
-  const { stationSettings, updateStationSettings } = useStation();
-
-  // Theme state
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    return document.documentElement.classList.contains('dark');
-  });
-
-  // Notification preferences
-  const [notifications, setNotifications] = useState({
-    lowStock: true,
-    salesAlerts: true,
-    paymentReminders: true,
-    systemUpdates: false,
-  });
-
-  // Display preferences
-  const [displayPreferences, setDisplayPreferences] = useState({
-    compactView: false,
-    showTips: true,
-    autoRefresh: true,
-    refreshInterval: "30",
-  });
-
-  // Handle dark mode toggle
-  const toggleDarkMode = () => {
-    const newDarkMode = !isDarkMode;
-    setIsDarkMode(newDarkMode);
-
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-
-    toast({
-      title: "Theme updated",
-      description: `Switched to ${newDarkMode ? 'dark' : 'light'} mode`,
-    });
-  };
-
-  // Initialize theme state from current DOM state (theme is now initialized globally)
-  useEffect(() => {
-    setIsDarkMode(document.documentElement.classList.contains('dark'));
-  }, []);
-
-  // Load saved settings on component mount
-  useEffect(() => {
-    // Load notification preferences
-    const savedNotifications = localStorage.getItem('notifications');
-    if (savedNotifications) {
-      try {
-        const parsedNotifications = JSON.parse(savedNotifications);
-        setNotifications(parsedNotifications);
-      } catch (error) {
-        console.error('Failed to parse saved notifications:', error);
-      }
-    }
-
-    // Load display preferences  
-    const savedDisplayPreferences = localStorage.getItem('displayPreferences');
-    if (savedDisplayPreferences) {
-      try {
-        const parsedDisplayPreferences = JSON.parse(savedDisplayPreferences);
-        setDisplayPreferences(parsedDisplayPreferences);
-      } catch (error) {
-        console.error('Failed to parse saved display preferences:', error);
-      }
-    }
-  }, []);
-
-  // Handle currency change
-  const handleCurrencyChange = (newCurrency: CurrencyCode) => {
-    setCurrency(newCurrency);
-    toast({
-      title: "Currency updated",
-      description: `Currency changed to ${CURRENCY_CONFIG[newCurrency].name}`,
-    });
-  };
-
-  // Save settings
-  const saveSettings = () => {
-    // Save to localStorage and global context
-    localStorage.setItem('notifications', JSON.stringify(notifications));
-    localStorage.setItem('displayPreferences', JSON.stringify(displayPreferences));
-
-    toast({
-      title: "Settings saved",
-      description: "Your preferences have been saved successfully",
-    });
-  };
-
   return (
-    <div className="space-y-6 fade-in">
-      {/* Header */}
-      <div className="mb-6">
-        <h3 className="text-2xl font-semibold text-card-foreground mb-2">Settings</h3>
-        <p className="text-muted-foreground">
-          Manage your preferences, currency settings, and system configuration
-        </p>
+    <div className="space-y-6 p-6">
+      <div>
+        <h3 className="text-2xl font-semibold">Settings</h3>
+        <p className="text-muted-foreground">Manage your station settings and preferences</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Currency & Localization */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              💱 Currency & Localization
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="currency-select" className="text-sm font-medium">
-                Default Currency
-              </Label>
-              <Select value={currency} onValueChange={handleCurrencyChange}>
-                <SelectTrigger className="mt-2" data-testid="select-currency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.entries(CURRENCY_CONFIG) as [CurrencyCode, typeof CURRENCY_CONFIG[CurrencyCode]][]).map(([code, config]) => (
-                    <SelectItem key={code} value={code}>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono text-sm">{config.symbol}</span>
-                        <span>{config.name}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {code}
-                        </Badge>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Company Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Building2 className="w-5 h-5 mr-2" />
+                Company Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="companyName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Company Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Your Company Name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="companyPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+92 300 1234567" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="companyEmail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Address</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="info@company.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="companyAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Company address" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Financial Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <DollarSign className="w-5 h-5 mr-2" />
+                Financial Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="currencyCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Default Currency</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select currency" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="PKR">Pakistani Rupee (PKR)</SelectItem>
+                          <SelectItem value="INR">Indian Rupee (INR)</SelectItem>
+                          <SelectItem value="USD">US Dollar (USD)</SelectItem>
+                          <SelectItem value="EUR">Euro (EUR)</SelectItem>
+                          <SelectItem value="GBP">British Pound (GBP)</SelectItem>
+                          <SelectItem value="AED">UAE Dirham (AED)</SelectItem>
+                          <SelectItem value="SAR">Saudi Riyal (SAR)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="taxRate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tax Rate (%)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="0.01" 
+                          min="0" 
+                          max="100" 
+                          placeholder="0.00" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="taxEnabled"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Enable Tax</FormLabel>
+                      <div className="text-sm text-muted-foreground">
+                        Apply tax to transactions
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground mt-1">
-                Current: {CURRENCY_CONFIG[currency].symbol} {CURRENCY_CONFIG[currency].name}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Appearance */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              🎨 Appearance
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm font-medium">Dark Mode</Label>
-                <p className="text-xs text-muted-foreground">
-                  Toggle between light and dark themes
-                </p>
-              </div>
-              <Switch
-                checked={isDarkMode}
-                onCheckedChange={toggleDarkMode}
-                data-testid="switch-dark-mode"
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
               />
-            </div>
+            </CardContent>
+          </Card>
 
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm font-medium">Compact View</Label>
-                <p className="text-xs text-muted-foreground">
-                  Use smaller cards and spacing
-                </p>
-              </div>
-              <Switch
-                checked={displayPreferences.compactView}
-                onCheckedChange={(checked) => 
-                  setDisplayPreferences(prev => ({ ...prev, compactView: checked }))
-                }
-                data-testid="switch-compact-view"
+          {/* Receipt Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <FileText className="w-5 h-5 mr-2" />
+                Receipt Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormField
+                control={form.control}
+                name="receiptFooter"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Receipt Footer</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Thank you for your business!" 
+                        {...field} 
+                        rows={3}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
+            </CardContent>
+          </Card>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm font-medium">Show Tips</Label>
-                <p className="text-xs text-muted-foreground">
-                  Display helpful tips throughout the app
-                </p>
-              </div>
-              <Switch
-                checked={displayPreferences.showTips}
-                onCheckedChange={(checked) => 
-                  setDisplayPreferences(prev => ({ ...prev, showTips: checked }))
-                }
-                data-testid="switch-show-tips"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Notifications */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              🔔 Notifications
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm font-medium">Low Stock Alerts</Label>
-                <p className="text-xs text-muted-foreground">
-                  Notify when tank levels are low
-                </p>
-              </div>
-              <Switch
-                checked={notifications.lowStock}
-                onCheckedChange={(checked) => 
-                  setNotifications(prev => ({ ...prev, lowStock: checked }))
-                }
-                data-testid="switch-low-stock"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm font-medium">Sales Alerts</Label>
-                <p className="text-xs text-muted-foreground">
-                  Notify for large transactions
-                </p>
-              </div>
-              <Switch
-                checked={notifications.salesAlerts}
-                onCheckedChange={(checked) => 
-                  setNotifications(prev => ({ ...prev, salesAlerts: checked }))
-                }
-                data-testid="switch-sales-alerts"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm font-medium">Payment Reminders</Label>
-                <p className="text-xs text-muted-foreground">
-                  Remind about overdue payments
-                </p>
-              </div>
-              <Switch
-                checked={notifications.paymentReminders}
-                onCheckedChange={(checked) => 
-                  setNotifications(prev => ({ ...prev, paymentReminders: checked }))
-                }
-                data-testid="switch-payment-reminders"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm font-medium">System Updates</Label>
-                <p className="text-xs text-muted-foreground">
-                  Notify about app updates
-                </p>
-              </div>
-              <Switch
-                checked={notifications.systemUpdates}
-                onCheckedChange={(checked) => 
-                  setNotifications(prev => ({ ...prev, systemUpdates: checked }))
-                }
-                data-testid="switch-system-updates"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Data & Performance */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              ⚡ Data & Performance
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="text-sm font-medium">Auto Refresh</Label>
-                <p className="text-xs text-muted-foreground">
-                  Automatically refresh data
-                </p>
-              </div>
-              <Switch
-                checked={displayPreferences.autoRefresh}
-                onCheckedChange={(checked) => 
-                  setDisplayPreferences(prev => ({ ...prev, autoRefresh: checked }))
-                }
-                data-testid="switch-auto-refresh"
-              />
-            </div>
-
-            {displayPreferences.autoRefresh && (
-              <div>
-                <Label className="text-sm font-medium">Refresh Interval (seconds)</Label>
-                <Select 
-                  value={displayPreferences.refreshInterval} 
-                  onValueChange={(value) => 
-                    setDisplayPreferences(prev => ({ ...prev, refreshInterval: value }))
-                  }
-                >
-                  <SelectTrigger className="mt-2" data-testid="select-refresh-interval">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="15">15 seconds</SelectItem>
-                    <SelectItem value="30">30 seconds</SelectItem>
-                    <SelectItem value="60">1 minute</SelectItem>
-                    <SelectItem value="120">2 minutes</SelectItem>
-                    <SelectItem value="300">5 minutes</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Station Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            🏪 Station Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="station-name" className="text-sm font-medium">Station Name</Label>
-              <Input
-                id="station-name"
-                value={stationSettings.stationName}
-                onChange={(e) => updateStationSettings({ stationName: e.target.value })}
-                data-testid="input-station-name"
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="contact-number" className="text-sm font-medium">Contact Number</Label>
-              <Input
-                id="contact-number"
-                value={stationSettings.contactNumber}
-                onChange={(e) => updateStationSettings({ contactNumber: e.target.value })}
-                data-testid="input-contact-number"
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                value={stationSettings.email}
-                onChange={(e) => updateStationSettings({ email: e.target.value })}
-                data-testid="input-email"
-                className="mt-2"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="gst-number" className="text-sm font-medium">GST Number</Label>
-              <Input
-                id="gst-number"
-                value={stationSettings.gstNumber}
-                onChange={(e) => updateStationSettings({ gstNumber: e.target.value })}
-                data-testid="input-gst-number"
-                className="mt-2"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <Label htmlFor="address" className="text-sm font-medium">Address</Label>
-              <Input
-                id="address"
-                value={stationSettings.address}
-                onChange={(e) => updateStationSettings({ address: e.target.value })}
-                data-testid="input-address"
-                className="mt-2"
-              />
-            </div>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={updateSettingsMutation.isPending}>
+              <Save className="w-4 h-4 mr-2" />
+              {updateSettingsMutation.isPending ? "Saving..." : "Save Settings"}
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <Button onClick={saveSettings} size="lg" data-testid="button-save-settings">
-          Save All Settings
-        </Button>
-      </div>
+        </form>
+      </Form>
     </div>
   );
 }

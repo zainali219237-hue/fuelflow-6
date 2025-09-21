@@ -1,312 +1,431 @@
 
-import { useParams } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/hooks/useAuth";
-import { useStation } from "@/contexts/StationContext";
-import { formatAmount } from "@/lib/currency";
-import { Printer, Download, ArrowLeft, ChevronDown } from "lucide-react";
-import { Link } from "wouter";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import type { PurchaseOrder, Supplier, Station, User } from "@shared/schema";
+import { useState } from "react";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
+import { Plus, Trash2, Save, FileText, Download, Printer } from "lucide-react";
 
-interface PurchaseOrderWithDetails extends PurchaseOrder {
-  supplier: Supplier;
-  user: User;
-  station: Station;
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { apiRequest } from "@/lib/api";
+
+const purchaseItemSchema = z.object({
+  productId: z.string().min(1, "Product is required"),
+  quantity: z.string().min(1, "Quantity is required"),
+  unitPrice: z.string().min(1, "Unit price is required"),
+  totalPrice: z.string().min(1, "Total price is required"),
+});
+
+const purchaseInvoiceSchema = z.object({
+  supplierId: z.string().min(1, "Supplier is required"),
+  dueDate: z.string().optional(),
+  notes: z.string().optional(),
+  items: z.array(purchaseItemSchema).min(1, "At least one item is required"),
+});
+
+type PurchaseInvoiceForm = z.infer<typeof purchaseInvoiceSchema>;
+
+interface Product {
+  id: string;
+  name: string;
+  currentPrice: string;
+  unit: string;
+}
+
+interface Supplier {
+  id: string;
+  name: string;
+  contactPerson?: string;
+  contactPhone?: string;
 }
 
 export default function PurchaseInvoice() {
-  const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { stationSettings } = useStation();
+  const { toast } = useToast();
+  const { formatCurrency } = useCurrency();
+  const queryClient = useQueryClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { data: order, isLoading } = useQuery<PurchaseOrderWithDetails>({
-    queryKey: ["/api/purchase-orders/detail", id!],
-    enabled: !!id && !!user?.stationId,
+  const form = useForm<PurchaseInvoiceForm>({
+    resolver: zodResolver(purchaseInvoiceSchema),
+    defaultValues: {
+      supplierId: "",
+      dueDate: "",
+      notes: "",
+      items: [{ productId: "", quantity: "", unitPrice: "", totalPrice: "" }],
+    },
   });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "items",
+  });
+
+  const { data: products = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+    queryFn: () => apiRequest("GET", "/api/products").then(res => res.json()),
+  });
+
+  const { data: suppliers = [] } = useQuery<Supplier[]>({
+    queryKey: ["/api/suppliers"],
+    queryFn: () => apiRequest("GET", "/api/suppliers").then(res => res.json()),
+  });
+
+  const createPurchaseOrderMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/purchase-orders", data);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to create purchase order");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Purchase invoice created",
+        description: "Purchase invoice has been created successfully",
+      });
+      form.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+    },
+    onError: (error: Error) => {
+      console.error("Purchase order creation error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create purchase invoice",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = async (data: PurchaseInvoiceForm) => {
+    if (!user?.stationId) {
+      toast({
+        title: "Error",
+        description: "Station information is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const subtotal = data.items.reduce((sum, item) => sum + parseFloat(item.totalPrice || "0"), 0);
+      const taxAmount = 0; // No tax for now
+      const totalAmount = subtotal + taxAmount;
+
+      const purchaseOrder = {
+        stationId: user.stationId,
+        supplierId: data.supplierId,
+        userId: user.id,
+        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+        currencyCode: "PKR",
+        subtotal: subtotal.toString(),
+        taxAmount: taxAmount.toString(),
+        totalAmount: totalAmount.toString(),
+        paidAmount: "0",
+        notes: data.notes || "",
+      };
+
+      const items = data.items.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+      }));
+
+      await createPurchaseOrderMutation.mutateAsync({ order: purchaseOrder, items });
+    } catch (error) {
+      console.error("Form submission error:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const updateItemPrice = (index: number, field: 'quantity' | 'unitPrice', value: string) => {
+    const quantity = field === 'quantity' ? parseFloat(value || "0") : parseFloat(form.watch(`items.${index}.quantity`) || "0");
+    const unitPrice = field === 'unitPrice' ? parseFloat(value || "0") : parseFloat(form.watch(`items.${index}.unitPrice`) || "0");
+    const totalPrice = quantity * unitPrice;
+    
+    form.setValue(`items.${index}.totalPrice`, totalPrice.toFixed(2));
+  };
+
+  const onProductChange = (index: number, productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      form.setValue(`items.${index}.unitPrice`, product.currentPrice);
+      updateItemPrice(index, 'unitPrice', product.currentPrice);
+    }
+  };
+
+  const addItem = () => {
+    append({ productId: "", quantity: "", unitPrice: "", totalPrice: "" });
+  };
+
+  const removeItem = (index: number) => {
+    if (fields.length > 1) {
+      remove(index);
+    }
+  };
+
+  const getTotalAmount = () => {
+    return form.watch("items").reduce((sum, item) => sum + parseFloat(item.totalPrice || "0"), 0);
+  };
 
   const handlePrint = () => {
     window.print();
+    console.log("📄 Print functionality triggered");
   };
 
-  const handleDownloadPDF = () => {
-    const printContent = document.getElementById('purchase-invoice-print');
-    if (!printContent) return;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Purchase Order ${order?.orderNumber || 'Unknown'}</title>
-          <style>
-            @page { margin: 0.5in; size: A4; }
-            body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
-            .container { max-width: 800px; margin: 0 auto; }
-            .header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .station-info h1 { color: #2563eb; font-size: 28px; margin: 0; }
-            .station-info p { margin: 5px 0; color: #666; }
-            .order-title { font-size: 24px; font-weight: bold; text-align: right; }
-            .order-meta { text-align: right; margin-top: 10px; }
-            .order-meta p { margin: 5px 0; }
-            .section { margin-bottom: 30px; }
-            .section h3 { background: #f3f4f6; padding: 10px; margin: 0 0 15px 0; font-size: 16px; }
-            .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-            .detail-item { margin-bottom: 10px; }
-            .detail-label { font-weight: bold; color: #374151; }
-            .detail-value { color: #6b7280; }
-            .totals { background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px; }
-            .total-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-            .total-row.final { border-top: 2px solid #333; padding-top: 10px; margin-top: 15px; font-weight: bold; font-size: 18px; }
-            .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; }
-            .status-badge { background: #10b981; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="station-info">
-                <h1>${order?.station?.name || "FuelFlow Station"}</h1>
-                <p>Purchase Order Invoice</p>
-                <p>Generated on ${new Date().toLocaleDateString()}</p>
-              </div>
-              <div>
-                <div class="order-title">PURCHASE ORDER</div>
-                <div class="order-meta">
-                  <p><strong>PO #:</strong> ${order?.orderNumber}</p>
-                  <p><strong>Date:</strong> ${new Date(order?.orderDate || new Date()).toLocaleDateString()}</p>
-                  ${order?.expectedDeliveryDate ? `<p><strong>Expected Delivery:</strong> ${new Date(order.expectedDeliveryDate).toLocaleDateString()}</p>` : ''}
-                  <div class="status-badge">${order?.status?.toUpperCase()}</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="section">
-              <h3>Supplier Information</h3>
-              <div class="details-grid">
-                <div>
-                  <div class="detail-item">
-                    <div class="detail-label">Company Name:</div>
-                    <div class="detail-value">${order?.supplier?.name || 'N/A'}</div>
-                  </div>
-                  ${order?.supplier?.contactPerson ? `
-                  <div class="detail-item">
-                    <div class="detail-label">Contact Person:</div>
-                    <div class="detail-value">${order.supplier.contactPerson}</div>
-                  </div>` : ''}
-                </div>
-                <div>
-                  ${order?.supplier?.contactPhone ? `
-                  <div class="detail-item">
-                    <div class="detail-label">Phone:</div>
-                    <div class="detail-value">${order.supplier.contactPhone}</div>
-                  </div>` : ''}
-                  ${order?.supplier?.contactEmail ? `
-                  <div class="detail-item">
-                    <div class="detail-label">Email:</div>
-                    <div class="detail-value">${order.supplier.contactEmail}</div>
-                  </div>` : ''}
-                </div>
-              </div>
-            </div>
-
-            ${order?.notes ? `
-            <div class="section">
-              <h3>Order Notes</h3>
-              <p>${order.notes}</p>
-            </div>` : ''}
-
-            <div class="totals">
-              <div class="total-row">
-                <span>Subtotal:</span>
-                <span>${formatAmount(parseFloat(order?.subtotal || '0'), order?.currencyCode || 'PKR')}</span>
-              </div>
-              ${parseFloat(order?.taxAmount || '0') > 0 ? `
-              <div class="total-row">
-                <span>Tax:</span>
-                <span>${formatAmount(parseFloat(order?.taxAmount || '0'), order?.currencyCode || 'PKR')}</span>
-              </div>` : ''}
-              <div class="total-row final">
-                <span>Total Amount:</span>
-                <span>${formatAmount(parseFloat(order?.totalAmount || '0'), order?.currencyCode || 'PKR')}</span>
-              </div>
-            </div>
-
-            <div class="footer">
-              <p>This is a computer-generated purchase order from FuelFlow Management System</p>
-              <p>Generated on ${new Date().toLocaleString()}</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
+  const handleDownload = () => {
+    const invoiceData = form.getValues();
+    const blob = new Blob([JSON.stringify(invoiceData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `purchase-invoice-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    console.log("💾 Download functionality triggered");
     
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 500);
-    };
+    toast({
+      title: "Download started",
+      description: "Purchase invoice template downloaded successfully",
+    });
   };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse">
-          <div className="h-8 bg-muted rounded w-64 mb-4"></div>
-          <div className="h-4 bg-muted rounded w-48 mb-8"></div>
-          <div className="h-96 bg-muted rounded"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!order) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="text-center p-6">
-            <h2 className="text-2xl font-bold mb-2">Purchase Order Not Found</h2>
-            <p className="text-muted-foreground mb-4">
-              The requested purchase order could not be found.
-            </p>
-            <Link href="/purchase-orders">
-              <Button>
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Purchase Orders
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Print/Download Actions - Hidden when printing */}
-      <div className="print:hidden sticky top-0 bg-background/80 backdrop-blur-sm border-b z-10">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/purchase-orders">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Button>
-              </Link>
-              <h1 className="text-2xl font-bold">Purchase Order #{order.orderNumber}</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button onClick={handlePrint} size="sm">
-                <Printer className="w-4 h-4 mr-2" />
-                Print
-              </Button>
-              <Button onClick={handleDownloadPDF} variant="outline" size="sm">
-                <Download className="w-4 h-4 mr-2" />
-                Download PDF
-              </Button>
-            </div>
-          </div>
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-2xl font-semibold">Purchase Invoice</h3>
+          <p className="text-muted-foreground">Create new purchase invoice</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={handlePrint}>
+            <Printer className="w-4 h-4 mr-2" />
+            Print
+          </Button>
+          <Button variant="outline" onClick={handleDownload}>
+            <Download className="w-4 h-4 mr-2" />
+            Download
+          </Button>
         </div>
       </div>
 
-      {/* Invoice Content */}
-      <div className="container mx-auto px-6 py-8 max-w-4xl">
-        <Card className="print:shadow-none print:border-none">
-          <CardContent className="p-8" id="purchase-invoice-print">
-            {/* Header */}
-            <div className="flex justify-between items-start mb-8">
-              <div>
-                <h1 className="text-4xl font-bold text-primary mb-2">
-                  {stationSettings.stationName}
-                </h1>
-                <div className="text-muted-foreground space-y-1">
-                  <p>Purchase Order Invoice</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <h2 className="text-3xl font-bold mb-2">PURCHASE ORDER</h2>
-                <div className="space-y-1 text-sm">
-                  <p><span className="font-semibold">PO #:</span> {order.orderNumber}</p>
-                  <p><span className="font-semibold">Date:</span> {new Date(order.orderDate || new Date()).toLocaleDateString()}</p>
-                  {order.expectedDeliveryDate && (
-                    <p><span className="font-semibold">Expected Delivery:</span> {new Date(order.expectedDeliveryDate).toLocaleDateString()}</p>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <FileText className="w-5 h-5 mr-2" />
+            Invoice Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="supplierId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Supplier *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select supplier" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {suppliers.map((supplier) => (
+                            <SelectItem key={supplier.id} value={supplier.id}>
+                              {supplier.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
+                />
+                <FormField
+                  control={form.control}
+                  name="dueDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Due Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-            </div>
 
-            {/* Status Badge */}
-            <div className="flex gap-2 mb-6">
-              <Badge variant="outline">
-                {order.status?.toUpperCase()}
-              </Badge>
-            </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-lg font-medium">Items</h4>
+                  <Button type="button" variant="outline" onClick={addItem}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Item
+                  </Button>
+                </div>
 
-            {/* Supplier Info */}
-            <div className="grid md:grid-cols-2 gap-8 mb-8">
-              <div>
-                <h3 className="font-semibold text-lg mb-3">Supplier:</h3>
-                <div className="space-y-1">
-                  <p className="font-semibold">{order.supplier?.name}</p>
-                  {order.supplier?.contactPerson && (
-                    <p>Contact: {order.supplier.contactPerson}</p>
-                  )}
-                  {order.supplier?.contactPhone && (
-                    <p>Phone: {order.supplier.contactPhone}</p>
-                  )}
-                  {order.supplier?.contactEmail && (
-                    <p>Email: {order.supplier.contactEmail}</p>
-                  )}
-                </div>
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg mb-3">Order Details:</h3>
-                <div className="space-y-1 text-sm">
-                  {order.notes && (
-                    <p><span className="font-semibold">Notes:</span> {order.notes}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Totals */}
-            <div className="flex justify-end mb-8">
-              <div className="w-full max-w-sm space-y-2">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>{formatAmount(parseFloat(order.subtotal || '0'), order.currencyCode || 'PKR')}</span>
-                </div>
-                {parseFloat(order.taxAmount || '0') > 0 && (
-                  <div className="flex justify-between">
-                    <span>Tax:</span>
-                    <span>{formatAmount(parseFloat(order.taxAmount || '0'), order.currencyCode || 'PKR')}</span>
+                {fields.map((field, index) => (
+                  <div key={field.id} className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-4">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.productId`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Product</FormLabel>
+                            <Select 
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                onProductChange(index, value);
+                              }} 
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select product" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {products.map((product) => (
+                                  <SelectItem key={product.id} value={product.id}>
+                                    {product.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.quantity`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Quantity</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                step="0.01" 
+                                {...field}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  updateItemPrice(index, 'quantity', e.target.value);
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.unitPrice`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Unit Price</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                step="0.01" 
+                                {...field}
+                                onChange={(e) => {
+                                  field.onChange(e);
+                                  updateItemPrice(index, 'unitPrice', e.target.value);
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.totalPrice`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Total</FormLabel>
+                            <FormControl>
+                              <Input {...field} readOnly />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeItem(index)}
+                        disabled={fields.length === 1}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                )}
-                <div className="flex justify-between text-lg font-semibold border-t pt-2">
-                  <span>Total Amount:</span>
-                  <span>{formatAmount(parseFloat(order.totalAmount || '0'), order.currencyCode || 'PKR')}</span>
+                ))}
+              </div>
+
+              <div className="flex justify-end">
+                <div className="text-right">
+                  <p className="text-lg font-semibold">
+                    Total: {formatCurrency(getTotalAmount())}
+                  </p>
                 </div>
               </div>
-            </div>
 
-            {/* Footer */}
-            <div className="border-t pt-4 text-center text-sm text-muted-foreground">
-              <p>Purchase Order generated on {new Date().toLocaleDateString()}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} rows={3} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end space-x-2">
+                <Button type="button" variant="outline" onClick={() => form.reset()}>
+                  Reset
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  <Save className="w-4 h-4 mr-2" />
+                  {isSubmitting ? "Creating..." : "Create Invoice"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
