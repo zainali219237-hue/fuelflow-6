@@ -257,7 +257,11 @@ export default function SupplierManagement() {
 
   const filteredSuppliers = suppliers.filter((supplier: Supplier) => {
     const matchesSearch = supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         supplier.contactPerson?.toLowerCase().includes(searchTerm.toLowerCase());
+                         supplier.contactPerson?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         supplier.contactPhone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         supplier.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         supplier.gstNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         supplier.address?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" ||
                          (filterStatus === "active" && supplier.isActive) ||
                          (filterStatus === "inactive" && !supplier.isActive);

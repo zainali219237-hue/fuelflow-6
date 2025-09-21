@@ -1,98 +1,126 @@
-
 export interface PrintTemplate {
   title: string;
   content: string;
   filename: string;
 }
 
+// Global print function that opens in new tab consistently
+export const globalPrintDocument = (template: PrintTemplate) => {
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
+  if (!printWindow) {
+    alert('Please allow popups to print documents');
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${template.title}</title>
+        <style>
+          @page { margin: 0.5in; size: A4; }
+          body { 
+            font-family: Arial, sans-serif; 
+            line-height: 1.4; 
+            color: #000; 
+            margin: 0; 
+            padding: 20px; 
+            background: white;
+          }
+          @media print {
+            body { background: white !important; }
+            * { color: black !important; }
+          }
+        </style>
+      </head>
+      <body>
+        ${template.content}
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 500);
+          };
+
+          window.onafterprint = function() {
+            window.close();
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+};
+
 export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | 'statement' | 'expense' | 'purchaseOrder' | 'pumpReading'): PrintTemplate => {
   const today = new Date().toLocaleDateString();
-  
+
   switch (type) {
     case 'invoice':
       return {
         title: `Sales Invoice ${data.invoiceNumber || data.orderNumber}`,
         filename: `invoice-${data.invoiceNumber || data.orderNumber}`,
         content: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Sales Invoice ${data.invoiceNumber || data.orderNumber}</title>
-              <style>
-                @page { margin: 0.5in; size: A4; }
-                body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
-                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-                .header h1 { color: #2563eb; font-size: 28px; margin: 0; }
-                .invoice-meta { text-align: right; margin-top: 10px; }
-                .section { margin-bottom: 30px; }
-                .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                .items-table th, .items-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-                .items-table th { background: #f9fafb; font-weight: bold; }
-                .totals { background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px; }
-                .total-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-                .footer { text-align: center; margin-top: 40px; color: #666; font-size: 12px; }
-              </style>
-            </head>
-            <body>
-              <div class="header">
-                <h1>${data.stationName || 'FuelFlow Station'}</h1>
-                <h2>${data.invoiceNumber ? 'Sales Invoice' : 'Purchase Order'}</h2>
-                <div class="invoice-meta">
-                  <p><strong>${data.invoiceNumber ? 'Invoice' : 'Order'} #:</strong> ${data.invoiceNumber || data.orderNumber}</p>
-                  <p><strong>Date:</strong> ${new Date(data.createdAt || data.orderDate || Date.now()).toLocaleDateString()}</p>
-                  <p><strong>${data.customer ? 'Customer' : 'Supplier'}:</strong> ${data.customer?.name || data.supplier?.name || 'Walk-in Customer'}</p>
-                </div>
+          <div style="max-width: 800px; margin: 0 auto;">
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+              <h1 style="color: #2563eb; font-size: 28px; margin: 0;">${data.stationName || 'FuelFlow Station'}</h1>
+              <h2>${data.invoiceNumber ? 'Sales Invoice' : 'Purchase Order'}</h2>
+              <div style="text-align: right; margin-top: 10px;">
+                <p><strong>${data.invoiceNumber ? 'Invoice' : 'Order'} #:</strong> ${data.invoiceNumber || data.orderNumber}</p>
+                <p><strong>Date:</strong> ${new Date(data.createdAt || data.orderDate || Date.now()).toLocaleDateString()}</p>
+                <p><strong>${data.customer ? 'Customer' : 'Supplier'}:</strong> ${data.customer?.name || data.supplier?.name || 'Walk-in Customer'}</p>
               </div>
+            </div>
 
-              <div class="section">
-                <table class="items-table">
-                  <thead>
+            <div style="margin-bottom: 30px;">
+              <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <thead>
+                  <tr style="background: #f9fafb;">
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Product</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Quantity</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Unit Price</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.items?.map(item => `
                     <tr>
-                      <th>Product</th>
-                      <th>Quantity</th>
-                      <th>Unit Price</th>
-                      <th>Total</th>
+                      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.product?.name || 'Product'}</td>
+                      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${parseFloat(item.quantity || '0').toFixed(3)} ${item.product?.unit || 'L'}</td>
+                      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.unitPrice || '0.00'}</td>
+                      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.totalPrice || '0.00'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    ${data.items?.map(item => `
-                      <tr>
-                        <td>${item.product?.name || 'Product'}</td>
-                        <td>${parseFloat(item.quantity || '0').toFixed(3)} ${item.product?.unit || 'L'}</td>
-                        <td>${item.unitPrice || '0.00'}</td>
-                        <td>${item.totalPrice || '0.00'}</td>
-                      </tr>
-                    `).join('') || '<tr><td colspan="4" style="text-align: center;">No items</td></tr>'}
-                  </tbody>
-                </table>
-              </div>
+                  `).join('') || '<tr><td colspan="4" style="text-align: center; padding: 12px;">No items</td></tr>'}
+                </tbody>
+              </table>
+            </div>
 
-              <div class="totals">
-                <div class="total-row">
-                  <span>Subtotal:</span>
-                  <span>${data.subtotal || '0.00'}</span>
-                </div>
-                <div class="total-row">
-                  <span>Tax:</span>
-                  <span>${data.taxAmount || '0.00'}</span>
-                </div>
-                <div class="total-row">
-                  <span><strong>Total Amount:</strong></span>
-                  <span><strong>${data.totalAmount || '0.00'}</strong></span>
-                </div>
-                ${parseFloat(data.outstandingAmount || '0') > 0 ? `
-                <div class="total-row" style="color: #dc2626;">
-                  <span>Outstanding Amount:</span>
-                  <span>${data.outstandingAmount}</span>
-                </div>` : ''}
+            <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <span>Subtotal:</span>
+                <span>${data.subtotal || '0.00'}</span>
               </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <span>Tax:</span>
+                <span>${data.taxAmount || '0.00'}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; border-top: 1px solid #ddd; padding-top: 10px;">
+                <span>Total Amount:</span>
+                <span>${data.totalAmount || '0.00'}</span>
+              </div>
+              ${parseFloat(data.outstandingAmount || '0') > 0 ? `
+              <div style="display: flex; justify-content: space-between; color: #dc2626; margin-top: 10px;">
+                <span>Outstanding Amount:</span>
+                <span>${data.outstandingAmount}</span>
+              </div>` : ''}
+            </div>
 
-              <div class="footer">
-                <p>Thank you for your business!</p>
-                <p>Generated on ${today}</p>
-              </div>
-            </body>
-          </html>
+            <div style="text-align: center; margin-top: 40px; color: #666; font-size: 12px;">
+              <p>Thank you for your business!</p>
+              <p>Generated on ${today}</p>
+            </div>
+          </div>
         `
       };
 
@@ -101,120 +129,28 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
         title: `Expense Receipt ${data.receiptNumber || data.id}`,
         filename: `expense-${data.receiptNumber || data.id}`,
         content: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Expense Receipt ${data.receiptNumber || data.id}</title>
-              <style>
-                @page { margin: 0.5in; size: A4; }
-                body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
-                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-                .header h1 { color: #2563eb; margin: 0; }
-                .expense-details { background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-                .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #666; }
-              </style>
-            </head>
-            <body>
-              <div class="header">
-                <h1>${data.stationName || 'FuelFlow Station'}</h1>
-                <h2>Expense Receipt</h2>
-                <p>Receipt #: ${data.receiptNumber || data.id}</p>
-              </div>
+          <div style="max-width: 600px; margin: 0 auto;">
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+              <h1 style="color: #2563eb; margin: 0;">${data.stationName || 'FuelFlow Station'}</h1>
+              <h2>Expense Receipt</h2>
+              <p>Receipt #: ${data.receiptNumber || data.id}</p>
+            </div>
 
-              <div class="expense-details">
-                <h3>Expense Details</h3>
-                <p><strong>Description:</strong> ${data.description || 'N/A'}</p>
-                <p><strong>Amount:</strong> ${data.amount || '0.00'}</p>
-                <p><strong>Category:</strong> ${data.category || 'N/A'}</p>
-                <p><strong>Payment Method:</strong> ${data.paymentMethod || 'N/A'}</p>
-                <p><strong>Date:</strong> ${new Date(data.expenseDate || Date.now()).toLocaleDateString()}</p>
-                ${data.notes ? `<p><strong>Notes:</strong> ${data.notes}</p>` : ''}
-              </div>
+            <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+              <h3>Expense Details</h3>
+              <p><strong>Description:</strong> ${data.description || 'N/A'}</p>
+              <p><strong>Amount:</strong> ${data.amount || '0.00'}</p>
+              <p><strong>Category:</strong> ${data.category || 'N/A'}</p>
+              <p><strong>Payment Method:</strong> ${data.paymentMethod || 'N/A'}</p>
+              <p><strong>Date:</strong> ${new Date(data.expenseDate || Date.now()).toLocaleDateString()}</p>
+              ${data.notes ? `<p><strong>Notes:</strong> ${data.notes}</p>` : ''}
+            </div>
 
-              <div class="footer">
-                <p>This is a computer-generated receipt from FuelFlow Management System</p>
-                <p>Generated on ${today}</p>
-              </div>
-            </body>
-          </html>
-        `
-      };
-
-    case 'statement':
-      return {
-        title: `Payment Statement - ${data.entityName}`,
-        filename: `statement-${data.entityName?.replace(/[^a-zA-Z0-9]/g, '_')}`,
-        content: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>${data.entityType} Statement - ${data.entityName}</title>
-              <style>
-                @page { margin: 0.5in; size: A4; }
-                body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
-                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-                .header h1 { color: #2563eb; margin: 0; }
-                .entity-info { background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-                .payments-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                .payments-table th, .payments-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-                .payments-table th { background: #f3f4f6; font-weight: bold; }
-                .payments-table .text-right { text-align: right; }
-                .summary { background: #f9fafb; padding: 15px; border-radius: 8px; margin-top: 20px; }
-                .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #666; }
-              </style>
-            </head>
-            <body>
-              <div class="header">
-                <h1>${data.stationName || 'FuelFlow Station'}</h1>
-                <h2>${data.entityType} Payment Statement</h2>
-                <p>Generated on ${data.generatedDate || today}</p>
-              </div>
-
-              <div class="entity-info">
-                <h3>${data.entityType} Information</h3>
-                <p><strong>Name:</strong> ${data.entityName}</p>
-                ${data.entity?.contactPhone ? `<p><strong>Phone:</strong> ${data.entity.contactPhone}</p>` : ''}
-                ${data.entity?.contactEmail ? `<p><strong>Email:</strong> ${data.entity.contactEmail}</p>` : ''}
-                ${data.entity?.gstNumber ? `<p><strong>GST Number:</strong> ${data.entity.gstNumber}</p>` : ''}
-                ${data.entity?.address ? `<p><strong>Address:</strong> ${data.entity.address}</p>` : ''}
-              </div>
-
-              <h3>Payment History</h3>
-              <table class="payments-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th class="text-right">Amount</th>
-                    <th>Method</th>
-                    <th>Reference</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${data.payments && data.payments.length > 0 ? data.payments.map(payment => `
-                    <tr>
-                      <td>${new Date(payment.paymentDate || payment.createdAt).toLocaleDateString()}</td>
-                      <td class="text-right">${payment.amount || '0.00'}</td>
-                      <td>${payment.paymentMethod || 'N/A'}</td>
-                      <td>${payment.referenceNumber || 'N/A'}</td>
-                      <td>${payment.notes || ''}</td>
-                    </tr>
-                  `).join('') : '<tr><td colspan="5" style="text-align: center; color: #666;">No payment history found</td></tr>'}
-                </tbody>
-              </table>
-
-              <div class="summary">
-                <h4>Summary</h4>
-                <p><strong>Total Payments:</strong> ${data.totalPayments || '0.00'}</p>
-                <p><strong>Outstanding Amount:</strong> ${data.outstandingAmount || '0.00'}</p>
-              </div>
-
-              <div class="footer">
-                <p>This is a computer-generated statement from FuelFlow Management System</p>
-                <p>For any queries regarding this statement, please contact our accounts department</p>
-              </div>
-            </body>
-          </html>
+            <div style="text-align: center; margin-top: 30px; font-size: 12px; color: #666;">
+              <p>This is a computer-generated receipt from FuelFlow Management System</p>
+              <p>Generated on ${today}</p>
+            </div>
+          </div>
         `
       };
 
@@ -223,97 +159,76 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
         title: `Purchase Order ${data.orderNumber}`,
         filename: `purchase-order-${data.orderNumber}`,
         content: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Purchase Order ${data.orderNumber}</title>
-              <style>
-                @page { margin: 0.5in; size: A4; }
-                body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
-                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-                .header h1 { color: #2563eb; font-size: 28px; margin: 0; }
-                .order-meta { text-align: right; margin-top: 10px; }
-                .section { margin-bottom: 30px; }
-                .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                .items-table th, .items-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-                .items-table th { background: #f9fafb; font-weight: bold; }
-                .totals { background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px; }
-                .total-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-                .footer { text-align: center; margin-top: 40px; color: #666; font-size: 12px; }
-                .status-badge { background: #10b981; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
-              </style>
-            </head>
-            <body>
-              <div class="header">
-                <h1>${data.station?.name || data.stationName || 'FuelFlow Station'}</h1>
-                <h2>Purchase Order</h2>
-                <div class="order-meta">
-                  <p><strong>Order #:</strong> ${data.orderNumber}</p>
-                  <p><strong>Date:</strong> ${new Date(data.orderDate || data.createdAt || Date.now()).toLocaleDateString()}</p>
-                  <p><strong>Supplier:</strong> ${data.supplier?.name || 'Unknown Supplier'}</p>
-                  <p><strong>Status:</strong> <span class="status-badge">${data.status || 'Pending'}</span></p>
-                </div>
+          <div style="max-width: 800px; margin: 0 auto;">
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+              <h1 style="color: #2563eb; font-size: 28px; margin: 0;">${data.station?.name || data.stationName || 'FuelFlow Station'}</h1>
+              <h2>Purchase Order</h2>
+              <div style="text-align: right; margin-top: 10px;">
+                <p><strong>Order #:</strong> ${data.orderNumber}</p>
+                <p><strong>Date:</strong> ${new Date(data.orderDate || data.createdAt || Date.now()).toLocaleDateString()}</p>
+                <p><strong>Supplier:</strong> ${data.supplier?.name || 'Unknown Supplier'}</p>
+                <p><strong>Status:</strong> <span style="background: #10b981; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px;">${data.status || 'Pending'}</span></p>
               </div>
+            </div>
 
-              <div class="section">
-                <h3>Supplier Details</h3>
-                <p><strong>Name:</strong> ${data.supplier?.name || 'N/A'}</p>
-                ${data.supplier?.contactPerson ? `<p><strong>Contact Person:</strong> ${data.supplier.contactPerson}</p>` : ''}
-                ${data.supplier?.contactPhone ? `<p><strong>Phone:</strong> ${data.supplier.contactPhone}</p>` : ''}
-                ${data.supplier?.contactEmail ? `<p><strong>Email:</strong> ${data.supplier.contactEmail}</p>` : ''}
-                ${data.supplier?.address ? `<p><strong>Address:</strong> ${data.supplier.address}</p>` : ''}
-              </div>
+            <div style="margin-bottom: 30px;">
+              <h3>Supplier Details</h3>
+              <p><strong>Name:</strong> ${data.supplier?.name || 'N/A'}</p>
+              ${data.supplier?.contactPerson ? `<p><strong>Contact Person:</strong> ${data.supplier.contactPerson}</p>` : ''}
+              ${data.supplier?.contactPhone ? `<p><strong>Phone:</strong> ${data.supplier.contactPhone}</p>` : ''}
+              ${data.supplier?.contactEmail ? `<p><strong>Email:</strong> ${data.supplier.contactEmail}</p>` : ''}
+              ${data.supplier?.address ? `<p><strong>Address:</strong> ${data.supplier.address}</p>` : ''}
+            </div>
 
-              <div class="section">
-                <table class="items-table">
-                  <thead>
+            <div style="margin-bottom: 30px;">
+              <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <thead>
+                  <tr style="background: #f9fafb;">
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Product</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Quantity</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Unit Price</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.items?.map(item => `
                     <tr>
-                      <th>Product</th>
-                      <th>Quantity</th>
-                      <th>Unit Price</th>
-                      <th>Total</th>
+                      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.product?.name || 'Product'}</td>
+                      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${parseFloat(item.quantity || '0').toFixed(3)} ${item.product?.unit || 'L'}</td>
+                      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.unitPrice || '0.00'}</td>
+                      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.totalPrice || '0.00'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    ${data.items?.map(item => `
-                      <tr>
-                        <td>${item.product?.name || 'Product'}</td>
-                        <td>${parseFloat(item.quantity || '0').toFixed(3)} ${item.product?.unit || 'L'}</td>
-                        <td>${item.unitPrice || '0.00'}</td>
-                        <td>${item.totalPrice || '0.00'}</td>
-                      </tr>
-                    `).join('') || '<tr><td colspan="4" style="text-align: center;">No items</td></tr>'}
-                  </tbody>
-                </table>
-              </div>
+                  `).join('') || '<tr><td colspan="4" style="text-align: center; padding: 12px;">No items</td></tr>'}
+                </tbody>
+              </table>
+            </div>
 
-              <div class="totals">
-                <div class="total-row">
-                  <span>Subtotal:</span>
-                  <span>${data.subtotal || '0.00'}</span>
-                </div>
-                <div class="total-row">
-                  <span>Tax:</span>
-                  <span>${data.taxAmount || '0.00'}</span>
-                </div>
-                <div class="total-row">
-                  <span><strong>Total Amount:</strong></span>
-                  <span><strong>${data.totalAmount || '0.00'}</strong></span>
-                </div>
+            <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <span>Subtotal:</span>
+                <span>${data.subtotal || '0.00'}</span>
               </div>
-
-              ${data.notes ? `
-              <div class="section">
-                <h3>Notes</h3>
-                <p>${data.notes}</p>
-              </div>` : ''}
-
-              <div class="footer">
-                <p>Purchase Order generated from FuelFlow Management System</p>
-                <p>Generated on ${today}</p>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <span>Tax:</span>
+                <span>${data.taxAmount || '0.00'}</span>
               </div>
-            </body>
-          </html>
+              <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; border-top: 1px solid #ddd; padding-top: 10px;">
+                <span>Total Amount:</span>
+                <span>${data.totalAmount || '0.00'}</span>
+              </div>
+            </div>
+
+            ${data.notes ? `
+            <div style="margin: 30px 0;">
+              <h3>Notes</h3>
+              <p>${data.notes}</p>
+            </div>` : ''}
+
+            <div style="text-align: center; margin-top: 40px; color: #666; font-size: 12px;">
+              <p>Purchase Order generated from FuelFlow Management System</p>
+              <p>Generated on ${today}</p>
+            </div>
+          </div>
         `
       };
 
@@ -322,106 +237,83 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
         title: `Pump Reading - ${data.pump?.name || 'Pump'} - ${data.shiftNumber}`,
         filename: `pump-reading-${data.pump?.pumpNumber || data.id}`,
         content: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <title>Pump Reading - ${data.pump?.name || 'Pump'}</title>
-              <style>
-                @page { margin: 0.5in; size: A4; }
-                body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
-                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-                .header h1 { color: #2563eb; font-size: 28px; margin: 0; }
-                .reading-meta { text-align: right; margin-top: 10px; }
-                .section { margin-bottom: 30px; }
-                .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
-                .detail-item { margin-bottom: 15px; padding: 10px; background: #f9fafb; border-radius: 5px; }
-                .detail-label { font-weight: bold; color: #374151; }
-                .detail-value { color: #6b7280; margin-top: 5px; }
-                .readings-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                .readings-table th, .readings-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-                .readings-table th { background: #f9fafb; font-weight: bold; }
-                .footer { text-align: center; margin-top: 40px; color: #666; font-size: 12px; }
-                .summary { background: #f0f9ff; padding: 20px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #2563eb; }
-              </style>
-            </head>
-            <body>
-              <div class="header">
-                <h1>${data.station?.name || 'FuelFlow Station'}</h1>
-                <h2>Pump Reading Report</h2>
-                <div class="reading-meta">
-                  <p><strong>Reading Date:</strong> ${new Date(data.readingDate || data.createdAt || Date.now()).toLocaleDateString()}</p>
-                  <p><strong>Shift Number:</strong> ${data.shiftNumber}</p>
-                  <p><strong>Operator:</strong> ${data.operatorName}</p>
-                </div>
-              </div>
-
-              <div class="section">
-                <h3>Pump Information</h3>
-                <div class="details-grid">
-                  <div class="detail-item">
-                    <div class="detail-label">Pump Name</div>
-                    <div class="detail-value">${data.pump?.name || 'N/A'}</div>
-                  </div>
-                  <div class="detail-item">
-                    <div class="detail-label">Pump Number</div>
-                    <div class="detail-value">${data.pump?.pumpNumber || 'N/A'}</div>
-                  </div>
-                  <div class="detail-item">
-                    <div class="detail-label">Product</div>
-                    <div class="detail-value">${data.product?.name || 'N/A'}</div>
-                  </div>
-                  <div class="detail-item">
-                    <div class="detail-label">Product Category</div>
-                    <div class="detail-value">${data.product?.category || 'N/A'}</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="section">
-                <h3>Reading Details</h3>
-                <table class="readings-table">
-                  <thead>
-                    <tr>
-                      <th>Measurement</th>
-                      <th>Value</th>
-                      <th>Unit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Opening Reading</td>
-                      <td>${parseFloat(data.openingReading || '0').toFixed(3)}</td>
-                      <td>Litres</td>
-                    </tr>
-                    <tr>
-                      <td>Closing Reading</td>
-                      <td>${parseFloat(data.closingReading || '0').toFixed(3)}</td>
-                      <td>Litres</td>
-                    </tr>
-                    <tr style="background: #f0f9ff;">
-                      <td><strong>Total Sale</strong></td>
-                      <td><strong>${parseFloat(data.totalSale || '0').toFixed(3)}</strong></td>
-                      <td><strong>Litres</strong></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div class="summary">
-                <h3>Summary</h3>
-                <p><strong>Shift:</strong> ${data.shiftNumber}</p>
+          <div style="max-width: 800px; margin: 0 auto;">
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+              <h1 style="color: #2563eb; font-size: 28px; margin: 0;">${data.station?.name || 'FuelFlow Station'}</h1>
+              <h2>Pump Reading Report</h2>
+              <div style="text-align: right; margin-top: 10px;">
+                <p><strong>Reading Date:</strong> ${new Date(data.readingDate || data.createdAt || Date.now()).toLocaleDateString()}</p>
+                <p><strong>Shift Number:</strong> ${data.shiftNumber}</p>
                 <p><strong>Operator:</strong> ${data.operatorName}</p>
-                <p><strong>Total Fuel Dispensed:</strong> ${parseFloat(data.totalSale || '0').toFixed(3)} Litres</p>
-                <p><strong>Reading Period:</strong> ${new Date(data.readingDate || data.createdAt || Date.now()).toLocaleDateString()}</p>
               </div>
+            </div>
 
-              <div class="footer">
-                <p>Pump Reading Report generated from FuelFlow Management System</p>
-                <p>Generated on ${today}</p>
-                <p>This is an official record of fuel dispensing activities</p>
+            <div style="margin-bottom: 30px;">
+              <h3>Pump Information</h3>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+                <div style="padding: 10px; background: #f9fafb; border-radius: 5px;">
+                  <div style="font-weight: bold; color: #374151;">Pump Name</div>
+                  <div style="color: #6b7280; margin-top: 5px;">${data.pump?.name || 'N/A'}</div>
+                </div>
+                <div style="padding: 10px; background: #f9fafb; border-radius: 5px;">
+                  <div style="font-weight: bold; color: #374151;">Pump Number</div>
+                  <div style="color: #6b7280; margin-top: 5px;">${data.pump?.pumpNumber || 'N/A'}</div>
+                </div>
+                <div style="padding: 10px; background: #f9fafb; border-radius: 5px;">
+                  <div style="font-weight: bold; color: #374151;">Product</div>
+                  <div style="color: #6b7280; margin-top: 5px;">${data.product?.name || 'N/A'}</div>
+                </div>
+                <div style="padding: 10px; background: #f9fafb; border-radius: 5px;">
+                  <div style="font-weight: bold; color: #374151;">Product Category</div>
+                  <div style="color: #6b7280; margin-top: 5px;">${data.product?.category || 'N/A'}</div>
+                </div>
               </div>
-            </body>
-          </html>
+            </div>
+
+            <div style="margin-bottom: 30px;">
+              <h3>Reading Details</h3>
+              <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <thead>
+                  <tr style="background: #f9fafb;">
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Measurement</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Value</th>
+                    <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb;">Unit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">Opening Reading</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${parseFloat(data.openingReading || '0').toFixed(3)}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">Litres</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">Closing Reading</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${parseFloat(data.closingReading || '0').toFixed(3)}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">Litres</td>
+                  </tr>
+                  <tr style="background: #f0f9ff;">
+                    <td style="padding: 12px; font-weight: bold;">Total Sale</td>
+                    <td style="padding: 12px; font-weight: bold;">${parseFloat(data.totalSale || '0').toFixed(3)}</td>
+                    <td style="padding: 12px; font-weight: bold;">Litres</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #2563eb;">
+              <h3>Summary</h3>
+              <p><strong>Shift:</strong> ${data.shiftNumber}</p>
+              <p><strong>Operator:</strong> ${data.operatorName}</p>
+              <p><strong>Total Fuel Dispensed:</strong> ${parseFloat(data.totalSale || '0').toFixed(3)} Litres</p>
+              <p><strong>Reading Period:</strong> ${new Date(data.readingDate || data.createdAt || Date.now()).toLocaleDateString()}</p>
+            </div>
+
+            <div style="text-align: center; margin-top: 40px; color: #666; font-size: 12px;">
+              <p>Pump Reading Report generated from FuelFlow Management System</p>
+              <p>Generated on ${today}</p>
+              <p>This is an official record of fuel dispensing activities</p>
+            </div>
+          </div>
         `
       };
 
@@ -429,27 +321,13 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
       return {
         title: 'Document',
         filename: 'document',
-        content: '<html><body><h1>Document</h1></body></html>'
+        content: '<div style="text-align: center; padding: 50px;"><h1>Document</h1><p>Content not available</p></div>'
       };
   }
 };
 
 export const printDocument = (template: PrintTemplate) => {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    alert('Please allow popups to print documents');
-    return;
-  }
-
-  printWindow.document.write(template.content);
-  printWindow.document.close();
-
-  printWindow.onload = () => {
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
-  };
+  globalPrintDocument(template);
 };
 
 export const downloadAsPDF = (template: PrintTemplate) => {

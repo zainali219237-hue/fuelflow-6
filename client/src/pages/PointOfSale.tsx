@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,11 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { Plus, Minus, ShoppingCart, Receipt, Save, Trash2 } from "lucide-react";
+import { Plus, Minus, ShoppingCart, Receipt, Save, Trash2, Users, Package, CreditCard, Calculator } from "lucide-react";
 import type { Product, Customer, Tank, SalesTransaction } from "@shared/schema";
 
 interface CartItem {
@@ -39,7 +41,8 @@ export default function PointOfSale() {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [productSearch, setProductSearch] = useState("");
 
   const form = useForm<SaleFormData>({
     resolver: zodResolver(saleFormSchema),
@@ -63,8 +66,25 @@ export default function PointOfSale() {
     queryKey: ["/api/tanks"],
   });
 
-  // Find walk-in customer
+  // Find walk-in customer and set as default
   const walkInCustomer = customers.find(c => c.type === 'walk-in') || customers[0];
+  
+  // Set default customer if form is empty
+  React.useEffect(() => {
+    if (walkInCustomer && !form.getValues('customerId')) {
+      form.setValue('customerId', walkInCustomer.id);
+    }
+  }, [walkInCustomer, form]);
+
+  // Get product categories
+  const categories = [...new Set(products.map(p => p.category))];
+  
+  // Filter products
+  const filteredProducts = products.filter(product => {
+    const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
+    const matchesSearch = product.name.toLowerCase().includes(productSearch.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -74,12 +94,12 @@ export default function PointOfSale() {
 
   // Add product to cart
   const addToCart = (product: Product, tank?: Tank) => {
-    const existingItem = cart.find(item => 
+    const existingItemIndex = cart.findIndex(item => 
       item.productId === product.id && item.tankId === tank?.id
     );
 
-    if (existingItem) {
-      updateQuantity(cart.indexOf(existingItem), existingItem.quantity + 1);
+    if (existingItemIndex >= 0) {
+      updateQuantity(existingItemIndex, cart[existingItemIndex].quantity + 1);
     } else {
       const newItem: CartItem = {
         productId: product.id,
@@ -107,6 +127,14 @@ export default function PointOfSale() {
     setCart(updatedCart);
   };
 
+  // Update unit price
+  const updateUnitPrice = (index: number, newPrice: number) => {
+    const updatedCart = [...cart];
+    updatedCart[index].unitPrice = newPrice;
+    updatedCart[index].totalPrice = newPrice * updatedCart[index].quantity;
+    setCart(updatedCart);
+  };
+
   // Remove from cart
   const removeFromCart = (index: number) => {
     setCart(cart.filter((_, i) => i !== index));
@@ -115,30 +143,38 @@ export default function PointOfSale() {
   // Clear cart
   const clearCart = () => {
     setCart([]);
-    form.reset();
-    setSelectedCustomer(null);
+    form.reset({
+      customerId: walkInCustomer?.id || "",
+      paymentMethod: "cash",
+      notes: "",
+    });
   };
 
   // Create sale mutation
   const createSaleMutation = useMutation({
     mutationFn: async (saleData: any) => {
       const response = await apiRequest("POST", "/api/sales", saleData);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create sale');
+      }
       return response.json();
     },
     onSuccess: (data) => {
       toast({
-        title: "Sale completed",
-        description: `Invoice ${data.invoiceNumber} created successfully`,
+        title: "Sale completed successfully",
+        description: `Invoice ${data.invoiceNumber} created`,
       });
       clearCart();
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tanks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('Sale creation error:', error);
       toast({
-        title: "Error",
-        description: "Failed to complete sale",
+        title: "Sale failed",
+        description: error.message || "Failed to complete sale",
         variant: "destructive",
       });
     },
@@ -148,23 +184,24 @@ export default function PointOfSale() {
   const onSubmit = (data: SaleFormData) => {
     if (cart.length === 0) {
       toast({
-        title: "Error",
-        description: "Cart is empty",
+        title: "Cart is empty",
+        description: "Please add items to cart before completing sale",
         variant: "destructive",
       });
       return;
     }
 
-    if (!user?.id) {
+    if (!user?.id || !user?.stationId) {
       toast({
-        title: "Error",
-        description: "User authentication required",
+        title: "Authentication error",
+        description: "User session invalid. Please login again.",
         variant: "destructive",
       });
       return;
     }
 
     const saleData = {
+      stationId: user.stationId,
       customerId: data.customerId,
       userId: user.id,
       paymentMethod: data.paymentMethod,
@@ -193,9 +230,13 @@ export default function PointOfSale() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-4 space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Point of Sale</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-card-foreground">Point of Sale</h1>
+          <p className="text-sm text-muted-foreground">Process fuel sales and transactions</p>
+        </div>
         <div className="flex space-x-2">
           <Button
             variant="outline"
@@ -204,53 +245,77 @@ export default function PointOfSale() {
             data-testid="button-clear-cart"
           >
             <Trash2 className="w-4 h-4 mr-2" />
-            Clear
+            Clear Cart
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         {/* Products Section */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="xl:col-span-2 space-y-4">
+          {/* Product Filters */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <ShoppingCart className="w-5 h-5 mr-2" />
-                Available Products
-              </CardTitle>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <CardTitle className="flex items-center text-lg">
+                  <Package className="w-5 h-5 mr-2" />
+                  Products
+                </CardTitle>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+                  <Input
+                    placeholder="Search products..."
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    className="w-full sm:w-48"
+                  />
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="w-full sm:w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category.charAt(0).toUpperCase() + category.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {products.map((product) => {
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {filteredProducts.map((product) => {
                   const productTanks = getProductTanks(product.id);
                   const isFuel = product.category === 'fuel';
                   
                   return (
-                    <Card key={product.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
+                    <Card key={product.id} className="hover:shadow-md transition-shadow border">
+                      <CardContent className="p-3">
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <h3 className="font-semibold">{product.name}</h3>
-                            <Badge variant="secondary">{product.category}</Badge>
+                            <h3 className="font-medium text-sm">{product.name}</h3>
+                            <Badge variant="secondary" className="text-xs">{product.category}</Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground">
-                            {formatCurrency(parseFloat(product.currentPrice))} per {product.unit}
+                          <p className="text-sm font-semibold text-primary">
+                            {formatCurrency(parseFloat(product.currentPrice))} / {product.unit}
                           </p>
                           
                           {isFuel && productTanks.length > 0 ? (
-                            <div className="space-y-2">
-                              <p className="text-xs text-muted-foreground">Select Tank:</p>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Available Tanks:</p>
                               {productTanks.map((tank) => (
                                 <Button
                                   key={tank.id}
                                   variant="outline"
                                   size="sm"
-                                  className="w-full justify-between"
+                                  className="w-full justify-between h-8 text-xs"
                                   onClick={() => addToCart(product, tank)}
                                   data-testid={`button-add-product-${product.id}-${tank.id}`}
                                 >
                                   <span>{tank.name}</span>
-                                  <span className="text-xs">
+                                  <span className="text-xs text-green-600">
                                     {parseFloat(tank.currentStock || '0').toFixed(1)}L
                                   </span>
                                 </Button>
@@ -260,12 +325,12 @@ export default function PointOfSale() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="w-full"
+                              className="w-full h-8 text-xs"
                               onClick={() => addToCart(product)}
                               disabled={isFuel && productTanks.length === 0}
                               data-testid={`button-add-product-${product.id}`}
                             >
-                              <Plus className="w-4 h-4 mr-2" />
+                              <Plus className="w-3 h-3 mr-1" />
                               Add to Cart
                             </Button>
                           )}
@@ -281,42 +346,42 @@ export default function PointOfSale() {
 
         {/* Cart and Checkout Section */}
         <div className="space-y-4">
+          {/* Customer & Payment Info */}
           <Card>
-            <CardHeader>
-              <CardTitle>Current Sale</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center text-lg">
+                <Users className="w-5 h-5 mr-2" />
+                Sale Details
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Customer Selection */}
+            <CardContent className="space-y-3">
               <Form {...form}>
                 <FormField
                   control={form.control}
                   name="customerId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Customer</FormLabel>
+                      <FormLabel className="text-sm">Customer</FormLabel>
                       <Select 
-                        onValueChange={(value) => {
-                          field.onChange(value);
-                          const customer = customers.find(c => c.id === value);
-                          setSelectedCustomer(customer || null);
-                        }} 
+                        onValueChange={field.onChange} 
                         value={field.value}
-                        defaultValue={walkInCustomer?.id}
                       >
                         <FormControl>
-                          <SelectTrigger data-testid="select-customer">
+                          <SelectTrigger data-testid="select-customer" className="h-9">
                             <SelectValue placeholder="Select customer" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {customers.map((customer) => (
                             <SelectItem key={customer.id} value={customer.id}>
-                              {customer.name}
-                              {customer.type !== 'walk-in' && (
-                                <Badge variant="outline" className="ml-2">
-                                  {customer.type}
-                                </Badge>
-                              )}
+                              <div className="flex items-center">
+                                <span>{customer.name}</span>
+                                {customer.type !== 'walk-in' && (
+                                  <Badge variant="outline" className="ml-2 text-xs">
+                                    {customer.type}
+                                  </Badge>
+                                )}
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -326,24 +391,43 @@ export default function PointOfSale() {
                   )}
                 />
 
-                {/* Payment Method */}
                 <FormField
                   control={form.control}
                   name="paymentMethod"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Payment Method</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormLabel className="text-sm">Payment Method</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                          <SelectTrigger data-testid="select-payment-method">
+                          <SelectTrigger data-testid="select-payment-method" className="h-9">
                             <SelectValue />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="cash">Cash</SelectItem>
-                          <SelectItem value="card">Card</SelectItem>
-                          <SelectItem value="credit">Credit</SelectItem>
-                          <SelectItem value="fleet">Fleet</SelectItem>
+                          <SelectItem value="cash">
+                            <div className="flex items-center">
+                              <CreditCard className="w-4 h-4 mr-2" />
+                              Cash
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="card">
+                            <div className="flex items-center">
+                              <CreditCard className="w-4 h-4 mr-2" />
+                              Card
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="credit">
+                            <div className="flex items-center">
+                              <CreditCard className="w-4 h-4 mr-2" />
+                              Credit
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="fleet">
+                            <div className="flex items-center">
+                              <CreditCard className="w-4 h-4 mr-2" />
+                              Fleet
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -351,115 +435,155 @@ export default function PointOfSale() {
                   )}
                 />
 
-                {/* Notes */}
                 <FormField
                   control={form.control}
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Notes (Optional)</FormLabel>
+                      <FormLabel className="text-sm">Notes (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="Add any notes..." {...field} data-testid="input-notes" />
+                        <Textarea 
+                          placeholder="Add sale notes..." 
+                          className="h-16 text-sm" 
+                          {...field} 
+                          data-testid="input-notes" 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </Form>
+            </CardContent>
+          </Card>
 
-              <Separator />
-
-              {/* Cart Items */}
-              <div className="space-y-2">
-                <h3 className="font-semibold">Cart Items</h3>
-                {cart.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No items in cart</p>
-                ) : (
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {cart.map((item, index) => (
-                      <div key={`${item.productId}-${item.tankId || 'no-tank'}`} className="flex items-center justify-between p-2 border rounded">
+          {/* Cart Items */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center justify-between text-lg">
+                <div className="flex items-center">
+                  <ShoppingCart className="w-5 h-5 mr-2" />
+                  Cart ({cart.length} items)
+                </div>
+                <Badge variant="secondary">{formatCurrency(totalAmount)}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {cart.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">Your cart is empty</p>
+                  <p className="text-xs">Add products to get started</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {cart.map((item, index) => (
+                    <div key={`${item.productId}-${item.tankId || 'no-tank'}`} className="border rounded-lg p-3">
+                      <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
                           <p className="font-medium text-sm">{item.product.name}</p>
                           {item.tank && (
-                            <p className="text-xs text-muted-foreground">{item.tank.name}</p>
+                            <p className="text-xs text-muted-foreground">Tank: {item.tank.name}</p>
                           )}
-                          <p className="text-xs text-muted-foreground">
-                            {formatCurrency(item.unitPrice)} per {item.product.unit}
-                          </p>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFromCart(index)}
+                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                          data-testid={`button-remove-item-${index}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-2 items-center">
+                        {/* Quantity Controls */}
+                        <div className="flex items-center">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => updateQuantity(index, item.quantity - 1)}
+                            className="h-7 w-7 p-0"
                             data-testid={`button-decrease-quantity-${index}`}
                           >
                             <Minus className="w-3 h-3" />
                           </Button>
-                          <span className="text-sm font-medium w-8 text-center">
-                            {item.quantity}
-                          </span>
+                          <Input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => updateQuantity(index, parseFloat(e.target.value) || 0)}
+                            className="h-7 w-12 mx-1 text-center text-sm"
+                            min="0"
+                            step="0.1"
+                          />
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => updateQuantity(index, item.quantity + 1)}
+                            className="h-7 w-7 p-0"
                             data-testid={`button-increase-quantity-${index}`}
                           >
                             <Plus className="w-3 h-3" />
                           </Button>
                         </div>
-                        <div className="text-right min-w-16">
+                        
+                        {/* Unit Price */}
+                        <Input
+                          type="number"
+                          value={item.unitPrice}
+                          onChange={(e) => updateUnitPrice(index, parseFloat(e.target.value) || 0)}
+                          className="h-7 text-sm"
+                          min="0"
+                          step="0.01"
+                        />
+                        
+                        {/* Total Price */}
+                        <div className="text-right">
                           <p className="text-sm font-medium">{formatCurrency(item.totalPrice)}</p>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeFromCart(index)}
-                            className="h-6 w-6 p-0"
-                            data-testid={`button-remove-item-${index}`}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              {/* Totals */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Subtotal:</span>
-                  <span data-testid="text-subtotal">{formatCurrency(subtotal)}</span>
+                    </div>
+                  ))}
                 </div>
-                {taxAmount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span>Tax:</span>
-                    <span data-testid="text-tax">{formatCurrency(taxAmount)}</span>
+              )}
+
+              {cart.length > 0 && (
+                <>
+                  <Separator className="my-3" />
+                  
+                  {/* Totals */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Subtotal:</span>
+                      <span data-testid="text-subtotal">{formatCurrency(subtotal)}</span>
+                    </div>
+                    {taxAmount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Tax:</span>
+                        <span data-testid="text-tax">{formatCurrency(taxAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-semibold text-lg border-t pt-2">
+                      <span>Total:</span>
+                      <span data-testid="text-total">{formatCurrency(totalAmount)}</span>
+                    </div>
                   </div>
-                )}
-                <div className="flex justify-between font-semibold">
-                  <span>Total:</span>
-                  <span data-testid="text-total">{formatCurrency(totalAmount)}</span>
-                </div>
-              </div>
 
-              <Separator />
+                  <Separator className="my-3" />
 
-              {/* Action Buttons */}
-              <div className="space-y-2">
-                <Button
-                  className="w-full"
-                  onClick={form.handleSubmit(onSubmit)}
-                  disabled={cart.length === 0 || createSaleMutation.isPending}
-                  data-testid="button-complete-sale"
-                >
-                  <Receipt className="w-4 h-4 mr-2" />
-                  {createSaleMutation.isPending ? "Processing..." : "Complete Sale"}
-                </Button>
-              </div>
+                  {/* Complete Sale Button */}
+                  <Button
+                    className="w-full h-12 text-lg"
+                    onClick={form.handleSubmit(onSubmit)}
+                    disabled={cart.length === 0 || createSaleMutation.isPending || !form.watch('customerId')}
+                    data-testid="button-complete-sale"
+                  >
+                    <Receipt className="w-5 h-5 mr-2" />
+                    {createSaleMutation.isPending ? "Processing..." : `Complete Sale - ${formatCurrency(totalAmount)}`}
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

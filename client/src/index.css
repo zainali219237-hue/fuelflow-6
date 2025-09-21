@@ -273,6 +273,39 @@
     padding: 0.5rem;
   }
 
+  /* Make all tables smaller on laptops */
+  table {
+    font-size: 0.75rem;
+  }
+
+  table th,
+  table td {
+    padding: 0.375rem 0.5rem;
+    line-height: 1.2;
+  }
+
+  /* Specific adjustments for different table elements */
+  .text-xl, .text-2xl {
+    font-size: 1rem;
+  }
+
+  .text-lg {
+    font-size: 0.875rem;
+  }
+
+  /* Button sizes in tables */
+  table button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  /* Badge sizes in tables */
+  table .badge {
+    font-size: 0.625rem;
+    padding: 0.125rem 0.375rem;
+  }
+}
+
   /* Card adjustments */
   .card-responsive {
     padding: 1rem;

@@ -704,7 +704,9 @@ export default function PurchaseOrders() {
                           <PrintActions
                             type="purchaseOrder"
                             id={order.id}
-                            compact
+                            compact={true}
+                            variant="outline"
+                            size="sm"
                           />
                           <Button
                             variant="outline"

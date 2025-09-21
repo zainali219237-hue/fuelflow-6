@@ -34,6 +34,8 @@ interface PrintActionsProps {
   layout?: 'dropdown' | 'buttons';
   /** Custom class names */
   className?: string;
+  /** Show compact version (icon only) */
+  compact?: boolean;
 }
 
 export function PrintActions({ 
@@ -43,7 +45,8 @@ export function PrintActions({
   variant = "outline", 
   size = "default",
   layout = "dropdown",
-  className = ""
+  className = "",
+  compact = false
 }: PrintActionsProps) {
   const [, navigate] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
@@ -122,10 +125,16 @@ export function PrintActions({
           disabled={isLoading}
           className={className}
           data-testid={`button-print-actions-${type}`}
+          title={`Print ${getDocumentName(type)}`}
         >
-          <Printer className="w-4 h-4 mr-2" />
-          {isLoading ? 'Loading...' : `Print ${getDocumentName(type)}`}
-          <ChevronDown className="w-4 h-4 ml-2" />
+          <Printer className="w-4 h-4" />
+          {!compact && (
+            <>
+              <span className="ml-2">{isLoading ? 'Loading...' : `Print ${getDocumentName(type)}`}</span>
+              <ChevronDown className="w-4 h-4 ml-2" />
+            </>
+          )}
+          {compact && <ChevronDown className="w-3 h-3 ml-1" />}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

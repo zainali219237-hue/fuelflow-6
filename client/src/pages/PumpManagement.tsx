@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -115,7 +114,7 @@ export default function PumpManagement() {
   const createPumpMutation = useMutation({
     mutationFn: async (data: any) => {
       console.log("Creating pump with data:", data);
-      
+
       if (!user?.stationId || !user?.id) {
         throw new Error("User session not loaded properly");
       }
@@ -126,7 +125,7 @@ export default function PumpManagement() {
       };
 
       console.log("Final pump data being sent:", pumpData);
-      
+
       const response = await apiRequest("POST", "/api/pumps", pumpData);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: response.statusText }));
@@ -180,21 +179,21 @@ export default function PumpManagement() {
   const createReadingMutation = useMutation({
     mutationFn: async (data: any) => {
       console.log("Creating pump reading with data:", data);
-      
+
       if (!user?.stationId || !user?.id) {
         throw new Error("User session not loaded properly");
       }
 
       const opening = parseFloat(data.openingReading);
       const closing = parseFloat(data.closingReading);
-      
+
       if (closing < opening) {
         throw new Error("Closing reading must be greater than opening reading");
       }
 
       const totalSale = closing - opening;
       const selectedPump = pumps.find(p => p.id === data.pumpId);
-      
+
       if (!selectedPump) {
         throw new Error("Selected pump not found");
       }
@@ -213,7 +212,7 @@ export default function PumpManagement() {
       };
 
       console.log("Final reading data being sent:", readingData);
-      
+
       const response = await apiRequest("POST", "/api/pump-readings", readingData);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: response.statusText }));
@@ -249,7 +248,7 @@ export default function PumpManagement() {
 
   const onPumpSubmit = (data: any) => {
     console.log("Pump form submission:", data);
-    
+
     if (editPumpId) {
       updatePumpMutation.mutate({ id: editPumpId, data });
     } else {
@@ -737,10 +736,12 @@ export default function PumpManagement() {
                           <Edit className="w-4 h-4" />
                         </Button>
                         <PrintActions
-                          type="pumpReading"
-                          id={reading.id}
-                          compact
-                        />
+                            type="pumpReading"
+                            id={reading.id}
+                            compact={true}
+                            variant="outline"
+                            size="sm"
+                          />
                         <Button
                           variant="outline"
                           size="sm"

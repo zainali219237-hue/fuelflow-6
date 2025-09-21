@@ -258,7 +258,10 @@ export default function CustomerManagement() {
 
   const filteredCustomers = customers.filter((customer: Customer) => {
     const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.gstNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+                         customer.gstNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         customer.contactPhone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         customer.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         customer.address?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === "all" || customer.type === filterType;
     return matchesSearch && matchesType;
   });
