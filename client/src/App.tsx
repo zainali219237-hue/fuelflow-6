@@ -1,13 +1,13 @@
+
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { CurrencyProvider, useCurrency } from "@/contexts/CurrencyContext";
-import { CURRENCY_CONFIG, type CurrencyCode } from "@/lib/currency";
-import { apiRequest } from "@/lib/queryClient";
+import { AuthProvider } from "@/hooks/useAuth";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { StationProvider } from "./contexts/StationContext";
 import AuthGuard from "@/components/layout/AuthGuard";
 import Dashboard from "@/pages/Dashboard";
 import PointOfSale from "@/pages/PointOfSale";
@@ -29,7 +29,6 @@ import AgingReports from "@/pages/AgingReports";
 import Settings from "@/pages/Settings";
 import AdminPanel from "@/pages/AdminPanel";
 import NotFound from "@/pages/not-found";
-import { StationProvider, useStation } from "./contexts/StationContext";
 import PumpManagement from "@/pages/PumpManagement";
 import PurchaseInvoice from "@/pages/PurchaseInvoice";
 import PaymentHistory from "@/pages/PaymentHistory";
@@ -37,7 +36,7 @@ import ApprovalPending from "@/pages/ApprovalPending";
 import LoginPage from "@/pages/LoginPage";
 import SignupPage from "@/pages/SignupPage";
 
-// Global theme initialization to prevent auto-enabling dark mode on Settings page
+// Global theme initialization
 function ThemeBootstrap() {
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -51,21 +50,6 @@ function ThemeBootstrap() {
   }, []);
 
   return null;
-}
-
-// Bootstrap component to handle station currency fetch without circular imports
-function CurrencyBootstrap({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const { loadSettings } = useStation();
-
-  // Load settings when user changes
-  useEffect(() => {
-    if (user?.stationId) {
-      loadSettings(user.stationId);
-    }
-  }, [user?.stationId, loadSettings]);
-
-  return <>{children}</>;
 }
 
 function Router() {
@@ -105,19 +89,17 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <CurrencyProvider>
-          <StationProvider>
+        <StationProvider>
+          <CurrencyProvider>
             <TooltipProvider>
               <ThemeBootstrap />
               <Toaster />
               <AuthGuard>
-                <CurrencyBootstrap>
-                  <Router />
-                </CurrencyBootstrap>
+                <Router />
               </AuthGuard>
             </TooltipProvider>
-          </StationProvider>
-        </CurrencyProvider>
+          </CurrencyProvider>
+        </StationProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

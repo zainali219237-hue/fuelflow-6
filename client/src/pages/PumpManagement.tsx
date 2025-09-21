@@ -291,6 +291,7 @@ export default function PumpManagement() {
 
     console.log("Final reading data being sent:", readingData);
     
+    // Force form submission
     createReadingMutation.mutate(readingData);
   };
 
@@ -580,8 +581,18 @@ export default function PumpManagement() {
                     <Button type="button" variant="outline" onClick={() => setReadingDialogOpen(false)}>
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={createReadingMutation.isPending}>
-                      Record Reading
+                    <Button 
+                      type="submit" 
+                      disabled={createReadingMutation.isPending}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        console.log("Record Reading button clicked");
+                        const formData = readingForm.getValues();
+                        console.log("Form data on button click:", formData);
+                        readingForm.handleSubmit(onReadingSubmit)(e);
+                      }}
+                    >
+                      {createReadingMutation.isPending ? "Recording..." : "Record Reading"}
                     </Button>
                   </div>
                 </form>
