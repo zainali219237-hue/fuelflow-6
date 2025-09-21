@@ -16,19 +16,10 @@ import { useAuth } from "@/hooks/useAuth";
 export default function Settings() {
   const { user } = useAuth();
 
-  // Add error boundary for useStation
-  let stationInfo;
-  try {
-    const stationContext = useStation();
-    stationInfo = stationContext.stationInfo;
-  } catch (error) {
-    console.error('Station context error:', error);
-    stationInfo = null;
-  }
 
   const { toast } = useToast();
   const { currency, setCurrency } = useCurrency();
-  const { stationSettings, updateStationSettings } = useStation();
+  const { stationSettings, updateStationSettings, isLoading } = useStation();
 
   // Theme state
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -120,6 +111,29 @@ export default function Settings() {
       description: "Your preferences have been saved successfully",
     });
   };
+
+  // Show loading state while station settings are loading
+  if (isLoading || !stationSettings) {
+    return (
+      <div className="space-y-6 fade-in">
+        <div className="mb-6">
+          <h3 className="text-2xl font-semibold text-card-foreground mb-2">Settings</h3>
+          <p className="text-muted-foreground">
+            Loading your preferences and configuration...
+          </p>
+        </div>
+        <div className="animate-pulse space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="h-48 bg-muted rounded-lg"></div>
+            <div className="h-48 bg-muted rounded-lg"></div>
+            <div className="h-48 bg-muted rounded-lg"></div>
+            <div className="h-48 bg-muted rounded-lg"></div>
+          </div>
+          <div className="h-64 bg-muted rounded-lg"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 fade-in">
@@ -364,8 +378,8 @@ export default function Settings() {
               <Label htmlFor="station-name" className="text-sm font-medium">Station Name</Label>
               <Input
                 id="station-name"
-                value={stationSettings.stationName}
-                onChange={(e) => updateStationSettings({ stationName: e.target.value })}
+                value={stationSettings?.stationName || ''}
+                onChange={(e) => updateStationSettings?.({ stationName: e.target.value })}
                 data-testid="input-station-name"
                 className="mt-2"
               />
@@ -375,8 +389,8 @@ export default function Settings() {
               <Label htmlFor="contact-number" className="text-sm font-medium">Contact Number</Label>
               <Input
                 id="contact-number"
-                value={stationSettings.contactNumber}
-                onChange={(e) => updateStationSettings({ contactNumber: e.target.value })}
+                value={stationSettings?.contactNumber || ''}
+                onChange={(e) => updateStationSettings?.({ contactNumber: e.target.value })}
                 data-testid="input-contact-number"
                 className="mt-2"
               />
@@ -387,8 +401,8 @@ export default function Settings() {
               <Input
                 id="email"
                 type="email"
-                value={stationSettings.email}
-                onChange={(e) => updateStationSettings({ email: e.target.value })}
+                value={stationSettings?.email || ''}
+                onChange={(e) => updateStationSettings?.({ email: e.target.value })}
                 data-testid="input-email"
                 className="mt-2"
               />
@@ -398,8 +412,8 @@ export default function Settings() {
               <Label htmlFor="gst-number" className="text-sm font-medium">GST Number</Label>
               <Input
                 id="gst-number"
-                value={stationSettings.gstNumber}
-                onChange={(e) => updateStationSettings({ gstNumber: e.target.value })}
+                value={stationSettings?.gstNumber || ''}
+                onChange={(e) => updateStationSettings?.({ gstNumber: e.target.value })}
                 data-testid="input-gst-number"
                 className="mt-2"
               />
@@ -409,8 +423,8 @@ export default function Settings() {
               <Label htmlFor="address" className="text-sm font-medium">Address</Label>
               <Input
                 id="address"
-                value={stationSettings.address}
-                onChange={(e) => updateStationSettings({ address: e.target.value })}
+                value={stationSettings?.address || ''}
+                onChange={(e) => updateStationSettings?.({ address: e.target.value })}
                 data-testid="input-address"
                 className="mt-2"
               />

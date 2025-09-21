@@ -22,7 +22,7 @@ interface PurchaseOrderWithDetails extends PurchaseOrder {
 export default function PurchaseInvoice() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { stationSettings } = useStation();
+  const { stationSettings, isLoading: stationLoading } = useStation();
 
   const { data: order, isLoading } = useQuery<PurchaseOrderWithDetails>({
     queryKey: ["/api/purchase-orders/detail", id!],
@@ -158,7 +158,7 @@ export default function PurchaseInvoice() {
     };
   };
 
-  if (isLoading) {
+  if (isLoading || stationLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse">
@@ -228,7 +228,7 @@ export default function PurchaseInvoice() {
             <div className="flex justify-between items-start mb-8">
               <div>
                 <h1 className="text-4xl font-bold text-primary mb-2">
-                  {stationSettings.stationName}
+                  {stationSettings?.stationName || 'FuelFlow Station'}
                 </h1>
                 <div className="text-muted-foreground space-y-1">
                   <p>Purchase Order Invoice</p>

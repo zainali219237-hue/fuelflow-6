@@ -14,15 +14,29 @@ export interface StationProfile {
   logo?: string;
 }
 
+export interface StationSettings {
+  stationName: string;
+  contactNumber: string;
+  email: string;
+  gstNumber: string;
+  address: string;
+  registrationNumber: string;
+  logo?: string;
+}
+
 interface StationContextType {
   station: StationProfile | null;
   updateStation: (station: Partial<StationProfile>) => Promise<void>;
+  stationSettings: StationSettings | null;
+  updateStationSettings: (settings: Partial<StationSettings>) => Promise<void>;
   isLoading: boolean;
 }
 
 const StationContext = createContext<StationContextType>({
   station: null,
   updateStation: async () => {},
+  stationSettings: null,
+  updateStationSettings: async () => {},
   isLoading: true,
 });
 
@@ -42,6 +56,17 @@ export const StationProvider: React.FC<StationProviderProps> = ({ children }) =>
   const { user } = useAuth();
   const [station, setStation] = useState<StationProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Convert station to stationSettings format
+  const stationSettings: StationSettings | null = station ? {
+    stationName: station.name,
+    contactNumber: station.phone,
+    email: station.email,
+    gstNumber: station.taxNumber,
+    address: station.address,
+    registrationNumber: station.registrationNumber,
+    logo: station.logo,
+  } : null;
 
   useEffect(() => {
     const fetchStationDetails = async () => {
@@ -96,8 +121,24 @@ export const StationProvider: React.FC<StationProviderProps> = ({ children }) =>
     }
   };
 
+  const updateStationSettings = async (settings: Partial<StationSettings>) => {
+    if (!station || !user?.stationId) return;
+
+    // Convert stationSettings format to station format
+    const updates: Partial<StationProfile> = {};
+    if (settings.stationName !== undefined) updates.name = settings.stationName;
+    if (settings.contactNumber !== undefined) updates.phone = settings.contactNumber;
+    if (settings.email !== undefined) updates.email = settings.email;
+    if (settings.gstNumber !== undefined) updates.taxNumber = settings.gstNumber;
+    if (settings.address !== undefined) updates.address = settings.address;
+    if (settings.registrationNumber !== undefined) updates.registrationNumber = settings.registrationNumber;
+    if (settings.logo !== undefined) updates.logo = settings.logo;
+
+    await updateStation(updates);
+  };
+
   return (
-    <StationContext.Provider value={{ station, updateStation, isLoading }}>
+    <StationContext.Provider value={{ station, updateStation, stationSettings, updateStationSettings, isLoading }}>
       {children}
     </StationContext.Provider>
   );
