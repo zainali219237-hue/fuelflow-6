@@ -1,8 +1,9 @@
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { PurchaseOrder, Supplier, Product, SaleInvoice } from "@shared/schema";
-import { insertPurchaseOrderSchema, insertSaleInvoiceSchema } from "@shared/schema";
+import { z } from "zod";
+import type { PurchaseOrder, Supplier, Product } from "@shared/schema";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,11 +18,22 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
-import { TrendingUp, TrendingDown, AlertTriangle, Eye, Edit, Printer, Trash2, Menu, Plus } from "lucide-react";
+import { Eye, Edit, Printer, Trash2, Plus, Download } from "lucide-react";
 import { useLocation } from "wouter";
 import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
-import * as z from "zod";
+import { generatePrintTemplate, printDocument, downloadAsPDF, downloadAsPNG } from "@/lib/printUtils";
 
+const purchaseOrderSchema = z.object({
+  orderNumber: z.string().min(1, "Order number is required"),
+  supplierId: z.string().min(1, "Supplier is required"),
+  orderDate: z.string().min(1, "Order date is required"),
+  expectedDeliveryDate: z.string().optional(),
+  status: z.string().default("pending"),
+  subtotal: z.string().min(1, "Subtotal must be greater than 0").refine((val) => parseFloat(val) > 0, "Subtotal must be greater than 0"),
+  taxAmount: z.string().default("0"),
+  totalAmount: z.string().min(1, "Total amount is required"),
+  notes: z.string().optional(),
+});
 
 export default function PurchaseOrders() {
   const { user } = useAuth();
@@ -33,70 +45,50 @@ export default function PurchaseOrders() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [editOrderId, setEditOrderId] = useState<string | null>(null);
-  const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<PurchaseOrder | null>(null);
 
-
-  // Purchase Order Form
   const form = useForm({
-    resolver: zodResolver(insertPurchaseOrderSchema.extend({
-      orderDate: z.string().min(1, "Order date is required"),
-      expectedDeliveryDate: z.string().optional(),
-    })),
+    resolver: zodResolver(purchaseOrderSchema),
     defaultValues: {
       orderNumber: `PO-${Date.now()}`,
       supplierId: "",
       orderDate: new Date().toISOString().split('T')[0],
       expectedDeliveryDate: "",
       status: "pending",
-      subtotal: "0",
+      subtotal: "",
       taxAmount: "0",
-      totalAmount: "0",
+      totalAmount: "",
       notes: "",
-      stationId: user?.stationId || "",
-      userId: user?.id || "",
     },
-    mode: "onChange"
   });
 
   const createPurchaseOrderMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log("Creating purchase order with data:", data);
+      console.log("Creating purchase order with validated data:", data);
       
-      // Enhanced validation
-      if (!data.orderNumber || !data.supplierId || !data.orderDate) {
-        throw new Error("Please fill in order number, supplier, and order date");
-      }
-
-      if (!data.subtotal || parseFloat(data.subtotal) <= 0) {
-        throw new Error("Subtotal must be greater than 0");
-      }
-
       if (!user?.stationId || !user?.id) {
-        throw new Error("User session not properly loaded");
+        throw new Error("User session not loaded properly");
       }
 
-      const processedData = {
-        order: {
-          orderNumber: data.orderNumber,
-          stationId: user.stationId,
-          supplierId: data.supplierId,
-          userId: user.id,
-          orderDate: data.orderDate,
-          expectedDeliveryDate: data.expectedDeliveryDate || null,
-          status: data.status || "pending",
-          currencyCode: currencyConfig.code,
-          subtotal: parseFloat(data.subtotal || "0").toString(),
-          taxAmount: parseFloat(data.taxAmount || "0").toString(),
-          totalAmount: parseFloat(data.totalAmount || data.subtotal || "0").toString(),
-          notes: data.notes || "",
-        },
-        items: [] // Empty items for now, can be added later
+      const orderData = {
+        orderNumber: data.orderNumber,
+        stationId: user.stationId,
+        supplierId: data.supplierId,
+        userId: user.id,
+        orderDate: data.orderDate,
+        expectedDeliveryDate: data.expectedDeliveryDate || null,
+        status: data.status,
+        currencyCode: currencyConfig.code,
+        subtotal: data.subtotal,
+        taxAmount: data.taxAmount,
+        totalAmount: data.totalAmount,
+        notes: data.notes || "",
       };
+
+      console.log("Final order data being sent:", orderData);
       
-      console.log("Processed data:", processedData);
-      const response = await apiRequest("POST", "/api/purchase-orders", processedData);
+      const response = await apiRequest("POST", "/api/purchase-orders", { order: orderData, items: [] });
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: response.statusText }));
         throw new Error(error.message || 'Failed to create purchase order');
@@ -109,10 +101,21 @@ export default function PurchaseOrders() {
         description: "Purchase order has been created successfully",
       });
       setOpen(false);
-      form.reset();
+      form.reset({
+        orderNumber: `PO-${Date.now()}`,
+        supplierId: "",
+        orderDate: new Date().toISOString().split('T')[0],
+        expectedDeliveryDate: "",
+        status: "pending",
+        subtotal: "",
+        taxAmount: "0",
+        totalAmount: "",
+        notes: "",
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders", user?.stationId] });
     },
     onError: (error: any) => {
+      console.error("Purchase order creation error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create purchase order",
@@ -123,14 +126,13 @@ export default function PurchaseOrders() {
 
   const updatePurchaseOrderMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const processedData = {
+      const orderData = {
         ...data,
-        stationId: user?.stationId || data.stationId,
-        userId: user?.id || data.userId,
-        expectedDeliveryDate: data.expectedDeliveryDate === "" ? undefined : data.expectedDeliveryDate,
+        stationId: user?.stationId,
+        userId: user?.id,
         currencyCode: currencyConfig.code,
       };
-      const response = await apiRequest("PUT", `/api/purchase-orders/${id}`, processedData);
+      const response = await apiRequest("PUT", `/api/purchase-orders/${id}`, orderData);
       if (!response.ok) throw new Error('Failed to update purchase order');
       return response.json();
     },
@@ -174,13 +176,11 @@ export default function PurchaseOrders() {
   });
 
   const onSubmit = (data: any) => {
-    console.log("Purchase order form submission:", { data, editOrderId, user, suppliers });
+    console.log("Form submitted with data:", data);
     
     if (editOrderId) {
-      console.log("Updating purchase order with ID:", editOrderId);
       updatePurchaseOrderMutation.mutate({ id: editOrderId, data });
     } else {
-      console.log("Creating new purchase order");
       createPurchaseOrderMutation.mutate(data);
     }
   };
@@ -192,10 +192,6 @@ export default function PurchaseOrders() {
 
   const { data: suppliers = [] } = useQuery<Supplier[]>({
     queryKey: ["/api/suppliers"],
-  });
-
-  const { data: products = [] } = useQuery<Product[]>({
-    queryKey: ["/api/products"],
   });
 
   const filteredOrders = purchaseOrders.filter((order: PurchaseOrder) => {
@@ -218,37 +214,40 @@ export default function PurchaseOrders() {
   };
 
   const handleViewOrder = (order: PurchaseOrder) => {
-    // Navigate to purchase invoice page
     navigate(`/purchase-invoice/${order.id}`);
   };
 
-  const handleDownload = async (order: PurchaseOrder, format: "pdf" | "png") => {
-    try {
-      const response = await apiRequest("GET", `/api/purchase-orders/${order.id}/download?format=${format}`, {}, { responseType: 'blob' });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to download: ${errorText}`);
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `${order.orderNumber}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      toast({
-        title: "Download Initiated",
-        description: `Your ${format.toUpperCase()} file is downloading.`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Download Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
+  const handlePrint = (order: PurchaseOrder) => {
+    const supplier = suppliers.find(s => s.id === order.supplierId);
+    const orderData = {
+      ...order,
+      supplier,
+      items: []
+    };
+    const template = generatePrintTemplate(orderData, 'invoice');
+    printDocument(template);
+  };
+
+  const handleDownloadPDF = (order: PurchaseOrder) => {
+    const supplier = suppliers.find(s => s.id === order.supplierId);
+    const orderData = {
+      ...order,
+      supplier,
+      items: []
+    };
+    const template = generatePrintTemplate(orderData, 'invoice');
+    downloadAsPDF(template);
+  };
+
+  const handleDownloadPNG = (order: PurchaseOrder) => {
+    const supplier = suppliers.find(s => s.id === order.supplierId);
+    const orderData = {
+      ...order,
+      supplier,
+      items: []
+    };
+    const template = generatePrintTemplate(orderData, 'invoice');
+    downloadAsPNG(template);
   };
 
   if (isLoadingPurchaseOrders) {
@@ -270,34 +269,32 @@ export default function PurchaseOrders() {
   return (
     <div className="space-y-6 fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h3 className="text-2xl font-semibold text-card-foreground">Purchase Orders</h3>
           <p className="text-muted-foreground">Manage fuel procurement and supplier orders</p>
         </div>
-        <Dialog open={editOrderId !== null || open} onOpenChange={(isOpen) => { 
+        <Dialog open={open} onOpenChange={(isOpen) => { 
           setOpen(isOpen);
           if (!isOpen) { 
             setEditOrderId(null); 
-            setSelectedOrder(null);
             form.reset({
               orderNumber: `PO-${Date.now()}`,
               supplierId: "",
               orderDate: new Date().toISOString().split('T')[0],
               expectedDeliveryDate: "",
               status: "pending",
-              subtotal: "0",
+              subtotal: "",
               taxAmount: "0",
-              totalAmount: "0",
+              totalAmount: "",
               notes: "",
-              stationId: user?.stationId || "",
-              userId: user?.id || "",
             });
           } 
         }}>
           <DialogTrigger asChild>
-            <Button data-testid="button-new-purchase-order">
-              + New Purchase Order
+            <Button className="w-full sm:w-auto">
+              <Plus className="w-4 h-4 mr-2" />
+              New Purchase Order
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
@@ -306,7 +303,7 @@ export default function PurchaseOrders() {
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="orderNumber"
@@ -314,7 +311,7 @@ export default function PurchaseOrders() {
                       <FormItem>
                         <FormLabel>Order Number *</FormLabel>
                         <FormControl>
-                          <Input placeholder="PO-123456" {...field} data-testid="input-order-number" />
+                          <Input placeholder="PO-123456" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -333,7 +330,6 @@ export default function PurchaseOrders() {
                             onValueChange={field.onChange}
                             placeholder="Select supplier"
                             emptyMessage="No suppliers found"
-                            data-testid="select-supplier"
                           />
                         </FormControl>
                         <FormMessage />
@@ -341,43 +337,35 @@ export default function PurchaseOrders() {
                     )}
                   />
                 </div>
-                <FormField
-                  control={form.control}
-                  name="orderDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Order Date *</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="date" 
-                          {...field} 
-                          data-testid="input-order-date"
-                          max="9999-12-31"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="expectedDeliveryDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Expected Delivery Date</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="date" 
-                          {...field} 
-                          data-testid="input-delivery-date"
-                          max="9999-12-31"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="orderDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Order Date *</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="expectedDeliveryDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Expected Delivery Date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="subtotal"
@@ -385,7 +373,7 @@ export default function PurchaseOrders() {
                       <FormItem>
                         <FormLabel>Subtotal ({currencyConfig.symbol}) *</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-subtotal" />
+                          <Input type="number" step="0.01" placeholder="0.00" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -398,7 +386,7 @@ export default function PurchaseOrders() {
                       <FormItem>
                         <FormLabel>Tax Amount ({currencyConfig.symbol})</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-tax-amount" />
+                          <Input type="number" step="0.01" placeholder="0.00" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -411,7 +399,7 @@ export default function PurchaseOrders() {
                       <FormItem>
                         <FormLabel>Total Amount ({currencyConfig.symbol}) *</FormLabel>
                         <FormControl>
-                          <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-total-amount" />
+                          <Input type="number" step="0.01" placeholder="0.00" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -425,20 +413,20 @@ export default function PurchaseOrders() {
                     <FormItem>
                       <FormLabel>Notes</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Order details and special instructions" {...field} data-testid="input-order-notes" />
+                        <Textarea placeholder="Order details and special instructions" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <div className="flex justify-end space-x-2 pt-4">
+                <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => { 
                       setOpen(false); 
                       setEditOrderId(null); 
-                    }} data-testid="button-cancel">
+                    }} className="w-full sm:w-auto">
                       Cancel
                     </Button>
-                  <Button type="submit" disabled={createPurchaseOrderMutation.isPending || updatePurchaseOrderMutation.isPending} data-testid="button-submit-order">
+                  <Button type="submit" disabled={createPurchaseOrderMutation.isPending || updatePurchaseOrderMutation.isPending} className="w-full sm:w-auto">
                     {editOrderId ? "Update Purchase Order" : "Create Purchase Order"}
                   </Button>
                 </div>
@@ -449,10 +437,10 @@ export default function PurchaseOrders() {
       </div>
 
       {/* Purchase Order Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-primary" data-testid="total-orders">
+            <div className="text-xl md:text-2xl font-bold text-primary">
               {filteredOrders.length}
             </div>
             <div className="text-sm text-muted-foreground">Total Orders</div>
@@ -460,7 +448,7 @@ export default function PurchaseOrders() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-orange-600" data-testid="pending-orders">
+            <div className="text-xl md:text-2xl font-bold text-orange-600">
               {pendingOrders}
             </div>
             <div className="text-sm text-muted-foreground">Pending Orders</div>
@@ -468,7 +456,7 @@ export default function PurchaseOrders() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-green-600" data-testid="delivered-orders">
+            <div className="text-xl md:text-2xl font-bold text-green-600">
               {deliveredOrders}
             </div>
             <div className="text-sm text-muted-foreground">Delivered Orders</div>
@@ -476,7 +464,7 @@ export default function PurchaseOrders() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-purple-600" data-testid="total-order-value">
+            <div className="text-xl md:text-2xl font-bold text-purple-600">
               {formatCurrency(totalValue)}
             </div>
             <div className="text-sm text-muted-foreground">Total Value</div>
@@ -487,19 +475,18 @@ export default function PurchaseOrders() {
       {/* Purchase Orders Table */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <CardTitle>Purchase Order History</CardTitle>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
               <Input
                 type="text"
                 placeholder="Search by PO number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-48"
-                data-testid="input-search-po"
+                className="w-full sm:w-48"
               />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32" data-testid="select-status-filter">
+                <SelectTrigger className="w-full sm:w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -519,11 +506,8 @@ export default function PurchaseOrders() {
                 <tr>
                   <th className="text-left p-3 font-medium">PO Number</th>
                   <th className="text-left p-3 font-medium">Supplier</th>
-                  <th className="text-left p-3 font-medium">Product</th>
-                  <th className="text-right p-3 font-medium">Quantity</th>
                   <th className="text-right p-3 font-medium">Amount</th>
                   <th className="text-center p-3 font-medium">Order Date</th>
-                  <th className="text-center p-3 font-medium">Delivery Date</th>
                   <th className="text-center p-3 font-medium">Status</th>
                   <th className="text-center p-3 font-medium">Actions</th>
                 </tr>
@@ -535,21 +519,16 @@ export default function PurchaseOrders() {
                   return (
                     <tr key={order.id} className="border-b border-border hover:bg-muted/50">
                       <td className="p-3">
-                        <span className="font-medium text-primary" data-testid={`po-number-${index}`}>
+                        <span className="font-medium text-primary">
                           {order.orderNumber}
                         </span>
                       </td>
                       <td className="p-3">{supplier?.name || 'Unknown Supplier'}</td>
-                      <td className="p-3">Mixed Products</td>
-                      <td className="p-3 text-right">-</td>
-                      <td className="p-3 text-right font-semibold" data-testid={`amount-${index}`}>
+                      <td className="p-3 text-right font-semibold">
                         {formatCurrency(parseFloat(order.totalAmount || '0'))}
                       </td>
                       <td className="p-3 text-center text-sm">
                         {order.orderDate ? new Date(order.orderDate).toLocaleDateString('en-GB') : 'N/A'}
-                      </td>
-                      <td className="p-3 text-center text-sm">
-                        {order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toLocaleDateString('en-GB') : 'TBD'}
                       </td>
                       <td className="p-3 text-center">
                         <Badge
@@ -557,19 +536,17 @@ export default function PurchaseOrders() {
                                   order.status === 'pending' ? 'secondary' : 'destructive'}
                           className={order.status === 'delivered' ? 'bg-green-100 text-green-800' :
                                     order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : ''}
-                          data-testid={`status-${index}`}
                         >
                           {order.status}
                         </Badge>
                       </td>
                       <td className="p-3 text-center">
-                        <div className="flex items-center space-x-2 justify-center">
+                        <div className="flex items-center space-x-1 justify-center">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleViewOrder(order)}
-                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                            data-testid="button-view-order"
+                            className="p-2 text-blue-600 hover:text-blue-800"
                             title="View invoice"
                           >
                             <Eye className="w-4 h-4" />
@@ -585,25 +562,31 @@ export default function PurchaseOrders() {
                                 orderDate: order.orderDate ? new Date(order.orderDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
                                 expectedDeliveryDate: order.expectedDeliveryDate ? new Date(order.expectedDeliveryDate).toISOString().split('T')[0] : '',
                                 status: order.status || "pending",
-                                subtotal: order.subtotal || "0",
+                                subtotal: order.subtotal || "",
                                 taxAmount: order.taxAmount || "0",
-                                totalAmount: order.totalAmount || "0",
+                                totalAmount: order.totalAmount || "",
                                 notes: order.notes || "",
                               });
                             }}
-                            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50"
-                            data-testid="button-edit-order"
+                            className="p-2 text-green-600 hover:text-green-800"
                             title="Edit order"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
-
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePrint(order)}
+                            className="p-2 text-purple-600 hover:text-purple-800"
+                            title="Print order"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleDeleteOrder(order)}
-                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50"
-                            data-testid="button-delete-order"
+                            className="p-2 text-red-600 hover:text-red-800"
                             title="Delete Order"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -614,7 +597,7 @@ export default function PurchaseOrders() {
                   );
                 }) : (
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
                       No purchase orders found for the selected criteria
                     </td>
                   </tr>
@@ -635,7 +618,6 @@ export default function PurchaseOrders() {
         itemName={orderToDelete?.orderNumber || "purchase order"}
         isLoading={deletePurchaseOrderMutation.isPending}
       />
-
     </div>
   );
 }

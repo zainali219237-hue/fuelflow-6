@@ -20,9 +20,8 @@ import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
 
 const pumpReadingSchema = z.object({
   pumpId: z.string().min(1, "Pump is required"),
-  productId: z.string().min(1, "Product is required"),
-  openingReading: z.string().min(1, "Opening reading is required"),
-  closingReading: z.string().min(1, "Closing reading is required"),
+  openingReading: z.string().min(1, "Opening reading is required").refine((val) => !isNaN(parseFloat(val)), "Must be a valid number"),
+  closingReading: z.string().min(1, "Closing reading is required").refine((val) => !isNaN(parseFloat(val)), "Must be a valid number"),
   shiftNumber: z.string().min(1, "Shift number is required"),
   operatorName: z.string().min(1, "Operator name is required"),
   readingDate: z.string().min(1, "Date is required"),
@@ -33,7 +32,6 @@ const pumpConfigSchema = z.object({
   pumpNumber: z.string().min(1, "Pump number is required"),
   productId: z.string().min(1, "Product is required"),
   isActive: z.boolean().default(true),
-  stationId: z.string().optional(),
 });
 
 interface Pump {
@@ -78,7 +76,6 @@ export default function PumpManagement() {
       pumpNumber: "",
       productId: "",
       isActive: true,
-      stationId: user?.stationId || "",
     },
   });
 
@@ -86,14 +83,12 @@ export default function PumpManagement() {
     resolver: zodResolver(pumpReadingSchema),
     defaultValues: {
       pumpId: "",
-      productId: "",
       openingReading: "",
       closingReading: "",
       shiftNumber: "1",
       operatorName: "",
       readingDate: new Date().toISOString().split('T')[0],
     },
-    mode: "onChange"
   });
 
   const { data: pumps = [], isLoading: pumpsLoading } = useQuery<Pump[]>({
@@ -113,37 +108,21 @@ export default function PumpManagement() {
     queryFn: () => apiRequest("GET", "/api/products").then(res => res.json()),
   });
 
-  const updatePumpMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const response = await apiRequest("PUT", `/api/pumps/${id}`, data);
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Pump updated",
-        description: "Pump has been updated successfully",
-      });
-      setPumpDialogOpen(false);
-      setEditPumpId(null);
-      pumpForm.reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/pumps"] });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to update pump",
-        variant: "destructive",
-      });
-    },
-  });
-
   const createPumpMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log("Creating pump with data:", data);
+      
+      if (!user?.stationId || !user?.id) {
+        throw new Error("User session not loaded properly");
+      }
+
       const pumpData = {
         ...data,
-        stationId: user?.stationId,
-        isActive: data.isActive ?? true,
+        stationId: user.stationId,
       };
+
+      console.log("Final pump data being sent:", pumpData);
+      
       const response = await apiRequest("POST", "/api/pumps", pumpData);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: response.statusText }));
@@ -170,9 +149,68 @@ export default function PumpManagement() {
     },
   });
 
+  const updatePumpMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await apiRequest("PUT", `/api/pumps/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Pump updated",
+        description: "Pump has been updated successfully",
+      });
+      setPumpDialogOpen(false);
+      setEditPumpId(null);
+      pumpForm.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/pumps"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update pump",
+        variant: "destructive",
+      });
+    },
+  });
+
   const createReadingMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/pump-readings", data);
+      console.log("Creating pump reading with data:", data);
+      
+      if (!user?.stationId || !user?.id) {
+        throw new Error("User session not loaded properly");
+      }
+
+      const opening = parseFloat(data.openingReading);
+      const closing = parseFloat(data.closingReading);
+      
+      if (closing < opening) {
+        throw new Error("Closing reading must be greater than opening reading");
+      }
+
+      const totalSale = closing - opening;
+      const selectedPump = pumps.find(p => p.id === data.pumpId);
+      
+      if (!selectedPump) {
+        throw new Error("Selected pump not found");
+      }
+
+      const readingData = {
+        pumpId: data.pumpId,
+        productId: selectedPump.productId,
+        openingReading: opening.toString(),
+        closingReading: closing.toString(),
+        totalSale: totalSale.toString(),
+        shiftNumber: data.shiftNumber,
+        operatorName: data.operatorName,
+        readingDate: data.readingDate,
+        stationId: user.stationId,
+        userId: user.id,
+      };
+
+      console.log("Final reading data being sent:", readingData);
+      
+      const response = await apiRequest("POST", "/api/pump-readings", readingData);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: response.statusText }));
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
@@ -187,7 +225,6 @@ export default function PumpManagement() {
       setReadingDialogOpen(false);
       readingForm.reset({
         pumpId: "",
-        productId: "",
         openingReading: "",
         closingReading: "",
         shiftNumber: "1",
@@ -207,92 +244,18 @@ export default function PumpManagement() {
   });
 
   const onPumpSubmit = (data: any) => {
-    console.log("Pump form submission:", { data, editPumpId, user });
+    console.log("Pump form submission:", data);
     
     if (editPumpId) {
-      console.log("Updating pump with ID:", editPumpId);
       updatePumpMutation.mutate({ id: editPumpId, data });
     } else {
-      console.log("Creating new pump");
       createPumpMutation.mutate(data);
     }
   };
 
   const onReadingSubmit = (data: any) => {
-    console.log("Submitting pump reading:", data);
-    
-    // Enhanced validation
-    if (!data.pumpId || !data.openingReading || !data.closingReading || !data.operatorName || !data.readingDate) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Ensure user data is available
-    if (!user?.stationId || !user?.id) {
-      toast({
-        title: "Authentication Error",
-        description: "User session not properly loaded. Please refresh the page.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const opening = parseFloat(data.openingReading);
-    const closing = parseFloat(data.closingReading);
-    
-    if (isNaN(opening) || isNaN(closing)) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter valid numeric readings",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (closing < opening) {
-      toast({
-        title: "Validation Error",
-        description: "Closing reading must be greater than opening reading",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const totalSale = closing - opening;
-
-    // Get the selected pump to extract productId
-    const selectedPump = pumps.find(p => p.id === data.pumpId);
-    
-    if (!selectedPump) {
-      toast({
-        title: "Error",
-        description: "Selected pump not found. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const readingData = {
-      pumpId: data.pumpId,
-      productId: selectedPump.productId,
-      openingReading: opening.toString(),
-      closingReading: closing.toString(),
-      totalSale: totalSale.toString(),
-      shiftNumber: data.shiftNumber,
-      operatorName: data.operatorName,
-      readingDate: data.readingDate,
-      stationId: user.stationId,
-      userId: user.id,
-    };
-
-    console.log("Final reading data being sent:", readingData);
-    
-    // Force form submission
-    createReadingMutation.mutate(readingData);
+    console.log("Reading form submission:", data);
+    createReadingMutation.mutate(data);
   };
 
   const handleEditPump = (pump: Pump) => {
@@ -302,7 +265,6 @@ export default function PumpManagement() {
       pumpNumber: pump.pumpNumber,
       productId: pump.productId,
       isActive: pump.isActive,
-      stationId: pump.stationId,
     });
     setPumpDialogOpen(true);
   };
@@ -364,12 +326,12 @@ export default function PumpManagement() {
   return (
     <div className="space-y-6 fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h3 className="text-2xl font-semibold text-card-foreground">Pump Management</h3>
           <p className="text-muted-foreground">Manage fuel pumps and daily readings</p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
           <Dialog open={pumpDialogOpen} onOpenChange={(isOpen) => { 
             if (!isOpen) { 
               setEditPumpId(null); 
@@ -378,7 +340,7 @@ export default function PumpManagement() {
             setPumpDialogOpen(isOpen); 
           }}>
             <DialogTrigger asChild>
-              <Button data-testid="button-add-pump">
+              <Button className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 Add Pump
               </Button>
@@ -389,7 +351,7 @@ export default function PumpManagement() {
               </DialogHeader>
               <Form {...pumpForm}>
                 <form onSubmit={pumpForm.handleSubmit(onPumpSubmit)} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={pumpForm.control}
                       name="name"
@@ -441,11 +403,11 @@ export default function PumpManagement() {
                       </FormItem>
                     )}
                   />
-                  <div className="flex justify-end space-x-2 pt-4">
-                    <Button type="button" variant="outline" onClick={() => setPumpDialogOpen(false)}>
+                  <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setPumpDialogOpen(false)} className="w-full sm:w-auto">
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={createPumpMutation.isPending || updatePumpMutation.isPending}>
+                    <Button type="submit" disabled={createPumpMutation.isPending || updatePumpMutation.isPending} className="w-full sm:w-auto">
                       {createPumpMutation.isPending || updatePumpMutation.isPending 
                         ? (editPumpId ? "Updating..." : "Adding...") 
                         : (editPumpId ? "Update Pump" : "Add Pump")}
@@ -458,7 +420,7 @@ export default function PumpManagement() {
 
           <Dialog open={readingDialogOpen} onOpenChange={setReadingDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" data-testid="button-add-reading">
+              <Button variant="outline" className="w-full sm:w-auto">
                 <Fuel className="w-4 h-4 mr-2" />
                 Add Reading
               </Button>
@@ -469,7 +431,7 @@ export default function PumpManagement() {
               </DialogHeader>
               <Form {...readingForm}>
                 <form onSubmit={readingForm.handleSubmit(onReadingSubmit)} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={readingForm.control}
                       name="pumpId"
@@ -517,7 +479,7 @@ export default function PumpManagement() {
                       )}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={readingForm.control}
                       name="openingReading"
@@ -545,7 +507,7 @@ export default function PumpManagement() {
                       )}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={readingForm.control}
                       name="operatorName"
@@ -566,32 +528,18 @@ export default function PumpManagement() {
                         <FormItem>
                           <FormLabel>Date *</FormLabel>
                           <FormControl>
-                            <Input 
-                              type="date" 
-                              {...field} 
-                              max="9999-12-31"
-                            />
+                            <Input type="date" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
-                  <div className="flex justify-end space-x-2 pt-4">
-                    <Button type="button" variant="outline" onClick={() => setReadingDialogOpen(false)}>
+                  <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setReadingDialogOpen(false)} className="w-full sm:w-auto">
                       Cancel
                     </Button>
-                    <Button 
-                      type="submit" 
-                      disabled={createReadingMutation.isPending}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        console.log("Record Reading button clicked");
-                        const formData = readingForm.getValues();
-                        console.log("Form data on button click:", formData);
-                        readingForm.handleSubmit(onReadingSubmit)(e);
-                      }}
-                    >
+                    <Button type="submit" disabled={createReadingMutation.isPending} className="w-full sm:w-auto">
                       {createReadingMutation.isPending ? "Recording..." : "Record Reading"}
                     </Button>
                   </div>
@@ -603,28 +551,28 @@ export default function PumpManagement() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-primary">{pumps.length}</div>
+            <div className="text-xl md:text-2xl font-bold text-primary">{pumps.length}</div>
             <div className="text-sm text-muted-foreground">Total Pumps</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-green-600">{pumps.filter(p => p.isActive).length}</div>
+            <div className="text-xl md:text-2xl font-bold text-green-600">{pumps.filter(p => p.isActive).length}</div>
             <div className="text-sm text-muted-foreground">Active Pumps</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-blue-600">{todaysReadings.length}</div>
+            <div className="text-xl md:text-2xl font-bold text-blue-600">{todaysReadings.length}</div>
             <div className="text-sm text-muted-foreground">Today's Readings</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-purple-600">{totalTodaySales.toFixed(1)}L</div>
+            <div className="text-xl md:text-2xl font-bold text-purple-600">{totalTodaySales.toFixed(1)}L</div>
             <div className="text-sm text-muted-foreground">Today's Sales</div>
           </CardContent>
         </Card>
@@ -636,7 +584,7 @@ export default function PumpManagement() {
           <CardTitle>Pump Configuration</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto scrollable-container">
+          <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-muted">
                 <tr>
@@ -664,8 +612,7 @@ export default function PumpManagement() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleEditPump(pump)}
-                          className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50"
-                          data-testid={`button-edit-pump-${index}`}
+                          className="p-2 text-green-600 hover:text-green-800"
                           title="Edit Pump"
                         >
                           <Edit className="w-4 h-4" />
@@ -674,8 +621,7 @@ export default function PumpManagement() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDeletePump(pump)}
-                          className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50"
-                          data-testid={`button-delete-pump-${index}`}
+                          className="p-2 text-red-600 hover:text-red-800"
                           title="Delete Pump"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -696,7 +642,7 @@ export default function PumpManagement() {
           <CardTitle>Recent Pump Readings</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto scrollable-container">
+          <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-muted">
                 <tr>

@@ -7,18 +7,17 @@ export interface PrintTemplate {
 
 export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | 'statement' | 'expense'): PrintTemplate => {
   const today = new Date().toLocaleDateString();
-  const stationName = "FuelFlow Station";
   
   switch (type) {
     case 'invoice':
       return {
-        title: `Sales Invoice ${data.invoiceNumber}`,
-        filename: `invoice-${data.invoiceNumber}`,
+        title: `Sales Invoice ${data.invoiceNumber || data.orderNumber}`,
+        filename: `invoice-${data.invoiceNumber || data.orderNumber}`,
         content: `
           <!DOCTYPE html>
           <html>
             <head>
-              <title>Sales Invoice ${data.invoiceNumber}</title>
+              <title>Sales Invoice ${data.invoiceNumber || data.orderNumber}</title>
               <style>
                 @page { margin: 0.5in; size: A4; }
                 body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
@@ -36,12 +35,12 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
             </head>
             <body>
               <div class="header">
-                <h1>${stationName}</h1>
-                <h2>Sales Invoice</h2>
+                <h1>${data.stationName || 'FuelFlow Station'}</h1>
+                <h2>${data.invoiceNumber ? 'Sales Invoice' : 'Purchase Order'}</h2>
                 <div class="invoice-meta">
-                  <p><strong>Invoice #:</strong> ${data.invoiceNumber}</p>
-                  <p><strong>Date:</strong> ${new Date(data.createdAt).toLocaleDateString()}</p>
-                  <p><strong>Customer:</strong> ${data.customer?.name || 'Walk-in Customer'}</p>
+                  <p><strong>${data.invoiceNumber ? 'Invoice' : 'Order'} #:</strong> ${data.invoiceNumber || data.orderNumber}</p>
+                  <p><strong>Date:</strong> ${new Date(data.createdAt || data.orderDate || Date.now()).toLocaleDateString()}</p>
+                  <p><strong>${data.customer ? 'Customer' : 'Supplier'}:</strong> ${data.customer?.name || data.supplier?.name || 'Walk-in Customer'}</p>
                 </div>
               </div>
 
@@ -58,20 +57,28 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
                   <tbody>
                     ${data.items?.map(item => `
                       <tr>
-                        <td>${item.product?.name || 'Unknown Product'}</td>
-                        <td>${parseFloat(item.quantity).toFixed(3)} ${item.product?.unit || 'L'}</td>
-                        <td>${item.unitPrice}</td>
-                        <td>${item.totalPrice}</td>
+                        <td>${item.product?.name || 'Product'}</td>
+                        <td>${parseFloat(item.quantity || '0').toFixed(3)} ${item.product?.unit || 'L'}</td>
+                        <td>${item.unitPrice || '0.00'}</td>
+                        <td>${item.totalPrice || '0.00'}</td>
                       </tr>
-                    `).join('') || ''}
+                    `).join('') || '<tr><td colspan="4" style="text-align: center;">No items</td></tr>'}
                   </tbody>
                 </table>
               </div>
 
               <div class="totals">
                 <div class="total-row">
+                  <span>Subtotal:</span>
+                  <span>${data.subtotal || '0.00'}</span>
+                </div>
+                <div class="total-row">
+                  <span>Tax:</span>
+                  <span>${data.taxAmount || '0.00'}</span>
+                </div>
+                <div class="total-row">
                   <span><strong>Total Amount:</strong></span>
-                  <span><strong>${data.totalAmount}</strong></span>
+                  <span><strong>${data.totalAmount || '0.00'}</strong></span>
                 </div>
                 ${parseFloat(data.outstandingAmount || '0') > 0 ? `
                 <div class="total-row" style="color: #dc2626;">
@@ -109,18 +116,18 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
             </head>
             <body>
               <div class="header">
-                <h1>${stationName}</h1>
+                <h1>${data.stationName || 'FuelFlow Station'}</h1>
                 <h2>Expense Receipt</h2>
                 <p>Receipt #: ${data.receiptNumber || data.id}</p>
               </div>
 
               <div class="expense-details">
                 <h3>Expense Details</h3>
-                <p><strong>Description:</strong> ${data.description}</p>
-                <p><strong>Amount:</strong> ${data.amount}</p>
-                <p><strong>Category:</strong> ${data.category}</p>
-                <p><strong>Payment Method:</strong> ${data.paymentMethod}</p>
-                <p><strong>Date:</strong> ${new Date(data.expenseDate).toLocaleDateString()}</p>
+                <p><strong>Description:</strong> ${data.description || 'N/A'}</p>
+                <p><strong>Amount:</strong> ${data.amount || '0.00'}</p>
+                <p><strong>Category:</strong> ${data.category || 'N/A'}</p>
+                <p><strong>Payment Method:</strong> ${data.paymentMethod || 'N/A'}</p>
+                <p><strong>Date:</strong> ${new Date(data.expenseDate || Date.now()).toLocaleDateString()}</p>
                 ${data.notes ? `<p><strong>Notes:</strong> ${data.notes}</p>` : ''}
               </div>
 
@@ -151,15 +158,16 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
                 .payments-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
                 .payments-table th, .payments-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #e5e7eb; }
                 .payments-table th { background: #f3f4f6; font-weight: bold; }
+                .payments-table .text-right { text-align: right; }
                 .summary { background: #f9fafb; padding: 15px; border-radius: 8px; margin-top: 20px; }
                 .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #666; }
               </style>
             </head>
             <body>
               <div class="header">
-                <h1>${stationName}</h1>
+                <h1>${data.stationName || 'FuelFlow Station'}</h1>
                 <h2>${data.entityType} Payment Statement</h2>
-                <p>Generated on ${today}</p>
+                <p>Generated on ${data.generatedDate || today}</p>
               </div>
 
               <div class="entity-info">
@@ -167,6 +175,8 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
                 <p><strong>Name:</strong> ${data.entityName}</p>
                 ${data.entity?.contactPhone ? `<p><strong>Phone:</strong> ${data.entity.contactPhone}</p>` : ''}
                 ${data.entity?.contactEmail ? `<p><strong>Email:</strong> ${data.entity.contactEmail}</p>` : ''}
+                ${data.entity?.gstNumber ? `<p><strong>GST Number:</strong> ${data.entity.gstNumber}</p>` : ''}
+                ${data.entity?.address ? `<p><strong>Address:</strong> ${data.entity.address}</p>` : ''}
               </div>
 
               <h3>Payment History</h3>
@@ -174,22 +184,22 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
                 <thead>
                   <tr>
                     <th>Date</th>
-                    <th>Amount</th>
+                    <th class="text-right">Amount</th>
                     <th>Method</th>
                     <th>Reference</th>
-                    <th>Type</th>
+                    <th>Notes</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${data.payments?.map(payment => `
+                  ${data.payments && data.payments.length > 0 ? data.payments.map(payment => `
                     <tr>
                       <td>${new Date(payment.paymentDate || payment.createdAt).toLocaleDateString()}</td>
-                      <td>${payment.amount}</td>
-                      <td>${payment.paymentMethod}</td>
+                      <td class="text-right">${payment.amount || '0.00'}</td>
+                      <td>${payment.paymentMethod || 'N/A'}</td>
                       <td>${payment.referenceNumber || 'N/A'}</td>
-                      <td>${payment.type}</td>
+                      <td>${payment.notes || ''}</td>
                     </tr>
-                  `).join('') || '<tr><td colspan="5" style="text-align: center; color: #666;">No payment history found</td></tr>'}
+                  `).join('') : '<tr><td colspan="5" style="text-align: center; color: #666;">No payment history found</td></tr>'}
                 </tbody>
               </table>
 
@@ -201,6 +211,7 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
 
               <div class="footer">
                 <p>This is a computer-generated statement from FuelFlow Management System</p>
+                <p>For any queries regarding this statement, please contact our accounts department</p>
               </div>
             </body>
           </html>
@@ -218,7 +229,10 @@ export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | '
 
 export const printDocument = (template: PrintTemplate) => {
   const printWindow = window.open('', '_blank');
-  if (!printWindow) return;
+  if (!printWindow) {
+    alert('Please allow popups to print documents');
+    return;
+  }
 
   printWindow.document.write(template.content);
   printWindow.document.close();
@@ -245,7 +259,6 @@ export const downloadAsPDF = (template: PrintTemplate) => {
 
 export const downloadAsPNG = async (template: PrintTemplate) => {
   try {
-    // Create a temporary div to render content
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = template.content;
     tempDiv.style.position = 'absolute';
@@ -254,28 +267,22 @@ export const downloadAsPNG = async (template: PrintTemplate) => {
     tempDiv.style.background = 'white';
     document.body.appendChild(tempDiv);
 
-    // Create canvas and convert to image
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas dimensions
     canvas.width = 800;
     canvas.height = 1200;
 
-    // Fill with white background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Add basic text content (simplified version)
     ctx.fillStyle = '#000000';
     ctx.font = '16px Arial';
     ctx.fillText(template.title, 50, 50);
 
-    // Clean up
     document.body.removeChild(tempDiv);
 
-    // Create download link
     const link = document.createElement('a');
     link.download = `${template.filename}.png`;
     link.href = canvas.toDataURL('image/png');

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,7 +39,7 @@ export default function AccountsPayable() {
     })),
     defaultValues: {
       supplierId: "",
-      amount: "", // Empty instead of "0"
+      amount: "",
       paymentMethod: "cash",
       referenceNumber: "",
       notes: "",
@@ -70,7 +71,7 @@ export default function AccountsPayable() {
         ...data,
         stationId: user?.stationId || data.stationId,
         userId: user?.id || data.userId,
-        currencyCode: currencyConfig.code, // Add required field
+        currencyCode: currencyConfig.code,
       };
       const response = await apiRequest("POST", "/api/payments", paymentData);
       return response.json();
@@ -110,12 +111,11 @@ export default function AccountsPayable() {
 
   const createQuickPaymentMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Process form data to ensure all required fields are present
       const paymentData = {
         ...data,
         stationId: user?.stationId || data.stationId,
         userId: user?.id || data.userId,
-        currencyCode: currencyConfig.code, // Add required currency field
+        currencyCode: currencyConfig.code,
       };
       const response = await apiRequest("POST", "/api/payments", paymentData);
       return response.json();
@@ -156,102 +156,7 @@ export default function AccountsPayable() {
   };
 
   const handleViewHistory = (supplier: Supplier) => {
-    // Navigate to payment history page
     navigate(`/payment-history/${supplier.id}/supplier`);
-    const printWindow = window.open(`/payment-history/${supplier.id}/supplier`, '_blank');
-    if (!printWindow) return;
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Supplier Statement - ${supplier.name}</title>
-          <style>
-            @page { margin: 0.5in; size: A4; }
-            body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
-            .container { max-width: 800px; margin: 0 auto; }
-            .header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .station-info h1 { color: #2563eb; font-size: 28px; margin: 0; }
-            .statement-title { font-size: 24px; font-weight: bold; text-align: right; }
-            .supplier-info { background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-            .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
-            .summary-item { text-align: center; padding: 15px; background: #f3f4f6; border-radius: 8px; }
-            .summary-amount { font-size: 24px; font-weight: bold; color: #dc2626; }
-            .summary-label { font-size: 14px; color: #6b7280; }
-            .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="station-info">
-                <h1>FuelFlow Station</h1>
-                <p>Supplier Payment Statement</p>
-                <p>Generated on ${new Date().toLocaleDateString()}</p>
-              </div>
-              <div>
-                <div class="statement-title">PAYMENT STATEMENT</div>
-                <p><strong>Period:</strong> ${new Date().toLocaleDateString()}</p>
-              </div>
-            </div>
-
-            <div class="supplier-info">
-              <h3>Supplier Information</h3>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div>
-                  <p><strong>Company:</strong> ${supplier.name}</p>
-                  <p><strong>Contact Person:</strong> ${supplier.contactPerson || 'N/A'}</p>
-                  <p><strong>GST Number:</strong> ${supplier.gstNumber || 'N/A'}</p>
-                </div>
-                <div>
-                  <p><strong>Phone:</strong> ${supplier.contactPhone || 'N/A'}</p>
-                  <p><strong>Email:</strong> ${supplier.contactEmail || 'N/A'}</p>
-                  <p><strong>Payment Terms:</strong> ${supplier.paymentTerms || 'Net 30'}</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="summary">
-              <div class="summary-item">
-                <div class="summary-amount" style="color: #dc2626;">${formatCurrency(parseFloat(supplier.outstandingAmount || '0'))}</div>
-                <div class="summary-label">Outstanding Amount</div>
-              </div>
-              <div class="summary-item">
-                <div class="summary-amount" style="color: ${parseFloat(supplier.outstandingAmount || '0') > 100000 ? '#dc2626' : '#16a34a'};">${parseFloat(supplier.outstandingAmount || '0') > 100000 ? 'OVERDUE' : 'CURRENT'}</div>
-                <div class="summary-label">Payment Status</div>
-              </div>
-            </div>
-
-            ${parseFloat(supplier.outstandingAmount || '0') > 0 ? `
-            <div style="background: #fef2f2; padding: 20px; border-radius: 8px; border-left: 4px solid #dc2626; margin-bottom: 20px;">
-              <h4 style="margin: 0 0 10px 0; color: #dc2626;">Payment Due</h4>
-              <p style="margin: 0;">Outstanding payment of <strong>${formatCurrency(parseFloat(supplier.outstandingAmount || '0'))}</strong> is due for payment.</p>
-            </div>` : ''}
-
-            <div class="footer">
-              <p>For any queries regarding this statement, please contact our accounts department.</p>
-              <p>This is a computer-generated statement from FuelFlow Management System</p>
-              <p>Generated on ${new Date().toLocaleString()}</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 500);
-    };
-
-    toast({
-      title: "Payment History Generated",
-      description: `Payment statement for ${supplier.name} has been generated`,
-    });
   };
 
   const { data: suppliers = [], isLoading } = useQuery<Supplier[]>({
@@ -262,7 +167,6 @@ export default function AccountsPayable() {
     queryKey: ["/api/customers"],
   });
 
-  // For payables, we only need suppliers
   const allPayees = suppliers.map(s => ({ 
     id: s.id, 
     name: s.name, 
@@ -273,7 +177,6 @@ export default function AccountsPayable() {
   const filteredSuppliers = suppliers.filter((supplier: Supplier) => {
     const matchesSearch = supplier.name.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Status filtering
     const outstanding = parseFloat(supplier.outstandingAmount || '0');
     let matchesStatus = true;
     if (statusFilter === "current") {
@@ -309,15 +212,15 @@ export default function AccountsPayable() {
   return (
     <div className="space-y-6 fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h3 className="text-2xl font-semibold text-card-foreground">Accounts Payable</h3>
           <p className="text-muted-foreground">Manage supplier payments and outstanding balances</p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button data-testid="button-make-payment">
+              <Button className="w-full sm:w-auto">
                 + Make Payment
               </Button>
             </DialogTrigger>
@@ -338,16 +241,15 @@ export default function AccountsPayable() {
                             options={allPayees.map(p => ({ value: p.id, label: `${p.name} (${p.type})` }))}
                             value={field.value}
                             onValueChange={field.onChange}
-                            placeholder="Select supplier or customer"
-                            emptyMessage="No suppliers or customers found"
-                            data-testid="select-supplier"
+                            placeholder="Select supplier"
+                            emptyMessage="No suppliers found"
                           />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="amount"
@@ -355,7 +257,7 @@ export default function AccountsPayable() {
                         <FormItem>
                           <FormLabel>Amount ({currencyConfig.symbol}) *</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-payment-amount" />
+                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -369,7 +271,7 @@ export default function AccountsPayable() {
                           <FormLabel>Payment Method *</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger data-testid="select-payment-method">
+                              <SelectTrigger>
                                 <SelectValue placeholder="Select method" />
                               </SelectTrigger>
                             </FormControl>
@@ -391,7 +293,7 @@ export default function AccountsPayable() {
                       <FormItem>
                         <FormLabel>Reference Number</FormLabel>
                         <FormControl>
-                          <Input placeholder="Transaction/Check number" {...field} data-testid="input-reference-number" />
+                          <Input placeholder="Transaction/Check number" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -404,17 +306,17 @@ export default function AccountsPayable() {
                       <FormItem>
                         <FormLabel>Notes</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Payment details" {...field} data-testid="input-payment-notes" />
+                          <Textarea placeholder="Payment details" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <div className="flex justify-end space-x-2 pt-4">
-                    <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="button-cancel">
+                  <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setOpen(false)} className="w-full sm:w-auto">
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={createPaymentMutation.isPending} data-testid="button-submit-payment">
+                    <Button type="submit" disabled={createPaymentMutation.isPending} className="w-full sm:w-auto">
                       {createPaymentMutation.isPending ? "Recording..." : "Record Payment"}
                     </Button>
                   </div>
@@ -423,7 +325,6 @@ export default function AccountsPayable() {
             </DialogContent>
           </Dialog>
 
-          {/* Quick Payment Dialog */}
           <Dialog open={quickPaymentOpen} onOpenChange={setQuickPaymentOpen}>
             <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
@@ -431,7 +332,7 @@ export default function AccountsPayable() {
               </DialogHeader>
               <Form {...quickPaymentForm}>
                 <form onSubmit={quickPaymentForm.handleSubmit(onQuickPaymentSubmit)} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={quickPaymentForm.control}
                       name="amount"
@@ -439,7 +340,7 @@ export default function AccountsPayable() {
                         <FormItem>
                           <FormLabel>Amount ({currencyConfig.symbol}) *</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.01" placeholder="0.00" {...field} data-testid="input-quick-payment-amount-ap" />
+                            <Input type="number" step="0.01" placeholder="0.00" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -453,7 +354,7 @@ export default function AccountsPayable() {
                           <FormLabel>Payment Method *</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger data-testid="select-quick-payment-method-ap">
+                              <SelectTrigger>
                                 <SelectValue placeholder="Select method" />
                               </SelectTrigger>
                             </FormControl>
@@ -475,7 +376,7 @@ export default function AccountsPayable() {
                       <FormItem>
                         <FormLabel>Reference Number</FormLabel>
                         <FormControl>
-                          <Input placeholder="Transaction/Check number" {...field} data-testid="input-quick-reference-number-ap" />
+                          <Input placeholder="Transaction/Check number" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -488,17 +389,17 @@ export default function AccountsPayable() {
                       <FormItem>
                         <FormLabel>Notes</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Payment details" {...field} data-testid="input-quick-payment-notes-ap" />
+                          <Textarea placeholder="Payment details" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <div className="flex justify-end space-x-2 pt-4">
-                    <Button type="button" variant="outline" onClick={() => setQuickPaymentOpen(false)} data-testid="button-quick-cancel-ap">
+                  <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setQuickPaymentOpen(false)} className="w-full sm:w-auto">
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={createQuickPaymentMutation.isPending} data-testid="button-quick-submit-payment-ap">
+                    <Button type="submit" disabled={createQuickPaymentMutation.isPending} className="w-full sm:w-auto">
                       {createQuickPaymentMutation.isPending ? "Recording..." : "Record Payment"}
                     </Button>
                   </div>
@@ -507,7 +408,6 @@ export default function AccountsPayable() {
             </DialogContent>
           </Dialog>
 
-          {/* View Supplier Dialog */}
           <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
@@ -515,7 +415,7 @@ export default function AccountsPayable() {
               </DialogHeader>
               {selectedSupplierForView && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-sm font-medium">Name</label>
                       <p className="text-sm text-muted-foreground">{selectedSupplierForView.name}</p>
@@ -553,8 +453,7 @@ export default function AccountsPayable() {
           <Button 
             variant="outline" 
             size="sm" 
-            className="p-2" 
-            data-testid="button-payment-schedule" 
+            className="w-full sm:w-auto" 
             title="View Payment Schedule"
           >
             <Calendar className="w-4 h-4 mr-2" />
@@ -564,10 +463,10 @@ export default function AccountsPayable() {
       </div>
 
       {/* Payables Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-primary" data-testid="total-suppliers-ap">
+            <div className="text-xl md:text-2xl font-bold text-primary">
               {filteredSuppliers.length}
             </div>
             <div className="text-sm text-muted-foreground">Active Suppliers</div>
@@ -575,7 +474,7 @@ export default function AccountsPayable() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-red-600" data-testid="total-payable">
+            <div className="text-xl md:text-2xl font-bold text-red-600">
               {formatCurrency(totalPayable)}
             </div>
             <div className="text-sm text-muted-foreground">Total Payable</div>
@@ -583,7 +482,7 @@ export default function AccountsPayable() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-orange-600" data-testid="current-payments">
+            <div className="text-xl md:text-2xl font-bold text-orange-600">
               {currentPayments}
             </div>
             <div className="text-sm text-muted-foreground">Current Payments</div>
@@ -591,7 +490,7 @@ export default function AccountsPayable() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-red-600" data-testid="overdue-payments">
+            <div className="text-xl md:text-2xl font-bold text-red-600">
               {overduePayments}
             </div>
             <div className="text-sm text-muted-foreground">Overdue Payments</div>
@@ -602,19 +501,18 @@ export default function AccountsPayable() {
       {/* Supplier Payables Table */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <CardTitle>Supplier Payment Status</CardTitle>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
               <Input
                 type="text"
                 placeholder="Search suppliers..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-48"
-                data-testid="input-search-suppliers-ap"
+                className="w-full sm:w-48"
               />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32" data-testid="select-status-filter-ap">
+                <SelectTrigger className="w-full sm:w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -635,9 +533,6 @@ export default function AccountsPayable() {
                   <th className="text-left p-3 font-medium">Supplier</th>
                   <th className="text-left p-3 font-medium">Payment Terms</th>
                   <th className="text-right p-3 font-medium">Outstanding</th>
-                  <th className="text-center p-3 font-medium">Last Payment</th>
-                  <th className="text-center p-3 font-medium">Due Date</th>
-                  <th className="text-center p-3 font-medium">Days Overdue</th>
                   <th className="text-center p-3 font-medium">Status</th>
                   <th className="text-center p-3 font-medium">Actions</th>
                 </tr>
@@ -650,48 +545,34 @@ export default function AccountsPayable() {
                   return (
                     <tr key={supplier.id} className="border-b border-border hover:bg-muted/50">
                       <td className="p-3">
-                        <div className="font-medium text-card-foreground" data-testid={`supplier-name-ap-${index}`}>
+                        <div className="font-medium text-card-foreground">
                           {supplier.name}
                         </div>
                         <div className="text-sm text-muted-foreground">
                           Contact: {supplier.contactPerson || 'N/A'}
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          GST: {supplier.gstNumber || 'N/A'}
-                        </div>
                       </td>
                       <td className="p-3">{supplier.paymentTerms || 'Net 30'}</td>
                       <td className="p-3 text-right">
-                        <span className="font-semibold text-red-600" data-testid={`outstanding-ap-${index}`}>
+                        <span className="font-semibold text-red-600">
                           {formatCurrency(outstanding)}
-                        </span>
-                      </td>
-                      <td className="p-3 text-center text-sm">
-                        {supplier.createdAt ? new Date(supplier.createdAt).toLocaleDateString('en-GB') : 'N/A'}
-                      </td>
-                      <td className="p-3 text-center text-sm">N/A</td>
-                      <td className="p-3 text-center">
-                        <span className={isOverdue ? 'text-red-600 font-semibold' : 'text-green-600'}>
-                          {isOverdue ? '30+ days' : 'On time'}
                         </span>
                       </td>
                       <td className="p-3 text-center">
                         <Badge
                           variant={isOverdue ? 'destructive' : 'default'}
                           className={isOverdue ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}
-                          data-testid={`status-ap-${index}`}
                         >
                           {isOverdue ? 'Overdue' : 'Current'}
                         </Badge>
                       </td>
                       <td className="p-3 text-center">
-                        <div className="flex items-center justify-center space-x-2">
+                        <div className="flex items-center justify-center space-x-1">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleViewSupplier(supplier)}
-                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                            data-testid="button-view-supplier-payable"
+                            className="p-2 text-blue-600 hover:text-blue-800"
                             title="View Details"
                           >
                             <Eye className="w-4 h-4" />
@@ -700,8 +581,7 @@ export default function AccountsPayable() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleQuickPayment(supplier)}
-                            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50"
-                            data-testid="button-quick-payment-payable"
+                            className="p-2 text-green-600 hover:text-green-800"
                             title="Record Payment"
                           >
                             <CreditCard className="w-4 h-4" />
@@ -710,8 +590,7 @@ export default function AccountsPayable() {
                             variant="outline"
                             size="sm"
                             onClick={() => handleViewHistory(supplier)}
-                            className="p-2 text-orange-600 hover:text-orange-800 hover:bg-orange-50"
-                            data-testid="button-payment-history-payable"
+                            className="p-2 text-orange-600 hover:text-orange-800"
                             title="Payment History"
                           >
                             <History className="w-4 h-4" />
@@ -722,7 +601,7 @@ export default function AccountsPayable() {
                   );
                 }) : (
                   <tr>
-                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={5} className="p-8 text-center text-muted-foreground">
                       No supplier payment data found for the selected criteria
                     </td>
                   </tr>

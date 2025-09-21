@@ -1,3 +1,4 @@
+
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +29,6 @@ function PaymentHistory() {
     queryFn: async () => {
       const response = await apiRequest("GET", `/api/payments/${user?.stationId}`);
       const allPayments = await response.json();
-      // Filter payments for this specific customer/supplier
       return allPayments.filter((payment: PaymentWithDetails) =>
         type === 'customer' ? payment.customerId === id : payment.supplierId === id
       );
@@ -49,87 +49,7 @@ function PaymentHistory() {
   });
 
   const entity = type === 'customer' ? customerData : supplierData;
-
-  // Generate statement content
-  const generateStatementContent = (entityData: Customer | Supplier | undefined, payments: Payment[]) => {
-    if (!entityData) return ''; // Handle case where entity data is not yet loaded
-
-    const isCustomer = 'type' in entityData;
-    const entityType = isCustomer ? 'Customer' : 'Supplier';
-    const totalPayments = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${entityType} Statement - ${entityData.name}</title>
-          <style>
-            @page { margin: 0.5in; size: A4; }
-            body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .header h1 { color: #2563eb; margin: 0; }
-            .entity-info { background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-            .payments-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            .payments-table th, .payments-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-            .payments-table th { background: #f3f4f6; font-weight: bold; }
-            .summary { background: #f9fafb; padding: 15px; border-radius: 8px; margin-top: 20px; }
-            .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>${stationSettings?.stationName || 'FuelFlow Station'}</h1>
-            <h2>${entityType} Payment Statement</h2>
-            <p>Generated on ${new Date().toLocaleDateString()}</p>
-          </div>
-
-          <div class="entity-info">
-            <h3>${entityType} Information</h3>
-            <p><strong>Name:</strong> ${entityData.name}</p>
-            ${entityData.contactPhone ? `<p><strong>Phone:</strong> ${entityData.contactPhone}</p>` : ''}
-            ${entityData.contactEmail ? `<p><strong>Email:</strong> ${entityData.contactEmail}</p>` : ''}
-            ${entityData.gstNumber ? `<p><strong>GST Number:</strong> ${entityData.gstNumber}</p>` : ''}
-          </div>
-
-          <h3>Payment History</h3>
-          <table class="payments-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Method</th>
-                <th>Reference</th>
-                <th>Type</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${payments.map(payment => `
-                <tr>
-                  <td>${new Date(payment.paymentDate || payment.createdAt).toLocaleDateString()}</td>
-                  <td>${formatCurrency(parseFloat(payment.amount))}</td>
-                  <td>${payment.paymentMethod}</td>
-                  <td>${payment.referenceNumber || 'N/A'}</td>
-                  <td>${payment.type}</td>
-                </tr>
-              `).join('')}
-              ${payments.length === 0 ? '<tr><td colspan="5" style="text-align: center; color: #666;">No payment history found</td></tr>' : ''}
-            </tbody>
-          </table>
-
-          <div class="summary">
-            <h4>Summary</h4>
-            <p><strong>Total Payments:</strong> ${formatCurrency(totalPayments)}</p>
-            <p><strong>Outstanding Amount:</strong> ${formatCurrency(parseFloat(entityData.outstandingAmount || '0'))}</p>
-          </div>
-
-          <div class="footer">
-            <p>This is a computer-generated statement from FuelFlow Management System</p>
-            <p>For any queries regarding this statement, please contact our accounts department</p>
-          </div>
-        </body>
-      </html>
-    `;
-  };
+  const totalPayments = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
   const handlePrint = () => {
     if (!entity || !payments) return;
@@ -139,8 +59,13 @@ function PaymentHistory() {
       entityName: entity.name,
       entity,
       payments,
-      totalPayments: formatCurrency(payments.reduce((sum, p) => sum + parseFloat(p.amount), 0)),
-      outstandingAmount: formatCurrency(parseFloat(entity.outstandingAmount || '0'))
+      totalPayments: formatCurrency(totalPayments),
+      outstandingAmount: formatCurrency(parseFloat(entity.outstandingAmount || '0')),
+      stationName: stationSettings?.stationName || 'FuelFlow Station',
+      stationAddress: stationSettings?.address || '',
+      stationPhone: stationSettings?.contactNumber || '',
+      stationEmail: stationSettings?.email || '',
+      generatedDate: new Date().toLocaleDateString()
     };
 
     const template = generatePrintTemplate(statementData, 'statement');
@@ -155,8 +80,13 @@ function PaymentHistory() {
       entityName: entity.name,
       entity,
       payments,
-      totalPayments: formatCurrency(payments.reduce((sum, p) => sum + parseFloat(p.amount), 0)),
-      outstandingAmount: formatCurrency(parseFloat(entity.outstandingAmount || '0'))
+      totalPayments: formatCurrency(totalPayments),
+      outstandingAmount: formatCurrency(parseFloat(entity.outstandingAmount || '0')),
+      stationName: stationSettings?.stationName || 'FuelFlow Station',
+      stationAddress: stationSettings?.address || '',
+      stationPhone: stationSettings?.contactNumber || '',
+      stationEmail: stationSettings?.email || '',
+      generatedDate: new Date().toLocaleDateString()
     };
 
     const template = generatePrintTemplate(statementData, 'statement');
@@ -171,8 +101,13 @@ function PaymentHistory() {
       entityName: entity.name,
       entity,
       payments,
-      totalPayments: formatCurrency(payments.reduce((sum, p) => sum + parseFloat(p.amount), 0)),
-      outstandingAmount: formatCurrency(parseFloat(entity.outstandingAmount || '0'))
+      totalPayments: formatCurrency(totalPayments),
+      outstandingAmount: formatCurrency(parseFloat(entity.outstandingAmount || '0')),
+      stationName: stationSettings?.stationName || 'FuelFlow Station',
+      stationAddress: stationSettings?.address || '',
+      stationPhone: stationSettings?.contactNumber || '',
+      stationEmail: stationSettings?.email || '',
+      generatedDate: new Date().toLocaleDateString()
     };
 
     const template = generatePrintTemplate(statementData, 'statement');
@@ -186,8 +121,8 @@ function PaymentHistory() {
   return (
     <div className="min-h-screen bg-background">
       <div className="print:hidden sticky top-0 bg-background/80 backdrop-blur-sm border-b z-10">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+        <div className="container mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <Link href={type === 'customer' ? '/accounts-receivable' : '/accounts-payable'}>
                 <Button variant="ghost" size="sm">
@@ -195,52 +130,85 @@ function PaymentHistory() {
                   Back
                 </Button>
               </Link>
-              <h1 className="text-2xl font-bold">Payment History - {entity?.name}</h1>
+              <h1 className="text-xl sm:text-2xl font-bold">Payment History - {entity?.name}</h1>
             </div>
-            <div className="flex items-center gap-2">
-              <Button onClick={handlePrint} size="sm">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              <Button onClick={handlePrint} size="sm" className="w-full sm:w-auto">
                 <Printer className="w-4 h-4 mr-2" />
                 Print
               </Button>
-              <Button onClick={handleDownloadPDF} variant="outline" size="sm">
+              <Button onClick={handleDownloadPDF} variant="outline" size="sm" className="w-full sm:w-auto">
                 <Download className="w-4 h-4 mr-2" />
-                Download PDF
+                PDF
               </Button>
-              <Button onClick={handleDownloadPNG} variant="outline" size="sm">
+              <Button onClick={handleDownloadPNG} variant="outline" size="sm" className="w-full sm:w-auto">
                 <Download className="w-4 h-4 mr-2" />
-                Download PNG
+                PNG
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 sm:px-6 py-8 max-w-4xl">
         <Card className="print:shadow-none print:border-none">
           <CardHeader>
-            <CardTitle>Payment History</CardTitle>
+            <CardTitle className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <span>Payment History</span>
+              <div className="text-sm text-muted-foreground">
+                Total: {formatCurrency(totalPayments)} | Outstanding: {formatCurrency(parseFloat(entity?.outstandingAmount || '0'))}
+              </div>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {payments.length > 0 ? payments.map((payment) => (
-                <div key={payment.id} className="flex items-center justify-between p-4 border border-border rounded-md">
-                  <div>
-                    <div className="font-medium">{formatCurrency(parseFloat(payment.amount))}</div>
+                <div key={payment.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border border-border rounded-md gap-4">
+                  <div className="flex-1">
+                    <div className="font-medium text-lg">{formatCurrency(parseFloat(payment.amount))}</div>
                     <div className="text-sm text-muted-foreground">
                       {new Date(payment.paymentDate || payment.createdAt).toLocaleDateString()} • {payment.paymentMethod}
                     </div>
                     {payment.referenceNumber && (
                       <div className="text-xs text-muted-foreground">Ref: {payment.referenceNumber}</div>
                     )}
+                    {payment.notes && (
+                      <div className="text-xs text-muted-foreground mt-1">{payment.notes}</div>
+                    )}
                   </div>
-                  <Badge variant="outline">{payment.type}</Badge>
+                  <div className="flex flex-col items-end gap-2">
+                    <Badge variant="outline">{payment.type}</Badge>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(payment.createdAt).toLocaleTimeString()}
+                    </div>
+                  </div>
                 </div>
               )) : (
                 <div className="text-center text-muted-foreground py-8">
-                  No payment history found
+                  <div className="text-lg font-medium mb-2">No payment history found</div>
+                  <div className="text-sm">No payments have been recorded for this {type}</div>
                 </div>
               )}
             </div>
+            
+            {payments.length > 0 && (
+              <div className="mt-6 pt-6 border-t">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">{payments.length}</div>
+                    <div className="text-sm text-muted-foreground">Total Payments</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">{formatCurrency(totalPayments)}</div>
+                    <div className="text-sm text-muted-foreground">Total Amount</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-orange-600">{formatCurrency(parseFloat(entity?.outstandingAmount || '0'))}</div>
+                    <div className="text-sm text-muted-foreground">Outstanding</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
