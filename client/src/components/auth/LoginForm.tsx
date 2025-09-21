@@ -47,20 +47,15 @@ export default function LoginForm() {
         });
       }
     } catch (error: any) {
-      if (error.message?.includes("approval") || error.message?.includes("pending")) {
-        toast({
-          title: "Account Pending Approval",
-          description: "Your account is waiting for administrator approval. Please contact your administrator.",
-          variant: "destructive",
-        });
-        setLocation("/approval-pending"); // Redirect to pending approval page
-      } else {
-        toast({
-          title: "Login failed",
-          description: error.message || "Invalid credentials. Please try again.",
-          variant: "destructive",
-        });
+      if (error.message.includes("pending approval")) {
+        setLocation("/approval-pending");
+        return;
       }
+      toast({
+        title: "Login failed",
+        description: error.message || "Invalid credentials. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }

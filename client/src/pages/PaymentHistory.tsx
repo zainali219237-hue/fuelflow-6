@@ -45,6 +45,7 @@ export default function PaymentHistory() {
   const generateStatementContent = (entityData: Customer | Supplier, payments: Payment[]) => {
     const isCustomer = 'type' in entityData;
     const entityType = isCustomer ? 'Customer' : 'Supplier';
+    const totalPayments = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
 
     return `
       <!DOCTYPE html>
@@ -55,17 +56,31 @@ export default function PaymentHistory() {
             @page { margin: 0.5in; size: A4; }
             body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+            .header h1 { color: #2563eb; margin: 0; }
+            .entity-info { background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
             .payments-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            .payments-table th, .payments-table td { padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-            .payments-table th { background: #f9fafb; font-weight: bold; }
+            .payments-table th, .payments-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+            .payments-table th { background: #f3f4f6; font-weight: bold; }
+            .summary { background: #f9fafb; padding: 15px; border-radius: 8px; margin-top: 20px; }
+            .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #666; }
           </style>
         </head>
         <body>
           <div class="header">
-            <h1>Payment History</h1>
-            <p>${entityData.name}</p>
+            <h1>${stationSettings?.stationName || 'FuelFlow Station'}</h1>
+            <h2>${entityType} Payment Statement</h2>
             <p>Generated on ${new Date().toLocaleDateString()}</p>
           </div>
+          
+          <div class="entity-info">
+            <h3>${entityType} Information</h3>
+            <p><strong>Name:</strong> ${entityData.name}</p>
+            ${entityData.contactPhone ? `<p><strong>Phone:</strong> ${entityData.contactPhone}</p>` : ''}
+            ${entityData.contactEmail ? `<p><strong>Email:</strong> ${entityData.contactEmail}</p>` : ''}
+            ${entityData.gstNumber ? `<p><strong>GST Number:</strong> ${entityData.gstNumber}</p>` : ''}
+          </div>
+
+          <h3>Payment History</h3>
           <table class="payments-table">
             <thead>
               <tr>
@@ -73,6 +88,7 @@ export default function PaymentHistory() {
                 <th>Amount</th>
                 <th>Method</th>
                 <th>Reference</th>
+                <th>Type</th>
               </tr>
             </thead>
             <tbody>
@@ -82,10 +98,23 @@ export default function PaymentHistory() {
                   <td>${formatCurrency(parseFloat(payment.amount))}</td>
                   <td>${payment.paymentMethod}</td>
                   <td>${payment.referenceNumber || 'N/A'}</td>
+                  <td>${payment.type}</td>
                 </tr>
               `).join('')}
+              ${payments.length === 0 ? '<tr><td colspan="5" style="text-align: center; color: #666;">No payment history found</td></tr>' : ''}
             </tbody>
           </table>
+
+          <div class="summary">
+            <h4>Summary</h4>
+            <p><strong>Total Payments:</strong> ${formatCurrency(totalPayments)}</p>
+            <p><strong>Outstanding Amount:</strong> ${formatCurrency(parseFloat(entityData.outstandingAmount || '0'))}</p>
+          </div>
+
+          <div class="footer">
+            <p>This is a computer-generated statement from FuelFlow Management System</p>
+            <p>For any queries regarding this statement, please contact our accounts department</p>
+          </div>
         </body>
       </html>
     `;
@@ -108,44 +137,44 @@ export default function PaymentHistory() {
     };
   };
 
-  const handleDownload = (format: 'pdf' | 'csv') => {
-    if (!entityData || !payments) return;
+  const handleDownloadPDF = () => {
+    if (!entity || !payments) return;
 
-    if (format === 'pdf') {
-      const htmlContent = generateStatementContent(entityData, payments);
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) return;
+    const htmlContent = generateStatementContent(entity, payments);
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${entity.name.replace(/[^a-zA-Z0-9]/g, '_')}_payment_statement.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-          printWindow.close();
-        }, 500);
-      };
-    } else if (format === 'csv') {
-      const csvRows = [
-        ["Date", "Amount", "Method", "Reference", "Type"],
-        ...payments.map(payment => [
-          new Date(payment.paymentDate || payment.createdAt).toLocaleDateString(),
-          payment.amount.toString(),
-          payment.paymentMethod,
-          payment.referenceNumber || 'N/A',
-          payment.type,
-        ])
-      ];
-      const csvString = csvRows.map(row => row.join(',')).join('\n');
-      const blob = new Blob([csvString], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${entity?.name}_payment_history.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
+  const handleDownloadCSV = () => {
+    if (!entity || !payments) return;
+
+    const csvRows = [
+      ["Date", "Amount", "Method", "Reference", "Type"],
+      ...payments.map(payment => [
+        new Date(payment.paymentDate || payment.createdAt).toLocaleDateString(),
+        payment.amount.toString(),
+        payment.paymentMethod,
+        payment.referenceNumber || 'N/A',
+        payment.type,
+      ])
+    ];
+    const csvString = csvRows.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${entity.name.replace(/[^a-zA-Z0-9]/g, '_')}_payment_history.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   if (isLoading) {
@@ -171,11 +200,11 @@ export default function PaymentHistory() {
                 <Printer className="w-4 h-4 mr-2" />
                 Print
               </Button>
-              <Button onClick={() => handleDownload('pdf')} variant="outline" size="sm">
+              <Button onClick={handleDownloadPDF} variant="outline" size="sm">
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
               </Button>
-              <Button onClick={() => handleDownload('csv')} variant="outline" size="sm">
+              <Button onClick={handleDownloadCSV} variant="outline" size="sm">
                 <Download className="w-4 h-4 mr-2" />
                 Download CSV
               </Button>

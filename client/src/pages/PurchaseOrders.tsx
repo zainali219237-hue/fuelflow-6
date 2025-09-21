@@ -63,22 +63,33 @@ export default function PurchaseOrders() {
     mutationFn: async (data: any) => {
       console.log("Creating purchase order with data:", data);
       
-      // Validate required fields
-      if (!data.orderNumber || !data.supplierId || !data.orderDate || !data.totalAmount) {
-        throw new Error("Please fill in all required fields");
+      // Enhanced validation
+      if (!data.orderNumber || !data.supplierId || !data.orderDate) {
+        throw new Error("Please fill in order number, supplier, and order date");
+      }
+
+      if (!data.subtotal || parseFloat(data.subtotal) <= 0) {
+        throw new Error("Subtotal must be greater than 0");
+      }
+
+      if (!user?.stationId || !user?.id) {
+        throw new Error("User session not properly loaded");
       }
 
       const processedData = {
         order: {
-          ...data,
-          stationId: user?.stationId || data.stationId,
-          userId: user?.id || data.userId,
+          orderNumber: data.orderNumber,
+          stationId: user.stationId,
+          supplierId: data.supplierId,
+          userId: user.id,
           orderDate: data.orderDate,
-          expectedDeliveryDate: data.expectedDeliveryDate === "" ? undefined : data.expectedDeliveryDate,
+          expectedDeliveryDate: data.expectedDeliveryDate || null,
+          status: data.status || "pending",
           currencyCode: currencyConfig.code,
           subtotal: parseFloat(data.subtotal || "0").toString(),
           taxAmount: parseFloat(data.taxAmount || "0").toString(),
-          totalAmount: parseFloat(data.totalAmount || "0").toString(),
+          totalAmount: parseFloat(data.totalAmount || data.subtotal || "0").toString(),
+          notes: data.notes || "",
         },
         items: [] // Empty items for now, can be added later
       };
@@ -162,9 +173,13 @@ export default function PurchaseOrders() {
   });
 
   const onSubmit = (data: any) => {
+    console.log("Purchase order form submission:", { data, editOrderId, user, suppliers });
+    
     if (editOrderId) {
+      console.log("Updating purchase order with ID:", editOrderId);
       updatePurchaseOrderMutation.mutate({ id: editOrderId, data });
     } else {
+      console.log("Creating new purchase order");
       createPurchaseOrderMutation.mutate(data);
     }
   };

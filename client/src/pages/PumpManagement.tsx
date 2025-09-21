@@ -206,9 +206,13 @@ export default function PumpManagement() {
   });
 
   const onPumpSubmit = (data: any) => {
+    console.log("Pump form submission:", { data, editPumpId, user });
+    
     if (editPumpId) {
+      console.log("Updating pump with ID:", editPumpId);
       updatePumpMutation.mutate({ id: editPumpId, data });
     } else {
+      console.log("Creating new pump");
       createPumpMutation.mutate(data);
     }
   };
@@ -216,10 +220,21 @@ export default function PumpManagement() {
   const onReadingSubmit = (data: any) => {
     console.log("Submitting pump reading:", data);
     
+    // Enhanced validation
     if (!data.pumpId || !data.openingReading || !data.closingReading || !data.operatorName || !data.readingDate) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Ensure user data is available
+    if (!user?.stationId || !user?.id) {
+      toast({
+        title: "Authentication Error",
+        description: "User session not properly loaded. Please refresh the page.",
         variant: "destructive",
       });
       return;
@@ -251,13 +266,31 @@ export default function PumpManagement() {
     // Get the selected pump to extract productId
     const selectedPump = pumps.find(p => p.id === data.pumpId);
     
-    createReadingMutation.mutate({
-      ...data,
-      productId: selectedPump?.productId || data.productId,
+    if (!selectedPump) {
+      toast({
+        title: "Error",
+        description: "Selected pump not found. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const readingData = {
+      pumpId: data.pumpId,
+      productId: selectedPump.productId,
+      openingReading: opening.toString(),
+      closingReading: closing.toString(),
       totalSale: totalSale.toString(),
-      stationId: user?.stationId,
-      userId: user?.id,
-    });
+      shiftNumber: data.shiftNumber,
+      operatorName: data.operatorName,
+      readingDate: data.readingDate,
+      stationId: user.stationId,
+      userId: user.id,
+    };
+
+    console.log("Final reading data being sent:", readingData);
+    
+    createReadingMutation.mutate(readingData);
   };
 
   const handleEditPump = (pump: Pump) => {

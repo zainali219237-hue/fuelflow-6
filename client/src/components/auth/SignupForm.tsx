@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Fuel, ArrowLeft } from "lucide-react";
 import { apiRequest } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
 
 interface SignupFormProps {
   onBack: () => void;
@@ -25,10 +25,11 @@ export default function SignupForm({ onBack }: SignupFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showApprovalMessage, setShowApprovalMessage] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Password mismatch",
@@ -56,6 +57,8 @@ export default function SignupForm({ onBack }: SignupFormProps) {
           title: "Account created",
           description: "Your account has been created successfully. Please wait for admin approval.",
         });
+        // Instead of navigating to login, redirect to approval pending page
+        navigate("/approval-pending"); 
       } else {
         const error = await response.json();
         throw new Error(error.message || "Failed to create account");
@@ -90,7 +93,7 @@ export default function SignupForm({ onBack }: SignupFormProps) {
                   Your account has been created successfully. Please wait for an administrator to approve your account before you can log in.
                 </p>
               </div>
-              
+
               <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
                 <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
                 <span>Waiting for approval...</span>
@@ -210,7 +213,7 @@ export default function SignupForm({ onBack }: SignupFormProps) {
               {isLoading ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
-          
+
           <div className="mt-4">
             <Button
               type="button"

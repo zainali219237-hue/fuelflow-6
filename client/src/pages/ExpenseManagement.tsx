@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import type { Expense } from "@shared/schema";
 import { insertExpenseSchema } from "@shared/schema";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -112,12 +113,16 @@ export default function ExpenseManagement() {
   });
 
   const onSubmit = (data: any) => {
+    console.log("Expense form submission:", { data, user });
+    
     // Ensure current user IDs are used in case user loaded after form initialization
     const expenseData = {
       ...data,
       stationId: user?.stationId || data.stationId,
       userId: user?.id || data.userId,
     };
+    
+    console.log("Processed expense data:", expenseData);
     createExpenseMutation.mutate(expenseData);
   };
 

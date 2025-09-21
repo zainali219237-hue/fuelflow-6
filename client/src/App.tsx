@@ -34,6 +34,8 @@ import PumpManagement from "@/pages/PumpManagement";
 import PurchaseInvoice from "@/pages/PurchaseInvoice";
 import PaymentHistory from "@/pages/PaymentHistory";
 import ApprovalPending from "@/pages/ApprovalPending";
+import LoginPage from "@/pages/LoginPage"; // Assuming LoginPage exists
+import SignupPage from "@/pages/SignupPage"; // Assuming SignupPage exists
 
 // Global theme initialization to prevent auto-enabling dark mode on Settings page
 function ThemeBootstrap() {
@@ -112,7 +114,9 @@ function Router() {
       <Route path="/aging-reports" component={AgingReports} />
       <Route path="/settings" component={Settings} />
       <Route path="/admin" component={AdminPanel} />
-      <Route path="/approval-pending" component={ApprovalPending} />
+      <Route path="/approval-pending" component={() => import("@/pages/ApprovalPending")} />
+      <Route path="/login" component={LoginPage} />
+      <Route path="/signup" component={SignupPage} />
       <Route component={NotFound} />
     </Switch>
   );
