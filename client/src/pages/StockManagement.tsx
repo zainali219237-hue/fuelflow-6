@@ -41,6 +41,26 @@ export default function StockManagement() {
     },
   });
 
+  const transferForm = useForm({
+    resolver: zodResolver(insertStockMovementSchema.pick({ 
+      quantity: true 
+    }).extend({
+      sourceTankId: insertStockMovementSchema.shape.tankId,
+      destinationTankId: insertStockMovementSchema.shape.tankId,
+      notes: insertStockMovementSchema.shape.notes,
+    })),
+    defaultValues: {
+      sourceTankId: "",
+      destinationTankId: "",
+      quantity: "",
+      notes: "",
+    },
+  });
+
+  const auditForm = useForm({
+    defaultValues: {},
+  });
+
   // Regular stock movement mutation with success handling
   const createStockMovementMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -104,16 +124,14 @@ export default function StockManagement() {
 
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [auditDialogOpen, setAuditDialogOpen] = useState(false);
-  const [transferForm, setTransferForm] = useState({
-    sourceTankId: "",
-    destinationTankId: "", 
-    quantity: "",
-    remarks: ""
-  });
-  const [auditForm, setAuditForm] = useState<{[tankId: string]: string}>({});
 
   const handleStockTransfer = () => {
-    setTransferForm({ sourceTankId: "", destinationTankId: "", quantity: "", remarks: "" });
+    transferForm.reset({
+      sourceTankId: "",
+      destinationTankId: "",
+      quantity: "",
+      notes: "",
+    });
     setTransferDialogOpen(true);
   };
 
@@ -123,12 +141,12 @@ export default function StockManagement() {
       acc[tank.id] = tank.currentStock || "0";
       return acc;
     }, {} as {[tankId: string]: string});
-    setAuditForm(initialAuditData);
+    auditForm.reset(initialAuditData);
     setAuditDialogOpen(true);
   };
 
   const executeStockTransfer = async () => {
-    const { sourceTankId, destinationTankId, quantity, remarks } = transferForm;
+    const { sourceTankId, destinationTankId, quantity, notes } = transferForm.getValues();
     
     if (!sourceTankId || !destinationTankId || !quantity || parseFloat(quantity) <= 0) {
       toast({
@@ -193,7 +211,7 @@ export default function StockManagement() {
         movementType: "out",
         quantity: quantity,
         unitPrice: "0",
-        remarks: `Transfer OUT to ${destTank.name} - ${remarks}`,
+        notes: `Transfer OUT to ${destTank.name} - ${notes}`,
         referenceType: "transfer",
         referenceId: transferRef
       });
@@ -204,7 +222,7 @@ export default function StockManagement() {
         movementType: "in", 
         quantity: quantity,
         unitPrice: "0",
-        remarks: `Transfer IN from ${sourceTank.name} - ${remarks}`,
+        notes: `Transfer IN from ${sourceTank.name} - ${notes}`,
         referenceType: "transfer",
         referenceId: transferRef
       });
@@ -215,6 +233,7 @@ export default function StockManagement() {
       });
 
       setTransferDialogOpen(false);
+      transferForm.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/tanks", user?.stationId] });
       queryClient.invalidateQueries({ queryKey: ["/api/stock-movements", user?.stationId] });
     } catch (error) {
@@ -227,7 +246,7 @@ export default function StockManagement() {
   };
 
   const executeStockAudit = async () => {
-    const auditEntries = Object.entries(auditForm);
+    const auditEntries = Object.entries(auditForm.getValues());
     let adjustmentsMade = 0;
     const auditRef = `AUD-${Date.now()}`;
 
@@ -247,7 +266,7 @@ export default function StockManagement() {
             movementType: difference > 0 ? "in" : "out",
             quantity: Math.abs(difference).toString(),
             unitPrice: "0",
-            remarks: `Stock audit adjustment - Physical: ${physicalStock}L, System: ${currentStock}L`,
+            notes: `Stock audit adjustment - Physical: ${physicalStock}L, System: ${currentStock}L`,
             referenceType: "audit",
             referenceId: auditRef
           });
@@ -261,6 +280,7 @@ export default function StockManagement() {
       });
 
       setAuditDialogOpen(false);
+      auditForm.reset();
       queryClient.invalidateQueries({ queryKey: ["/api/tanks", user?.stationId] });
       queryClient.invalidateQueries({ queryKey: ["/api/stock-movements", user?.stationId] });
     } catch (error) {
@@ -749,13 +769,13 @@ export default function StockManagement() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Remarks</label>
+              <label className="text-sm font-medium">Notes</label>
               <Input
                 placeholder="Transfer notes (optional)"
-                value={transferForm.remarks}
-                onChange={(e) => setTransferForm(prev => ({...prev, remarks: e.target.value}))}
+                value={transferForm.notes}
+                onChange={(e) => setTransferForm(prev => ({...prev, notes: e.target.value}))}
                 className="mt-2"
-                data-testid="input-transfer-remarks"
+                data-testid="input-transfer-notes"
               />
             </div>
             <div className="flex justify-end space-x-3">

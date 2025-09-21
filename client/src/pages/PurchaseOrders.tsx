@@ -247,7 +247,26 @@ export default function PurchaseOrders() {
           <h3 className="text-2xl font-semibold text-card-foreground">Purchase Orders</h3>
           <p className="text-muted-foreground">Manage fuel procurement and supplier orders</p>
         </div>
-        <Dialog open={editOrderId !== null || open} onOpenChange={(isOpen) => { if (!isOpen) { setEditOrderId(null); setSelectedOrder(null); form.reset(); } else { setOpen(true); } }}>
+        <Dialog open={editOrderId !== null || open} onOpenChange={(isOpen) => { 
+          setOpen(isOpen);
+          if (!isOpen) { 
+            setEditOrderId(null); 
+            setSelectedOrder(null);
+            form.reset({
+              orderNumber: `PO-${Date.now()}`,
+              supplierId: "",
+              orderDate: new Date().toISOString().split('T')[0],
+              expectedDeliveryDate: "",
+              status: "pending",
+              subtotal: "0",
+              taxAmount: "0",
+              totalAmount: "0",
+              notes: "",
+              stationId: user?.stationId || "",
+              userId: user?.id || "",
+            });
+          } 
+        }}>
           <DialogTrigger asChild>
             <Button data-testid="button-new-purchase-order">
               + New Purchase Order
@@ -378,20 +397,6 @@ export default function PurchaseOrders() {
                   <Button type="button" variant="outline" onClick={() => { 
                       setOpen(false); 
                       setEditOrderId(null); 
-                      setSelectedOrder(null); 
-                      form.reset({
-                        orderNumber: `PO-${Date.now()}`,
-                        supplierId: "",
-                        orderDate: new Date().toISOString().split('T')[0],
-                        expectedDeliveryDate: "",
-                        status: "pending",
-                        subtotal: "0",
-                        taxAmount: "0",
-                        totalAmount: "0",
-                        notes: "",
-                        stationId: user?.stationId || "",
-                        userId: user?.id || "",
-                      }); 
                     }} data-testid="button-cancel">
                       Cancel
                     </Button>

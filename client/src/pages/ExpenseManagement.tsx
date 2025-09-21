@@ -46,6 +46,21 @@ export default function ExpenseManagement() {
     },
   });
 
+  const editForm = useForm({
+    resolver: zodResolver(insertExpenseSchema),
+    defaultValues: {
+      stationId: "",
+      userId: "",
+      category: "utilities",
+      description: "",
+      amount: "",
+      receiptNumber: "",
+      paymentMethod: "cash" as const,
+      vendorName: "",
+      expenseDate: "",
+    },
+  });
+
   const createExpenseMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest("POST", "/api/expenses", data);
@@ -58,12 +73,35 @@ export default function ExpenseManagement() {
       });
       setOpen(false);
       form.reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses", user?.stationId] });
     },
     onError: () => {
       toast({
         title: "Error",
         description: "Failed to record expense",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateExpenseMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await apiRequest("PUT", `/api/expenses/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Expense updated",
+        description: "Expense has been updated successfully",
+      });
+      setEditDialogOpen(false);
+      editForm.reset();
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses", user?.stationId] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update expense",
         variant: "destructive",
       });
     },
@@ -77,6 +115,32 @@ export default function ExpenseManagement() {
       userId: user?.id || data.userId,
     };
     createExpenseMutation.mutate(expenseData);
+  };
+
+  const onEditSubmit = (data: any) => {
+    if (!selectedExpense) return;
+    const expenseData = {
+      ...data,
+      stationId: user?.stationId || data.stationId,
+      userId: user?.id || data.userId,
+    };
+    updateExpenseMutation.mutate({ id: selectedExpense.id, data: expenseData });
+  };
+
+  const handleEditExpense = (expense: any) => {
+    setSelectedExpense(expense);
+    editForm.reset({
+      stationId: expense.stationId,
+      userId: expense.userId,
+      category: expense.category,
+      description: expense.description,
+      amount: expense.amount,
+      receiptNumber: expense.receiptNumber || "",
+      paymentMethod: expense.paymentMethod,
+      vendorName: expense.vendorName || "",
+      expenseDate: expense.expenseDate ? new Date(expense.expenseDate).toISOString().split('T')[0] : "",
+    });
+    setEditDialogOpen(true);
   };
 
   const { data: expenses = [], isLoading } = useQuery<Expense[]>({
@@ -310,13 +374,147 @@ export default function ExpenseManagement() {
 
           {/* Edit Expense Dialog */}
           <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Edit Expense</DialogTitle>
               </DialogHeader>
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Edit functionality will be implemented in future updates</p>
-              </div>
+              <Form {...editForm}>
+                <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                  <FormField
+                    control={editForm.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-edit-category">
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="utilities">Utilities</SelectItem>
+                            <SelectItem value="maintenance">Maintenance</SelectItem>
+                            <SelectItem value="salary">Salary</SelectItem>
+                            <SelectItem value="insurance">Insurance</SelectItem>
+                            <SelectItem value="supplies">Supplies</SelectItem>
+                            <SelectItem value="transport">Transport</SelectItem>
+                            <SelectItem value="marketing">Marketing</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={editForm.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter expense description" {...field} data-testid="input-edit-description" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Amount ({currencyConfig.code})</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="0.00" step="0.01" {...field} data-testid="input-edit-amount" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="expenseDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} data-testid="input-edit-date" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="vendorName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Vendor</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Vendor name" {...field} data-testid="input-edit-vendor" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="receiptNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Receipt Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Receipt/Invoice number" {...field} data-testid="input-edit-receipt" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={editForm.control}
+                    name="paymentMethod"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Payment Method</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-edit-payment-method">
+                              <SelectValue placeholder="Select payment method" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="cash">Cash</SelectItem>
+                            <SelectItem value="card">Card</SelectItem>
+                            <SelectItem value="credit">Credit/UPI</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)} data-testid="button-cancel-edit">
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={updateExpenseMutation.isPending} data-testid="button-update-expense">
+                      {updateExpenseMutation.isPending ? "Updating..." : "Update Expense"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
             </DialogContent>
           </Dialog>
 
@@ -595,10 +793,7 @@ export default function ExpenseManagement() {
                           <Eye className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => {
-                            setSelectedExpense(expense);
-                            setEditDialogOpen(true);
-                          }}
+                          onClick={() => handleEditExpense(expense)}
                           className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
                           data-testid={`button-edit-expense-${index}`}
                           title="Edit expense"
