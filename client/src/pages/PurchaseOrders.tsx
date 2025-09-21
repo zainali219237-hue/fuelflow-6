@@ -69,14 +69,21 @@ export default function PurchaseOrders() {
   const createPurchaseOrderMutation = useMutation({
     mutationFn: async (data: any) => {
       const processedData = {
-        ...data,
-        stationId: user?.stationId || data.stationId,
-        userId: user?.id || data.userId,
-        expectedDeliveryDate: data.expectedDeliveryDate === "" ? undefined : data.expectedDeliveryDate,
-        currencyCode: currencyConfig.code,
+        order: {
+          ...data,
+          stationId: user?.stationId || data.stationId,
+          userId: user?.id || data.userId,
+          orderDate: data.orderDate,
+          expectedDeliveryDate: data.expectedDeliveryDate === "" ? null : data.expectedDeliveryDate,
+          currencyCode: currencyConfig.code,
+        },
+        items: [] // Empty items for now, can be added later
       };
       const response = await apiRequest("POST", "/api/purchase-orders", processedData);
-      if (!response.ok) throw new Error('Failed to create purchase order');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create purchase order');
+      }
       return response.json();
     },
     onSuccess: () => {

@@ -520,18 +520,132 @@ export default function ExpenseManagement() {
 
           {/* Receipt Dialog */}
           <Dialog open={receiptDialogOpen} onOpenChange={setReceiptDialogOpen}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Expense Receipt</DialogTitle>
+                <DialogTitle className="flex items-center justify-between">
+                  Expense Receipt
+                  <div className="flex space-x-2">
+                    <Button 
+                      size="sm" 
+                      onClick={() => {
+                        if (selectedExpense) {
+                          const printWindow = window.open('', '_blank');
+                          if (!printWindow) return;
+
+                          const htmlContent = `
+                            <!DOCTYPE html>
+                            <html>
+                              <head>
+                                <title>Expense Receipt - ${selectedExpense.receiptNumber || 'N/A'}</title>
+                                <style>
+                                  @page { margin: 0.5in; size: A4; }
+                                  body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
+                                  .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+                                  .receipt-info { background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+                                  .amount { font-size: 24px; font-weight: bold; color: #dc2626; text-align: center; margin: 20px 0; }
+                                </style>
+                              </head>
+                              <body>
+                                <div class="header">
+                                  <h1>FuelFlow Station</h1>
+                                  <p>Expense Receipt</p>
+                                  <p>Receipt #${selectedExpense.receiptNumber || 'N/A'}</p>
+                                </div>
+                                
+                                <div class="receipt-info">
+                                  <h3>Expense Details</h3>
+                                  <p><strong>Description:</strong> ${selectedExpense.description}</p>
+                                  <p><strong>Category:</strong> ${selectedExpense.category}</p>
+                                  <p><strong>Vendor:</strong> ${selectedExpense.vendorName || 'N/A'}</p>
+                                  <p><strong>Date:</strong> ${selectedExpense.expenseDate ? new Date(selectedExpense.expenseDate).toLocaleDateString() : 'N/A'}</p>
+                                  <p><strong>Payment Method:</strong> ${selectedExpense.paymentMethod}</p>
+                                </div>
+
+                                <div class="amount">
+                                  Total Amount: ${formatCurrency(parseFloat(selectedExpense.amount || '0'))}
+                                </div>
+                              </body>
+                            </html>
+                          `;
+
+                          printWindow.document.write(htmlContent);
+                          printWindow.document.close();
+                          printWindow.onload = () => {
+                            setTimeout(() => {
+                              printWindow.print();
+                              printWindow.close();
+                            }, 500);
+                          };
+                        }
+                      }}
+                    >
+                      Print
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        if (selectedExpense) {
+                          const dataStr = JSON.stringify({
+                            receiptNumber: selectedExpense.receiptNumber || 'N/A',
+                            description: selectedExpense.description,
+                            amount: formatCurrency(parseFloat(selectedExpense.amount || '0')),
+                            date: selectedExpense.expenseDate ? new Date(selectedExpense.expenseDate).toLocaleDateString() : 'N/A',
+                            category: selectedExpense.category,
+                            vendor: selectedExpense.vendorName || 'N/A'
+                          }, null, 2);
+                          const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                          const url = URL.createObjectURL(dataBlob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = `expense-receipt-${selectedExpense.receiptNumber || 'N/A'}.json`;
+                          link.click();
+                        }
+                      }}
+                    >
+                      Download
+                    </Button>
+                  </div>
+                </DialogTitle>
               </DialogHeader>
               {selectedExpense && (
                 <div className="space-y-4">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                    <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium">Receipt #{selectedExpense.receiptNumber || 'N/A'}</h3>
-                    <p className="text-sm text-muted-foreground mt-2">{selectedExpense.description}</p>
-                    <p className="text-lg font-semibold mt-2">{formatCurrency(parseFloat(selectedExpense.amount || '0'))}</p>
-                    <p className="text-sm text-muted-foreground">{selectedExpense.expenseDate ? new Date(selectedExpense.expenseDate).toLocaleDateString() : 'N/A'}</p>
+                  <div className="border rounded-lg p-6 bg-card">
+                    <div className="text-center mb-6">
+                      <h2 className="text-xl font-bold">FuelFlow Station</h2>
+                      <p className="text-muted-foreground">Expense Receipt</p>
+                      <p className="font-medium">Receipt #{selectedExpense.receiptNumber || 'N/A'}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Description</p>
+                        <p className="font-medium">{selectedExpense.description}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Category</p>
+                        <p className="font-medium">{selectedExpense.category}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Vendor</p>
+                        <p className="font-medium">{selectedExpense.vendorName || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Date</p>
+                        <p className="font-medium">{selectedExpense.expenseDate ? new Date(selectedExpense.expenseDate).toLocaleDateString() : 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Payment Method</p>
+                        <p className="font-medium">{selectedExpense.paymentMethod}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="text-center border-t pt-4">
+                      <p className="text-2xl font-bold text-primary">
+                        {formatCurrency(parseFloat(selectedExpense.amount || '0'))}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Total Amount</p>
+                    </div>
                   </div>
                 </div>
               )}

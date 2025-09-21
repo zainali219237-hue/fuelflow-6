@@ -205,10 +205,15 @@ export default function PumpManagement() {
     const closing = parseFloat(data.closingReading);
     const totalSale = closing - opening;
 
+    // Get the selected pump to extract productId
+    const selectedPump = pumps.find(p => p.id === data.pumpId);
+    
     createReadingMutation.mutate({
       ...data,
+      productId: selectedPump?.productId || data.productId,
       totalSale: totalSale.toString(),
       stationId: user?.stationId,
+      userId: user?.id,
     });
   };
 

@@ -378,8 +378,8 @@ export default function Settings() {
               <Label htmlFor="station-name" className="text-sm font-medium">Station Name</Label>
               <Input
                 id="station-name"
-                value={stationSettings?.stationName || ''}
-                onChange={(e) => updateStationSettings?.({ stationName: e.target.value })}
+                value={stationSettings?.companyName || ''}
+                onChange={(e) => updateStationSettings?.({ companyName: e.target.value })}
                 data-testid="input-station-name"
                 className="mt-2"
               />
@@ -389,8 +389,8 @@ export default function Settings() {
               <Label htmlFor="contact-number" className="text-sm font-medium">Contact Number</Label>
               <Input
                 id="contact-number"
-                value={stationSettings?.contactNumber || ''}
-                onChange={(e) => updateStationSettings?.({ contactNumber: e.target.value })}
+                value={stationSettings?.companyPhone || ''}
+                onChange={(e) => updateStationSettings?.({ companyPhone: e.target.value })}
                 data-testid="input-contact-number"
                 className="mt-2"
               />
@@ -401,8 +401,8 @@ export default function Settings() {
               <Input
                 id="email"
                 type="email"
-                value={stationSettings?.email || ''}
-                onChange={(e) => updateStationSettings?.({ email: e.target.value })}
+                value={stationSettings?.companyEmail || ''}
+                onChange={(e) => updateStationSettings?.({ companyEmail: e.target.value })}
                 data-testid="input-email"
                 className="mt-2"
               />
@@ -413,7 +413,12 @@ export default function Settings() {
               <Input
                 id="gst-number"
                 value={stationSettings?.gstNumber || ''}
-                onChange={(e) => updateStationSettings?.({ gstNumber: e.target.value })}
+                onChange={(e) => {
+                  // Update station settings via API
+                  if (user?.stationId) {
+                    updateStationSettings?.({ gstNumber: e.target.value });
+                  }
+                }}
                 data-testid="input-gst-number"
                 className="mt-2"
               />
@@ -423,8 +428,8 @@ export default function Settings() {
               <Label htmlFor="address" className="text-sm font-medium">Address</Label>
               <Input
                 id="address"
-                value={stationSettings?.address || ''}
-                onChange={(e) => updateStationSettings?.({ address: e.target.value })}
+                value={stationSettings?.companyAddress || ''}
+                onChange={(e) => updateStationSettings?.({ companyAddress: e.target.value })}
                 data-testid="input-address"
                 className="mt-2"
               />

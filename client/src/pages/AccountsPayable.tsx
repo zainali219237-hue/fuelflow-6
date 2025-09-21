@@ -18,12 +18,14 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
 import { Calendar, Eye, CreditCard, FileText, History } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function AccountsPayable() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { formatCurrency, currencyConfig } = useCurrency();
+  const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
@@ -154,6 +156,8 @@ export default function AccountsPayable() {
   };
 
   const handleViewHistory = (supplier: Supplier) => {
+    navigate(`/payment-history/${supplier.id}/supplier`);
+    return; // Remove the print window code below
     const printWindow = window.open(`/payment-history/${supplier.id}/supplier`, '_blank');
     if (!printWindow) return;
 
@@ -254,25 +258,17 @@ export default function AccountsPayable() {
     queryKey: ["/api/suppliers"],
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
+  const { data: customers = [] } = useQuery<any[]>({
     queryKey: ["/api/customers"],
   });
 
-  // Combine suppliers and customers for payment forms
-  const allPayees = [
-    ...suppliers.map(s => ({ 
-      id: s.id, 
-      name: s.name, 
-      type: 'supplier' as const,
-      outstandingAmount: s.outstandingAmount || '0'
-    })),
-    ...customers.map(c => ({ 
-      id: c.id, 
-      name: c.name, 
-      type: 'customer' as const,
-      outstandingAmount: c.outstandingAmount || '0'
-    }))
-  ];
+  // For payables, we only need suppliers
+  const allPayees = suppliers.map(s => ({ 
+    id: s.id, 
+    name: s.name, 
+    type: 'supplier' as const,
+    outstandingAmount: s.outstandingAmount || '0'
+  }));
 
   const filteredSuppliers = suppliers.filter((supplier: Supplier) => {
     const matchesSearch = supplier.name.toLowerCase().includes(searchTerm.toLowerCase());

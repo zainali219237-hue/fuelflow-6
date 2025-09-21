@@ -18,12 +18,14 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
 import { Trash2, Smartphone, Receipt, BarChart3, Eye, CreditCard, FileText, TrendingUp, History } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function AccountsReceivable() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { formatCurrency, currencyConfig } = useCurrency();
+  const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [agingFilter, setAgingFilter] = useState("all");
   const [open, setOpen] = useState(false);
@@ -154,8 +156,8 @@ export default function AccountsReceivable() {
   };
 
   const handleGenerateStatement = (customer: Customer) => {
-    window.open(`/payment-history/${customer.id}/customer`, '_blank');
-      };
+    navigate(`/payment-history/${customer.id}/customer`);
+  };
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -230,11 +232,14 @@ export default function AccountsReceivable() {
                         <FormLabel>Customer *</FormLabel>
                         <FormControl>
                           <Combobox
-                            options={customers.map(c => ({ value: c.id, label: `${c.name} (${formatCurrency(parseFloat(c.outstandingAmount || '0'))} outstanding)` }))}
+                            options={customers.filter(c => parseFloat(c.outstandingAmount || '0') > 0).map(c => ({ 
+                              value: c.id, 
+                              label: `${c.name} (${formatCurrency(parseFloat(c.outstandingAmount || '0'))} outstanding)` 
+                            }))}
                             value={field.value}
                             onValueChange={field.onChange}
                             placeholder="Select customer"
-                            emptyMessage="No customers found"
+                            emptyMessage="No customers with outstanding balance found"
                             data-testid="select-customer"
                           />
                         </FormControl>

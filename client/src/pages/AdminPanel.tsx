@@ -176,6 +176,32 @@ export default function AdminPanel() {
     }
   };
 
+  const handleApproveUser = async (userId: string) => {
+    try {
+      const response = await apiRequest('PUT', `/api/admin/users/${userId}`, { isActive: true });
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+        toast({ title: "User approved successfully" });
+      }
+    } catch (error) {
+      toast({ title: "Failed to approve user", variant: "destructive" });
+    }
+  };
+
+  const handleRejectUser = async (userId: string) => {
+    try {
+      const response = await apiRequest('PUT', `/api/admin/users/${userId}`, { isActive: false });
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
+        toast({ title: "User access revoked" });
+      }
+    } catch (error) {
+      toast({ title: "Failed to update user status", variant: "destructive" });
+    }
+  };
+
   const handleCreateStation = async () => {
     try {
       const response = await apiRequest('POST', '/api/stations', stationForm);
@@ -380,6 +406,26 @@ export default function AdminPanel() {
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
+                        {!user.isActive && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleApproveUser(user.id)}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            Approve
+                          </Button>
+                        )}
+                        {user.isActive && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRejectUser(user.id)}
+                            className="text-orange-600 border-orange-600 hover:bg-orange-50"
+                          >
+                            Revoke
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
