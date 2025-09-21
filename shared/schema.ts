@@ -402,7 +402,9 @@ export const insertStockMovementSchema = createInsertSchema(stockMovements);
 export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({ id: true, createdAt: true });
 export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPumpSchema = createInsertSchema(pumps).omit({ id: true, createdAt: true });
-export const insertPumpReadingSchema = createInsertSchema(pumpReadings).omit({ id: true, createdAt: true });
+export const insertPumpReadingSchema = createInsertSchema(pumpReadings).omit({ id: true, createdAt: true }).extend({
+  readingDate: z.coerce.date(),
+});
 
 // Type exports
 export type User = typeof users.$inferSelect;

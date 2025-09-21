@@ -17,6 +17,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Fuel, Settings, Eye, Edit, Trash2, Plus } from "lucide-react";
 import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
+import { PrintActions } from "@/components/ui/print-actions";
 
 const pumpReadingSchema = z.object({
   pumpId: z.string().min(1, "Pump is required"),
@@ -66,8 +67,11 @@ export default function PumpManagement() {
   const [pumpDialogOpen, setPumpDialogOpen] = useState(false);
   const [readingDialogOpen, setReadingDialogOpen] = useState(false);
   const [editPumpId, setEditPumpId] = useState<string | null>(null);
+  const [editReadingId, setEditReadingId] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [readingDeleteConfirmOpen, setReadingDeleteConfirmOpen] = useState(false);
   const [pumpToDelete, setPumpToDelete] = useState<Pump | null>(null);
+  const [readingToDelete, setReadingToDelete] = useState<PumpReading | null>(null);
 
   const pumpForm = useForm({
     resolver: zodResolver(pumpConfigSchema),
@@ -203,7 +207,7 @@ export default function PumpManagement() {
         totalSale: totalSale.toString(),
         shiftNumber: data.shiftNumber,
         operatorName: data.operatorName,
-        readingDate: data.readingDate,
+        readingDate: new Date(data.readingDate).toISOString(),
         stationId: user.stationId,
         userId: user.id,
       };
@@ -300,6 +304,54 @@ export default function PumpManagement() {
   const confirmDeletePump = () => {
     if (pumpToDelete) {
       deletePumpMutation.mutate(pumpToDelete.id);
+    }
+  };
+
+  // Reading operations
+  const deleteReadingMutation = useMutation({
+    mutationFn: async (readingId: string) => {
+      const response = await apiRequest("DELETE", `/api/pump-readings/${readingId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Reading deleted",
+        description: "Pump reading has been deleted successfully",
+      });
+      setReadingDeleteConfirmOpen(false);
+      setReadingToDelete(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/pump-readings"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete pump reading",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditReading = (reading: PumpReading) => {
+    setEditReadingId(reading.id);
+    readingForm.reset({
+      pumpId: reading.pumpId,
+      openingReading: reading.openingReading,
+      closingReading: reading.closingReading,
+      shiftNumber: reading.shiftNumber,
+      operatorName: reading.operatorName,
+      readingDate: new Date(reading.readingDate).toISOString().split('T')[0],
+    });
+    setReadingDialogOpen(true);
+  };
+
+  const handleDeleteReading = (reading: PumpReading) => {
+    setReadingToDelete(reading);
+    setReadingDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteReading = () => {
+    if (readingToDelete) {
+      deleteReadingMutation.mutate(readingToDelete.id);
     }
   };
 
@@ -653,6 +705,7 @@ export default function PumpManagement() {
                   <th className="text-right p-3 font-medium">Opening</th>
                   <th className="text-right p-3 font-medium">Closing</th>
                   <th className="text-right p-3 font-medium">Sale (L)</th>
+                  <th className="text-center p-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -671,6 +724,35 @@ export default function PumpManagement() {
                     <td className="p-3 text-right font-medium text-green-600">
                       {parseFloat(reading.totalSale).toFixed(3)}
                     </td>
+                    <td className="p-3">
+                      <div className="flex items-center justify-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditReading(reading)}
+                          className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50"
+                          data-testid={`button-edit-reading-${index}`}
+                          title="Edit Reading"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <PrintActions
+                          type="pumpReading"
+                          id={reading.id}
+                          compact
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteReading(reading)}
+                          className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50"
+                          data-testid={`button-delete-reading-${index}`}
+                          title="Delete Reading"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -688,6 +770,17 @@ export default function PumpManagement() {
         description="Are you sure you want to delete this pump? This action cannot be undone and will remove all pump data and readings."
         itemName={pumpToDelete?.name || "pump"}
         isLoading={deletePumpMutation.isPending}
+      />
+
+      {/* Reading Delete Confirmation Dialog */}
+      <DeleteConfirmation
+        isOpen={readingDeleteConfirmOpen}
+        onClose={() => setReadingDeleteConfirmOpen(false)}
+        onConfirm={confirmDeleteReading}
+        title="Delete Pump Reading"
+        description="Are you sure you want to delete this pump reading? This action cannot be undone."
+        itemName={readingToDelete ? `${readingToDelete.operatorName}'s reading` : "reading"}
+        isLoading={deleteReadingMutation.isPending}
       />
     </div>
   );
