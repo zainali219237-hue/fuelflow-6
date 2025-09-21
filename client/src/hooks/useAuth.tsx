@@ -16,8 +16,9 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  userStatus: 'pending' | 'verified' | null;
   isAuthenticated: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<void>;
   logout: () => void;
   isLoading: boolean;
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [userStatus, setUserStatus] = useState<'pending' | 'verified' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -98,16 +100,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const login = async (username: string, password: string) => {
+  const login = async (username: string, password: string): Promise<boolean> => {
     try {
       const response = await apiRequest("POST", "/api/auth/login", { username, password });
       const data = await response.json();
       
+      if (!response.ok) {
+        if (data.message?.includes("pending") || data.message?.includes("approval")) {
+          setUserStatus('pending');
+          throw new Error(data.message);
+        }
+        throw new Error(data.message || "Login failed");
+      }
+      
       setUser(data.user);
+      setUserStatus(data.user.isActive === false ? 'pending' : 'verified');
       localStorage.setItem("fuelflow_token", data.token);
       localStorage.setItem("fuelflow_user", JSON.stringify(data.user));
+      return true;
     } catch (error) {
-      throw new Error("Login failed");
+      console.error("Login error:", error);
+      throw error;
     }
   };
 
@@ -138,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, loginWithGoogle, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, userStatus, isAuthenticated, login, loginWithGoogle, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

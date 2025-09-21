@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Import useEffect
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { isFirebaseConfigured } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Fuel } from "lucide-react";
 import SignupForm from "./SignupForm";
-import { useRouter } from "next/router"; // Assuming you are using Next.js for routing
+import { useLocation } from "wouter"; // Assuming you are using Wouter for routing
 
 export default function LoginForm() {
   const [showSignup, setShowSignup] = useState(false);
@@ -17,18 +17,18 @@ export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const { login, loginWithGoogle, user, userStatus } = useAuth(); // Assuming useAuth provides user and userStatus
   const { toast } = useToast();
-  const router = useRouter();
+  const setLocation = useLocation()[1]; // Get the setLocation function from Wouter
 
   // Effect to handle redirection based on user status
-  useState(() => {
+  useEffect(() => { // Correctly use useEffect
     if (user) {
       if (userStatus === "pending") {
-        router.push("/approval-pending"); // Redirect to pending approval page
+        setLocation("/approval-pending"); // Redirect to pending approval page
       } else if (userStatus === "verified") {
-        router.push("/dashboard"); // Redirect to dashboard if verified
+        setLocation("/dashboard"); // Redirect to dashboard if verified
       }
     }
-  }, [user, userStatus, router]);
+  }, [user, userStatus, setLocation]); // Include setLocation in dependencies
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +53,7 @@ export default function LoginForm() {
           description: "Your account is waiting for administrator approval. Please contact your administrator.",
           variant: "destructive",
         });
-        router.push("/approval-pending"); // Redirect to pending approval page
+        setLocation("/approval-pending"); // Redirect to pending approval page
       } else {
         toast({
           title: "Login failed",
@@ -78,7 +78,7 @@ export default function LoginForm() {
           description: "Your account is waiting for administrator approval. Please contact your administrator.",
           variant: "destructive",
         });
-        router.push("/approval-pending"); // Redirect to pending approval page
+        setLocation("/approval-pending"); // Redirect to pending approval page
       } else {
         toast({
           title: "Google sign-in failed",
@@ -95,13 +95,13 @@ export default function LoginForm() {
     // This might cause a redirect loop if not handled carefully.
     // The useEffect should be sufficient, but this is an extra safeguard.
     // Consider removing this if useEffect handles it perfectly.
-    // router.push('/dashboard');
+    // setLocation('/dashboard');
     // return null; // Or a loading spinner
   }
 
   // If user is pending approval, show the pending page
   if (userStatus === "pending") {
-    router.push("/approval-pending");
+    setLocation("/approval-pending");
     return null; // Render nothing while redirecting
   }
 

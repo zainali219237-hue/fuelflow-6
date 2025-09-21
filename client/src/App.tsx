@@ -33,6 +33,7 @@ import { StationProvider } from "./contexts/StationContext";
 import PumpManagement from "@/pages/PumpManagement";
 import PurchaseInvoice from "@/pages/PurchaseInvoice";
 import PaymentHistory from "@/pages/PaymentHistory";
+import ApprovalPending from "@/pages/ApprovalPending";
 
 // Global theme initialization to prevent auto-enabling dark mode on Settings page
 function ThemeBootstrap() {
@@ -111,6 +112,7 @@ function Router() {
       <Route path="/aging-reports" component={AgingReports} />
       <Route path="/settings" component={Settings} />
       <Route path="/admin" component={AdminPanel} />
+      <Route path="/approval-pending" component={ApprovalPending} />
       <Route component={NotFound} />
     </Switch>
   );
