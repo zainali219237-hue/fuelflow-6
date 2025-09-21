@@ -36,8 +36,8 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     return <LoginForm />;
   }
 
-  // If user exists but not approved, show approval pending
-  if (user && !user.isActive && !isPublicRoute) {
+  // If user exists but not approved (and not admin), show approval pending
+  if (user && !user.isActive && user.role !== 'admin' && !isPublicRoute) {
     return <ApprovalPending userEmail={user.username} userName={user.fullName} />;
   }
 

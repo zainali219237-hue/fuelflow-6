@@ -114,7 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       setUser(data.user);
-      setUserStatus(data.user.isActive === false ? 'pending' : 'verified');
+      // Admin users are always verified, others depend on isActive status
+      setUserStatus(data.user.role === 'admin' || data.user.isActive ? 'verified' : 'pending');
       localStorage.setItem("fuelflow_token", data.token);
       localStorage.setItem("fuelflow_user", JSON.stringify(data.user));
       return true;

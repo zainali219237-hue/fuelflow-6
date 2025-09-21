@@ -52,13 +52,23 @@ export default function SignupForm({ onBack }: SignupFormProps) {
 
       if (response.ok) {
         const result = await response.json();
-        setShowApprovalMessage(true);
-        toast({
-          title: "Account created",
-          description: "Your account has been created successfully. Please wait for admin approval.",
-        });
-        // Instead of navigating to login, redirect to approval pending page
-        navigate("/approval-pending"); 
+        
+        // Check if it's an admin account (automatically active)
+        if (formData.role === 'admin') {
+          toast({
+            title: "Admin account created",
+            description: "Your admin account has been created successfully. You can now login.",
+          });
+          onBack(); // Go back to login form
+        } else {
+          setShowApprovalMessage(true);
+          toast({
+            title: "Account created",
+            description: "Your account has been created successfully. Please wait for admin approval.",
+          });
+          // Instead of navigating to login, redirect to approval pending page
+          navigate("/approval-pending");
+        } 
       } else {
         const error = await response.json();
         throw new Error(error.message || "Failed to create account");

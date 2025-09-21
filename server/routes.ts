@@ -82,19 +82,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Username already exists" });
       }
       
+      // Admin users are automatically active, others need approval
+      const isActive = validatedData.role === 'admin';
+      
       const userData = { 
         ...validatedData, 
         password: hashedPassword,
-        isActive: false // New users need approval
+        isActive
       };
       const user = await storage.createUser(userData);
       
       // Remove password from response
       const { password, ...safeUser } = user;
-      res.status(201).json({ 
-        user: safeUser, 
-        message: "Account created successfully. Please wait for admin approval." 
-      });
+      
+      if (isActive) {
+        res.status(201).json({ 
+          user: safeUser, 
+          message: "Admin account created successfully. You can now login." 
+        });
+      } else {
+        res.status(201).json({ 
+          user: safeUser, 
+          message: "Account created successfully. Please wait for admin approval." 
+        });
+      }
     } catch (error) {
       console.error('Signup error:', error);
       res.status(400).json({ message: "Invalid user data" });
@@ -111,7 +122,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
-      if (!user.isActive) {
+      // Admin users can always login, others need approval
+      if (!user.isActive && user.role !== 'admin') {
         return res.status(401).json({ message: "Account pending approval. Please contact administrator." });
       }
 
