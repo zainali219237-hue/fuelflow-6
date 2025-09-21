@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -68,7 +67,7 @@ export default function PointOfSale() {
 
   // Find walk-in customer and set as default
   const walkInCustomer = customers.find(c => c.type === 'walk-in') || customers[0];
-  
+
   // Set default customer if form is empty
   React.useEffect(() => {
     if (walkInCustomer && !form.getValues('customerId')) {
@@ -78,7 +77,7 @@ export default function PointOfSale() {
 
   // Get product categories
   const categories = [...new Set(products.map(p => p.category))];
-  
+
   // Filter products
   const filteredProducts = products.filter(product => {
     const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
@@ -289,7 +288,7 @@ export default function PointOfSale() {
                 {filteredProducts.map((product) => {
                   const productTanks = getProductTanks(product.id);
                   const isFuel = product.category === 'fuel';
-                  
+
                   return (
                     <Card key={product.id} className="hover:shadow-md transition-shadow border">
                       <CardContent className="p-3">
@@ -301,7 +300,7 @@ export default function PointOfSale() {
                           <p className="text-sm font-semibold text-primary">
                             {formatCurrency(parseFloat(product.currentPrice))} / {product.unit}
                           </p>
-                          
+
                           {isFuel && productTanks.length > 0 ? (
                             <div className="space-y-1">
                               <p className="text-xs text-muted-foreground">Available Tanks:</p>
@@ -496,7 +495,7 @@ export default function PointOfSale() {
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
-                      
+
                       <div className="grid grid-cols-3 gap-2 items-center">
                         {/* Quantity Controls */}
                         <div className="flex items-center">
@@ -527,7 +526,7 @@ export default function PointOfSale() {
                             <Plus className="w-3 h-3" />
                           </Button>
                         </div>
-                        
+
                         {/* Unit Price */}
                         <Input
                           type="number"
@@ -537,7 +536,7 @@ export default function PointOfSale() {
                           min="0"
                           step="0.01"
                         />
-                        
+
                         {/* Total Price */}
                         <div className="text-right">
                           <p className="text-sm font-medium">{formatCurrency(item.totalPrice)}</p>
@@ -551,7 +550,7 @@ export default function PointOfSale() {
               {cart.length > 0 && (
                 <>
                   <Separator className="my-3" />
-                  
+
                   {/* Totals */}
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">

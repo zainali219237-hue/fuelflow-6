@@ -15,6 +15,7 @@ import {
   Image, 
   ChevronDown 
 } from "lucide-react";
+import { generatePrintTemplate, globalPrintDocument, downloadAsPDF, downloadAsPNG } from "@/lib/printUtils";
 
 type PrintType = 'invoice' | 'receipt' | 'statement' | 'expense' | 'purchaseOrder' | 'pumpReading';
 type PrintFormat = 'pdf' | 'png';
@@ -38,6 +39,25 @@ interface PrintActionsProps {
   compact?: boolean;
 }
 
+// Helper function to get API endpoint based on document type
+const getApiEndpoint = (type: PrintType) => {
+  switch (type) {
+    case 'invoice':
+    case 'receipt':
+      return 'sales';
+    case 'purchaseOrder':
+      return 'purchase-orders';
+    case 'expense':
+      return 'expenses';
+    case 'statement':
+      return 'payments';
+    case 'pumpReading':
+      return 'pump-readings';
+    default:
+      return 'sales';
+  }
+};
+
 export function PrintActions({ 
   type, 
   id, 
@@ -54,16 +74,43 @@ export function PrintActions({
   // Get current URL for return navigation
   const currentUrl = returnUrl || window.location.pathname + window.location.search;
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     setIsLoading(true);
-    const printUrl = `/print?type=${type}&id=${id}&mode=print&return=${encodeURIComponent(currentUrl)}`;
-    navigate(printUrl);
+    try {
+      // Fetch the data for the document
+      const response = await fetch(`/api/${getApiEndpoint(type)}/${id}`);
+      if (!response.ok) throw new Error('Failed to fetch document data');
+      
+      const data = await response.json();
+      const template = generatePrintTemplate(data, type);
+      globalPrintDocument(template);
+    } catch (error) {
+      console.error('Print failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDownload = (format: PrintFormat) => {
+  const handleDownload = async (format: PrintFormat) => {
     setIsLoading(true);
-    const downloadUrl = `/print?type=${type}&id=${id}&mode=download&format=${format}&return=${encodeURIComponent(currentUrl)}`;
-    navigate(downloadUrl);
+    try {
+      // Fetch the data for the document
+      const response = await fetch(`/api/${getApiEndpoint(type)}/${id}`);
+      if (!response.ok) throw new Error('Failed to fetch document data');
+      
+      const data = await response.json();
+      const template = generatePrintTemplate(data, type);
+      
+      if (format === 'pdf') {
+        downloadAsPDF(template);
+      } else {
+        await downloadAsPNG(template);
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Get document type display name

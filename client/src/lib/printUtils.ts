@@ -4,16 +4,26 @@ export interface PrintTemplate {
   filename: string;
 }
 
-// Global print function that opens in new tab consistently
+// Global print function that opens in current tab
 export const globalPrintDocument = (template: PrintTemplate) => {
-  const printWindow = window.open('', '_blank', 'width=800,height=600');
-  if (!printWindow) {
-    alert('Please allow popups to print documents');
+  // Create a hidden iframe for printing
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'absolute';
+  iframe.style.left = '-9999px';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = 'none';
+  
+  document.body.appendChild(iframe);
+  
+  const doc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!doc) {
+    document.body.removeChild(iframe);
     return;
   }
 
-  printWindow.document.open();
-  printWindow.document.write(`
+  doc.open();
+  doc.write(`
     <!DOCTYPE html>
     <html>
       <head>
@@ -36,21 +46,23 @@ export const globalPrintDocument = (template: PrintTemplate) => {
       </head>
       <body>
         ${template.content}
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-            }, 500);
-          };
-
-          window.onafterprint = function() {
-            window.close();
-          };
-        </script>
       </body>
     </html>
   `);
-  printWindow.document.close();
+  doc.close();
+
+  // Wait for content to load then print
+  iframe.onload = () => {
+    setTimeout(() => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      
+      // Clean up after printing
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 500);
+  };
 };
 
 export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | 'statement' | 'expense' | 'purchaseOrder' | 'pumpReading'): PrintTemplate => {
