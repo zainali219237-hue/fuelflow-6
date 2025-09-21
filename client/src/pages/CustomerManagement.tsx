@@ -547,40 +547,48 @@ export default function CustomerManagement() {
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex items-center justify-center space-x-2">
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleViewCustomer(customer)}
-                            className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
+                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                             data-testid={`button-view-customer-${index}`}
                             title="View Details"
                           >
                             <Eye className="w-4 h-4" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleEditCustomer(customer)}
-                            className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
+                            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50"
                             data-testid={`button-edit-customer-${index}`}
                             title="Edit Customer"
                           >
                             <Edit className="w-4 h-4" />
-                          </button>
+                          </Button>
                           {customer.type === 'credit' && parseFloat(customer.outstandingAmount || '0') > 0 && (
-                            <button
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handlePaymentCustomer(customer)}
-                              className="text-orange-600 hover:text-orange-800 p-1 hover:bg-orange-50 rounded"
+                              className="p-2 text-orange-600 hover:text-orange-800 hover:bg-orange-50"
                               data-testid={`button-payment-customer-${index}`}
                               title="Record Payment"
                             >
                               <CreditCard className="w-4 h-4" />
-                            </button>
+                            </Button>
                           )}
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleDeleteCustomer(customer)}
-                            className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
+                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50"
                             data-testid={`button-delete-customer-${index}`}
                             title="Delete Customer"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </button>
+                          </Button>
                         </div>
                     </td>
                   </tr>

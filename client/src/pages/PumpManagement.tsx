@@ -563,20 +563,26 @@ export default function PumpManagement() {
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex items-center justify-center space-x-2">
-                        <button 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleEditPump(pump)}
-                          className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
+                          className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50"
+                          data-testid={`button-edit-pump-${index}`}
                           title="Edit Pump"
                         >
                           <Edit className="w-4 h-4" />
-                        </button>
-                        <button 
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleDeletePump(pump)}
-                          className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
+                          className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50"
+                          data-testid={`button-delete-pump-${index}`}
                           title="Delete Pump"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>

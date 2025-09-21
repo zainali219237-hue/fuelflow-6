@@ -781,36 +781,42 @@ export default function ExpenseManagement() {
                     <td className="p-3 text-center text-sm">{expense.receiptNumber || 'N/A'}</td>
                     <td className="p-3 text-center">
                       <div className="flex items-center justify-center space-x-2">
-                        <button 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => {
                             setSelectedExpense(expense);
                             setViewDialogOpen(true);
                           }}
-                          className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
+                          className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                           data-testid={`button-view-expense-${index}`}
                           title="View expense details"
                         >
                           <Eye className="w-4 h-4" />
-                        </button>
-                        <button 
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleEditExpense(expense)}
-                          className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
+                          className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50"
                           data-testid={`button-edit-expense-${index}`}
                           title="Edit expense"
                         >
                           <Edit className="w-4 h-4" />
-                        </button>
-                        <button 
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => {
                             setSelectedExpense(expense);
                             setReceiptDialogOpen(true);
                           }}
-                          className="text-purple-600 hover:text-purple-800 p-1 hover:bg-purple-50 rounded"
+                          className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50"
                           data-testid={`button-receipt-${index}`}
                           title="View receipt"
                         >
                           <FileText className="w-4 h-4" />
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>

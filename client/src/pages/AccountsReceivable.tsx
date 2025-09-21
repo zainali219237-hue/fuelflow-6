@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
-import { Trash2, Smartphone, Receipt, BarChart3, Eye, DollarSign, FileText, TrendingUp, History } from "lucide-react";
+import { Trash2, Smartphone, Receipt, BarChart3, Eye, CreditCard, FileText, TrendingUp, History } from "lucide-react";
 
 export default function AccountsReceivable() {
   const { user } = useAuth();
@@ -445,8 +445,15 @@ export default function AccountsReceivable() {
             </DialogContent>
           </Dialog>
 
-          <Button variant="outline" data-testid="button-aging-report">
-            📊 Aging Report
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="p-2" 
+            data-testid="button-aging-report" 
+            title="View Aging Report"
+          >
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Aging Report
           </Button>
         </div>
       </div>
@@ -578,30 +585,36 @@ export default function AccountsReceivable() {
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center space-x-2">
-                          <button
-                            className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleViewCustomer(customer)}
+                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                             data-testid="button-view-customer-receivable"
                             title="View Details"
                           >
                             <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleQuickPayment(customer)}
+                            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50"
                             data-testid="button-quick-payment-receivable"
                             title="Collect Payment"
                           >
-                            <DollarSign className="w-4 h-4" />
-                          </button>
-                          <button
-                            className="text-orange-600 hover:text-orange-800 p-1 hover:bg-orange-50 rounded"
+                            <CreditCard className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleGenerateStatement(customer)}
+                            className="p-2 text-orange-600 hover:text-orange-800 hover:bg-orange-50"
                             data-testid="button-statement-receivable"
                             title="Payment History"
                           >
                             <History className="w-4 h-4" />
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>

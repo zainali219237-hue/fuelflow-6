@@ -683,40 +683,48 @@ export default function SupplierManagement() {
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center space-x-2">
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleViewSupplier(supplier)}
-                            className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
+                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                             data-testid={`button-view-supplier-${index}`}
                             title="View Details"
                           >
                             <Eye className="w-4 h-4" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleEditSupplier(supplier)}
-                            className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
+                            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50"
                             data-testid={`button-edit-supplier-${index}`}
                             title="Edit Supplier"
                           >
                             <Edit className="w-4 h-4" />
-                          </button>
+                          </Button>
                           {parseFloat(supplier.outstandingAmount || '0') > 0 && (
-                            <button
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handlePaymentSupplier(supplier)}
-                              className="text-orange-600 hover:text-orange-800 p-1 hover:bg-orange-50 rounded"
+                              className="p-2 text-orange-600 hover:text-orange-800 hover:bg-orange-50"
                               data-testid={`button-payment-supplier-${index}`}
                               title="Record Payment"
                             >
                               <CreditCard className="w-4 h-4" />
-                            </button>
+                            </Button>
                           )}
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleDeleteSupplier(supplier)}
-                            className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
+                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50"
                             data-testid={`button-delete-supplier-${index}`}
                             title="Delete Supplier"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>

@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { formatAmount } from "@/lib/currency";
-import { Printer, Download, ArrowLeft, ChevronDown } from "lucide-react";
+import { Printer, Download, ArrowLeft, ChevronDown, FileText, Image } from "lucide-react";
 import { Link } from "wouter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type {
@@ -367,13 +367,26 @@ export default function InvoiceReceipt() {
               <h1 className="text-2xl font-bold">Invoice #{transaction.invoiceNumber}</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={handlePrint} size="sm" data-testid="button-print">
+              <Button 
+                onClick={handlePrint} 
+                variant="outline" 
+                size="sm" 
+                className="p-2" 
+                data-testid="button-print" 
+                title="Print Invoice"
+              >
                 <Printer className="w-4 h-4 mr-2" />
                 Print
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" data-testid="button-download">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="p-2" 
+                    data-testid="button-download" 
+                    title="Download Options"
+                  >
                     <Download className="w-4 h-4 mr-2" />
                     Download
                     <ChevronDown className="w-4 h-4 ml-2" />
@@ -381,10 +394,12 @@ export default function InvoiceReceipt() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   <DropdownMenuItem onClick={handleDownloadPDF} data-testid="download-pdf">
-                    📄 Download PDF
+                    <FileText className="w-4 h-4 mr-2" />
+                    Download PDF
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleDownloadPNG} data-testid="download-png">
-                    🖼️ Download PNG
+                    <Image className="w-4 h-4 mr-2" />
+                    Download PNG
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

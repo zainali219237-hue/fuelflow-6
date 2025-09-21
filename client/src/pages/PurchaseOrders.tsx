@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
-import { TrendingUp, TrendingDown, AlertTriangle, Eye, Pencil, Printer, Trash2, Menu, Plus } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Eye, Edit, Printer, Trash2, Menu, Plus } from "lucide-react";
 import { useLocation } from "wouter";
 import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
 import * as z from "zod";
@@ -526,15 +526,19 @@ export default function PurchaseOrders() {
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center space-x-2 justify-center">
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleViewOrder(order)}
-                            className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
+                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                             data-testid="button-view-order"
                             title="View invoice"
                           >
                             <Eye className="w-4 h-4" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => {
                               setEditOrderId(order.id);
                               form.reset({
@@ -549,21 +553,23 @@ export default function PurchaseOrders() {
                                 notes: order.notes || "",
                               });
                             }}
-                            className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
+                            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50"
                             data-testid="button-edit-order"
                             title="Edit order"
                           >
-                            <Pencil className="w-4 h-4" />
-                          </button>
+                            <Edit className="w-4 h-4" />
+                          </Button>
 
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleDeleteOrder(order)}
-                            className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
+                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50"
                             data-testid="button-delete-order"
                             title="Delete Order"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>

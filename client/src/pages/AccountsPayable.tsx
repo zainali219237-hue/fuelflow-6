@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
-import { Calendar, Eye, DollarSign, FileText, History } from "lucide-react";
+import { Calendar, Eye, CreditCard, FileText, History } from "lucide-react";
 
 export default function AccountsPayable() {
   const { user } = useAuth();
@@ -154,7 +154,7 @@ export default function AccountsPayable() {
   };
 
   const handleViewHistory = (supplier: Supplier) => {
-    window.open(`/payment-history/${supplier.id}/supplier`, '_blank');
+    const printWindow = window.open(`/payment-history/${supplier.id}/supplier`, '_blank');
     if (!printWindow) return;
 
     const htmlContent = `
@@ -554,7 +554,13 @@ export default function AccountsPayable() {
             </DialogContent>
           </Dialog>
 
-          <Button variant="outline" data-testid="button-payment-schedule">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="p-2" 
+            data-testid="button-payment-schedule" 
+            title="View Payment Schedule"
+          >
             <Calendar className="w-4 h-4 mr-2" />
             Payment Schedule
           </Button>
@@ -684,30 +690,36 @@ export default function AccountsPayable() {
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex items-center justify-center space-x-2">
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleViewSupplier(supplier)}
-                            className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
+                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
                             data-testid="button-view-supplier-payable"
                             title="View Details"
                           >
                             <Eye className="w-4 h-4" />
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleQuickPayment(supplier)}
-                            className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
+                            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50"
                             data-testid="button-quick-payment-payable"
                             title="Record Payment"
                           >
-                            <DollarSign className="w-4 h-4" />
-                          </button>
-                          <button
+                            <CreditCard className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleViewHistory(supplier)}
-                            className="text-orange-600 hover:text-orange-800 p-1 hover:bg-orange-50 rounded"
+                            className="p-2 text-orange-600 hover:text-orange-800 hover:bg-orange-50"
                             data-testid="button-payment-history-payable"
                             title="Payment History"
                           >
                             <History className="w-4 h-4" />
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>

@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
 import { formatCompactNumber } from "@/lib/utils";
+import { Download, Printer } from "lucide-react";
 
 export default function FinancialReports() {
   const { user } = useAuth();
@@ -285,19 +286,25 @@ export default function FinancialReports() {
             <div className="flex items-center space-x-2">
               <Button 
                 variant="outline" 
-                size="sm" 
+                size="sm"
+                className="p-2"
                 onClick={handleExportReport}
                 data-testid="button-export"
+                title="Export Report to CSV"
               >
-                📊 Export
+                <Download className="w-4 h-4 mr-2" />
+                Export
               </Button>
               <Button 
                 variant="outline" 
-                size="sm" 
+                size="sm"
+                className="p-2"
                 onClick={handlePrintReport}
                 data-testid="button-print"
+                title="Print Report"
               >
-                🖨️ Print
+                <Printer className="w-4 h-4 mr-2" />
+                Print
               </Button>
             </div>
           </div>

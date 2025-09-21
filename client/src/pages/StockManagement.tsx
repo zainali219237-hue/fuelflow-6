@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api";
 import { Combobox } from "@/components/ui/combobox";
 import { useLocation } from "wouter";
+import { BarChart3, Package, ArrowRightLeft, ClipboardList } from "lucide-react";
 
 export default function StockManagement() {
   const { user } = useAuth();
@@ -493,10 +494,14 @@ export default function StockManagement() {
           </Dialog>
           <Button 
             variant="outline" 
+            size="sm"
+            className="p-2"
             onClick={handleStockReport}
             data-testid="button-stock-report"
+            title="View Stock Report"
           >
-            📊 Stock Report
+            <BarChart3 className="w-4 h-4 mr-2" />
+            Stock Report
           </Button>
         </div>
       </div>
@@ -677,35 +682,47 @@ export default function StockManagement() {
               <div className="grid grid-cols-2 gap-2">
                 <Button 
                   variant="outline" 
-                  size="sm" 
+                  size="sm"
+                  className="p-2"
                   onClick={handleStockReport}
                   data-testid="button-stock-report-quick"
+                  title="View Stock Report"
                 >
-                  📊 Stock Report
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Stock Report
                 </Button>
                 <Button 
                   variant="outline" 
-                  size="sm" 
+                  size="sm"
+                  className="p-2"
                   onClick={handleNewPurchase}
                   data-testid="button-new-purchase"
+                  title="Create New Purchase"
                 >
-                  📦 New Purchase
+                  <Package className="w-4 h-4 mr-2" />
+                  New Purchase
                 </Button>
                 <Button 
                   variant="outline" 
-                  size="sm" 
+                  size="sm"
+                  className="p-2"
                   onClick={handleStockTransfer}
                   data-testid="button-stock-transfer"
+                  title="Transfer Stock"
                 >
-                  🔄 Stock Transfer
+                  <ArrowRightLeft className="w-4 h-4 mr-2" />
+                  Stock Transfer
                 </Button>
                 <Button 
                   variant="outline" 
-                  size="sm" 
+                  size="sm"
+                  className="p-2"
                   onClick={handleStockAudit}
                   data-testid="button-stock-audit"
+                  title="Conduct Stock Audit"
                 >
-                  📋 Stock Audit
+                  <ClipboardList className="w-4 h-4 mr-2" />
+                  Stock Audit
                 </Button>
               </div>
             </div>
