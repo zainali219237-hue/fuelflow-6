@@ -1,4 +1,3 @@
-
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,19 +41,16 @@ export default function PaymentHistory() {
     enabled: !!id && !!type,
   });
 
-  const handlePrint = () => {
-    window.print();
-  };
+  // Generate statement content
+  const generateStatementContent = (entityData: Customer | Supplier, payments: Payment[]) => {
+    const isCustomer = 'type' in entityData;
+    const entityType = isCustomer ? 'Customer' : 'Supplier';
 
-  const handleDownload = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const htmlContent = `
+    return `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Payment History - ${entity?.name}</title>
+          <title>${entityType} Statement - ${entityData.name}</title>
           <style>
             @page { margin: 0.5in; size: A4; }
             body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
@@ -67,7 +63,7 @@ export default function PaymentHistory() {
         <body>
           <div class="header">
             <h1>Payment History</h1>
-            <p>${entity?.name}</p>
+            <p>${entityData.name}</p>
             <p>Generated on ${new Date().toLocaleDateString()}</p>
           </div>
           <table class="payments-table">
@@ -93,6 +89,14 @@ export default function PaymentHistory() {
         </body>
       </html>
     `;
+  };
+
+  const handlePrint = () => {
+    if (!entityData || !payments) return;
+
+    const htmlContent = generateStatementContent(entityData, payments);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
 
     printWindow.document.write(htmlContent);
     printWindow.document.close();
@@ -102,6 +106,46 @@ export default function PaymentHistory() {
         printWindow.close();
       }, 500);
     };
+  };
+
+  const handleDownload = (format: 'pdf' | 'csv') => {
+    if (!entityData || !payments) return;
+
+    if (format === 'pdf') {
+      const htmlContent = generateStatementContent(entityData, payments);
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 500);
+      };
+    } else if (format === 'csv') {
+      const csvRows = [
+        ["Date", "Amount", "Method", "Reference", "Type"],
+        ...payments.map(payment => [
+          new Date(payment.paymentDate || payment.createdAt).toLocaleDateString(),
+          payment.amount.toString(),
+          payment.paymentMethod,
+          payment.referenceNumber || 'N/A',
+          payment.type,
+        ])
+      ];
+      const csvString = csvRows.map(row => row.join(',')).join('\n');
+      const blob = new Blob([csvString], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${entity?.name}_payment_history.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   };
 
   if (isLoading) {
@@ -127,9 +171,13 @@ export default function PaymentHistory() {
                 <Printer className="w-4 h-4 mr-2" />
                 Print
               </Button>
-              <Button onClick={handleDownload} variant="outline" size="sm">
+              <Button onClick={() => handleDownload('pdf')} variant="outline" size="sm">
                 <Download className="w-4 h-4 mr-2" />
-                Download
+                Download PDF
+              </Button>
+              <Button onClick={() => handleDownload('csv')} variant="outline" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Download CSV
               </Button>
             </div>
           </div>

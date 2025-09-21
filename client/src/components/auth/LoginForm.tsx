@@ -8,31 +8,59 @@ import { isFirebaseConfigured } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Fuel } from "lucide-react";
 import SignupForm from "./SignupForm";
+import { useRouter } from "next/router"; // Assuming you are using Next.js for routing
 
 export default function LoginForm() {
   const [showSignup, setShowSignup] = useState(false);
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin123");
   const [isLoading, setIsLoading] = useState(false);
-  const { login, loginWithGoogle } = useAuth();
+  const { login, loginWithGoogle, user, userStatus } = useAuth(); // Assuming useAuth provides user and userStatus
   const { toast } = useToast();
+  const router = useRouter();
+
+  // Effect to handle redirection based on user status
+  useState(() => {
+    if (user) {
+      if (userStatus === "pending") {
+        router.push("/approval-pending"); // Redirect to pending approval page
+      } else if (userStatus === "verified") {
+        router.push("/dashboard"); // Redirect to dashboard if verified
+      }
+    }
+  }, [user, userStatus, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      await login(username, password);
-      toast({
-        title: "Login successful",
-        description: "Welcome to FuelFlow system",
-      });
-    } catch (error) {
-      toast({
-        title: "Login failed",
-        description: "Invalid credentials. Please try again.",
-        variant: "destructive",
-      });
+      const loginSuccess = await login(username, password);
+      if (!loginSuccess) {
+        // This block will handle cases where login function itself returns false or throws an error
+        // The error handling within login() should ideally toast the specific message
+        // But we add a generic fallback here if needed.
+        toast({
+          title: "Login failed",
+          description: "An unexpected error occurred during login.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      if (error.message?.includes("approval") || error.message?.includes("pending")) {
+        toast({
+          title: "Account Pending Approval",
+          description: "Your account is waiting for administrator approval. Please contact your administrator.",
+          variant: "destructive",
+        });
+        router.push("/approval-pending"); // Redirect to pending approval page
+      } else {
+        toast({
+          title: "Login failed",
+          description: error.message || "Invalid credentials. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -42,16 +70,50 @@ export default function LoginForm() {
     setIsLoading(true);
     try {
       await loginWithGoogle();
-      // User will be redirected and authentication handled automatically
-    } catch (error) {
-      toast({
-        title: "Google sign-in failed",
-        description: "Please try again or use username/password.",
-        variant: "destructive",
-      });
+      // The effect hook above will handle redirection based on userStatus after google sign-in
+    } catch (error: any) {
+      if (error.message?.includes("approval") || error.message?.includes("pending")) {
+        toast({
+          title: "Account Pending Approval",
+          description: "Your account is waiting for administrator approval. Please contact your administrator.",
+          variant: "destructive",
+        });
+        router.push("/approval-pending"); // Redirect to pending approval page
+      } else {
+        toast({
+          title: "Google sign-in failed",
+          description: error.message || "Please try again or use username/password.",
+          variant: "destructive",
+        });
+      }
       setIsLoading(false);
     }
   };
+
+  // If user is already logged in and approved, redirect them
+  if (user && userStatus === "verified") {
+    // This might cause a redirect loop if not handled carefully.
+    // The useEffect should be sufficient, but this is an extra safeguard.
+    // Consider removing this if useEffect handles it perfectly.
+    // router.push('/dashboard');
+    // return null; // Or a loading spinner
+  }
+
+  // If user is pending approval, show the pending page
+  if (userStatus === "pending") {
+    router.push("/approval-pending");
+    return null; // Render nothing while redirecting
+  }
+
+  // If user is logged in but status is not yet determined or null, show loading
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="text-center text-white">Loading and verifying status...</div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -99,16 +161,16 @@ export default function LoginForm() {
             </div>
 
 
-            <Button 
-              type="submit" 
-              className="w-full" 
+            <Button
+              type="submit"
+              className="w-full"
               disabled={isLoading}
               data-testid="button-login"
             >
               {isLoading ? "Logging in..." : "Login to System"}
             </Button>
           </form>
-          
+
           <div className="mt-4">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -120,7 +182,7 @@ export default function LoginForm() {
                 </span>
               </div>
             </div>
-            
+
             <Button
               type="button"
               variant="outline"
@@ -151,7 +213,7 @@ export default function LoginForm() {
             </Button>
           </div>
 
-          
+
 
           <div className="mt-4 text-center">
             <p className="text-sm text-muted-foreground">

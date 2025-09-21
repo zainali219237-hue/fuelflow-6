@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
+import { useCurrency } from "@/contexts/CurrencyContext";
+import { useStation } from "@/contexts/StationContext";
+import { apiRequest } from "@/lib/api";
 import { formatAmount } from "@/lib/currency";
 import { Printer, Download, ArrowLeft, ChevronDown, FileText, Image } from "lucide-react";
 import { Link } from "wouter";
@@ -44,7 +47,7 @@ const useStationSettings = () => {
 export default function InvoiceReceipt() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { stationSettings } = useStationSettings(); // Get station settings
+  const { stationSettings } = useStation(); // Get station settings
 
   const { data: transaction, isLoading } = useQuery<TransactionWithDetails>({
     queryKey: ["/api/sales/detail", id!],
@@ -222,7 +225,7 @@ export default function InvoiceReceipt() {
 
     // Create a clone of the content to manipulate
     const clonedContent = printContent.cloneNode(true) as HTMLElement;
-    
+
     // Create a new window for PDF generation
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -255,12 +258,12 @@ export default function InvoiceReceipt() {
 
     printWindow.document.write(htmlContent);
     printWindow.document.close();
-    
+
     // Auto-download as PDF
     setTimeout(() => {
       printWindow.focus();
       printWindow.print();
-      
+
       // Create download link for PDF
       const blob = new Blob([htmlContent], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
@@ -271,7 +274,7 @@ export default function InvoiceReceipt() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       printWindow.close();
     }, 1000);
   };
@@ -289,18 +292,18 @@ export default function InvoiceReceipt() {
       // Set canvas dimensions
       canvas.width = 800;
       canvas.height = 1200;
-      
+
       // Fill with white background
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
+
       // Add text content (simplified version)
       ctx.fillStyle = '#000000';
       ctx.font = '16px Arial';
       ctx.fillText(`Invoice: ${transaction?.invoiceNumber}`, 50, 50);
       ctx.fillText(`Customer: ${transaction?.customer?.name}`, 50, 80);
       ctx.fillText(`Amount: ${formatAmount(parseFloat(transaction?.totalAmount || '0'), transaction?.currencyCode || 'PKR')}`, 50, 110);
-      
+
       // Create download link
       const link = document.createElement('a');
       link.download = `invoice-${transaction?.invoiceNumber || 'unknown'}.png`;
@@ -413,37 +416,17 @@ export default function InvoiceReceipt() {
         <Card className="print:shadow-none print:border-none">
           <CardContent className="p-8" id="invoice-print">
             {/* Header */}
-            <div className="flex justify-between items-start mb-8">
-              <div>
-                <h1 className="text-4xl font-bold text-primary mb-2" data-testid="text-station-name">
-                  {stationSettings.stationName}
-                </h1>
-                <div className="text-muted-foreground space-y-1">
-                  {stationSettings.address && (
-                    <p data-testid="text-station-address">{stationSettings.address}</p>
-                  )}
-                  {stationSettings.contactNumber && (
-                    <p data-testid="text-station-phone">Phone: {stationSettings.contactNumber}</p>
-                  )}
-                  {stationSettings.email && (
-                    <p data-testid="text-station-email">Email: {stationSettings.email}</p>
-                  )}
-                  {stationSettings.gstNumber && (
-                    <p data-testid="text-station-gst">GST: {stationSettings.gstNumber}</p>
-                  )}
-                </div>
-              </div>
-              <div className="text-right">
-                <h2 className="text-3xl font-bold mb-2">INVOICE</h2>
-                <div className="space-y-1 text-sm">
-                  <p><span className="font-semibold">Invoice #:</span> <span data-testid="text-invoice-number">{transaction.invoiceNumber}</span></p>
-                  <p><span className="font-semibold">Date:</span> <span data-testid="text-transaction-date">{new Date(transaction.transactionDate || new Date()).toLocaleDateString()}</span></p>
-                  {transaction.dueDate && (
-                    <p><span className="font-semibold">Due Date:</span> <span data-testid="text-due-date" className={isOverdue ? "text-red-600 font-semibold" : ""}>{new Date(transaction.dueDate).toLocaleDateString()}</span></p>
-                  )}
-                </div>
-              </div>
+            <div className="text-center mb-8 border-b border-gray-300 pb-6">
+            <h1 className="text-3xl font-bold text-blue-600 mb-2">{stationSettings?.stationName || 'FuelFlow Station'}</h1>
+            <div className="text-sm text-gray-600 space-y-1">
+              {stationSettings?.address && <p>{stationSettings.address}</p>}
+              {stationSettings?.contactNumber && <p>Phone: {stationSettings.contactNumber}</p>}
+              {stationSettings?.email && <p>Email: {stationSettings.email}</p>}
+              {stationSettings?.gstNumber && <p>GST: {stationSettings.gstNumber}</p>}
             </div>
+            <p className="text-lg text-gray-600 mt-4">Sales Invoice</p>
+            <p className="text-sm text-gray-500">Invoice #{transaction.invoiceNumber}</p>
+          </div>
 
             {/* Status Badges */}
             <div className="flex gap-2 mb-6">
@@ -551,7 +534,7 @@ export default function InvoiceReceipt() {
             <Separator className="mb-6" />
             <div className="text-center text-sm text-muted-foreground">
               <p>Thank you for your business!</p>
-              {stationSettings.licenseNumber && (
+              {stationSettings?.licenseNumber && (
                 <p className="mt-1">License: {stationSettings.licenseNumber}</p>
               )}
             </div>

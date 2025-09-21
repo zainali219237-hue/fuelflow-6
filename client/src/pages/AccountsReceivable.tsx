@@ -156,6 +156,7 @@ export default function AccountsReceivable() {
   };
 
   const handleGenerateStatement = (customer: Customer) => {
+    // Navigate to payment history page
     navigate(`/payment-history/${customer.id}/customer`);
   };
 

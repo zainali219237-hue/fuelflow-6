@@ -23,6 +23,7 @@ export default function SignupForm({ onBack }: SignupFormProps) {
     role: "cashier" as const,
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [showApprovalMessage, setShowApprovalMessage] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,11 +50,12 @@ export default function SignupForm({ onBack }: SignupFormProps) {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        setShowApprovalMessage(true);
         toast({
           title: "Account created",
-          description: "Your account has been created successfully. Please login.",
+          description: "Your account has been created successfully. Please wait for admin approval.",
         });
-        onBack();
       } else {
         const error = await response.json();
         throw new Error(error.message || "Failed to create account");
@@ -68,6 +70,49 @@ export default function SignupForm({ onBack }: SignupFormProps) {
       setIsLoading(false);
     }
   };
+
+  if (showApprovalMessage) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <Card className="w-full max-w-sm border shadow-xl">
+          <CardContent className="pt-6">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Fuel className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-card-foreground">Account Created!</h2>
+              <p className="text-muted-foreground">Awaiting Admin Approval</p>
+            </div>
+
+            <div className="text-center space-y-4">
+              <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                <p className="text-sm text-orange-800 dark:text-orange-200">
+                  Your account has been created successfully. Please wait for an administrator to approve your account before you can log in.
+                </p>
+              </div>
+              
+              <div className="flex items-center justify-center space-x-2 text-sm text-muted-foreground">
+                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                <span>Waiting for approval...</span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={onBack}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Login
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

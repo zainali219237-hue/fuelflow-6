@@ -172,6 +172,10 @@ export default function PumpManagement() {
   const createReadingMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest("POST", "/api/pump-readings", data);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -180,13 +184,22 @@ export default function PumpManagement() {
         description: "Pump reading has been recorded successfully",
       });
       setReadingDialogOpen(false);
-      readingForm.reset();
-      queryClient.invalidateQueries({ queryKey: ["/api/pump-readings"] });
+      readingForm.reset({
+        pumpId: "",
+        productId: "",
+        openingReading: "",
+        closingReading: "",
+        shiftNumber: "1",
+        operatorName: "",
+        readingDate: new Date().toISOString().split('T')[0],
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/pump-readings", user?.stationId] });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("Pump reading creation error:", error);
       toast({
         title: "Error",
-        description: "Failed to record reading",
+        description: error?.message || "Failed to record reading",
         variant: "destructive",
       });
     },
@@ -201,8 +214,38 @@ export default function PumpManagement() {
   };
 
   const onReadingSubmit = (data: any) => {
+    console.log("Submitting pump reading:", data);
+    
+    if (!data.pumpId || !data.openingReading || !data.closingReading || !data.operatorName || !data.readingDate) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const opening = parseFloat(data.openingReading);
     const closing = parseFloat(data.closingReading);
+    
+    if (isNaN(opening) || isNaN(closing)) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter valid numeric readings",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (closing < opening) {
+      toast({
+        title: "Validation Error",
+        description: "Closing reading must be greater than opening reading",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const totalSale = closing - opening;
 
     // Get the selected pump to extract productId

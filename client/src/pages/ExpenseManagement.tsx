@@ -32,7 +32,9 @@ export default function ExpenseManagement() {
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
 
   const form = useForm({
-    resolver: zodResolver(insertExpenseSchema),
+    resolver: zodResolver(insertExpenseSchema.extend({
+      expenseDate: z.string().min(1, "Expense date is required"),
+    })),
     defaultValues: {
       stationId: user?.stationId || "",
       userId: user?.id || "",
@@ -47,7 +49,9 @@ export default function ExpenseManagement() {
   });
 
   const editForm = useForm({
-    resolver: zodResolver(insertExpenseSchema),
+    resolver: zodResolver(insertExpenseSchema.extend({
+      expenseDate: z.string().min(1, "Expense date is required"),
+    })),
     defaultValues: {
       stationId: "",
       userId: "",

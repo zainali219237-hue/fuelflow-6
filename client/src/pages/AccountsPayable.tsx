@@ -156,8 +156,8 @@ export default function AccountsPayable() {
   };
 
   const handleViewHistory = (supplier: Supplier) => {
+    // Navigate to payment history page
     navigate(`/payment-history/${supplier.id}/supplier`);
-    return; // Remove the print window code below
     const printWindow = window.open(`/payment-history/${supplier.id}/supplier`, '_blank');
     if (!printWindow) return;
 

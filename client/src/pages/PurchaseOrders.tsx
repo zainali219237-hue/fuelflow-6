@@ -41,20 +41,13 @@ export default function PurchaseOrders() {
   // Purchase Order Form
   const form = useForm({
     resolver: zodResolver(insertPurchaseOrderSchema.extend({
-      orderDate: z.string().min(1, "Order date is required").refine((date) => {
-        // Accept any valid date format
-        const parsedDate = new Date(date);
-        return !isNaN(parsedDate.getTime());
-      }, "Invalid date format"),
-      expectedDeliveryDate: z.string().optional().refine((date) => {
-        if (!date) return true;
-        const parsedDate = new Date(date);
-        return !isNaN(parsedDate.getTime());
-      }, "Invalid date format"),
+      orderDate: z.string().min(1, "Order date is required"),
+      expectedDeliveryDate: z.string().optional(),
     })),
     defaultValues: {
       orderNumber: `PO-${Date.now()}`,
       supplierId: "",
+      orderDate: new Date().toISOString().split('T')[0],
       expectedDeliveryDate: "",
       status: "pending",
       subtotal: "0",
@@ -68,20 +61,32 @@ export default function PurchaseOrders() {
 
   const createPurchaseOrderMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log("Creating purchase order with data:", data);
+      
+      // Validate required fields
+      if (!data.orderNumber || !data.supplierId || !data.orderDate || !data.totalAmount) {
+        throw new Error("Please fill in all required fields");
+      }
+
       const processedData = {
         order: {
           ...data,
           stationId: user?.stationId || data.stationId,
           userId: user?.id || data.userId,
           orderDate: data.orderDate,
-          expectedDeliveryDate: data.expectedDeliveryDate === "" ? null : data.expectedDeliveryDate,
+          expectedDeliveryDate: data.expectedDeliveryDate === "" ? undefined : data.expectedDeliveryDate,
           currencyCode: currencyConfig.code,
+          subtotal: parseFloat(data.subtotal || "0").toString(),
+          taxAmount: parseFloat(data.taxAmount || "0").toString(),
+          totalAmount: parseFloat(data.totalAmount || "0").toString(),
         },
         items: [] // Empty items for now, can be added later
       };
+      
+      console.log("Processed data:", processedData);
       const response = await apiRequest("POST", "/api/purchase-orders", processedData);
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({ message: response.statusText }));
         throw new Error(error.message || 'Failed to create purchase order');
       }
       return response.json();
