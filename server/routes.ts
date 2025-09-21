@@ -255,6 +255,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/stations/:id", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertStationSchema.partial().parse(req.body);
+      const station = await storage.updateStation(id, validatedData);
+      res.json(station);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid station data" });
+    }
+  });
+
   // Settings routes
   app.get("/api/settings/:stationId", requireAuth, requireStationAccess, async (req, res) => {
     try {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import LoginForm from "@/components/auth/LoginForm";
 import Sidebar from "@/components/layout/Sidebar";
@@ -13,15 +14,16 @@ interface AuthGuardProps {
 }
 
 export default function AuthGuard({ children }: AuthGuardProps) {
-  const { user, loading } = useAuth();
+  const { user, isLoading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [location] = useLocation();
 
   // Check if current route is public (doesn't require authentication)
   const isPublicRoute = ['/login', '/signup', '/approval-pending'].includes(location);
 
   // Show loading state while checking authentication
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-center">
@@ -46,26 +48,51 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     return <>{children}</>;
   }
 
-  // Authenticated user - show main app layout
+  // Main authenticated layout
   return (
-    <div className="min-h-screen bg-background">
-      <div className="flex">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="flex-1 flex flex-col min-h-screen">
-          <Header>
+    <div className="flex h-screen overflow-hidden">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden" 
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div className={`
+        fixed inset-y-0 left-0 z-50 lg:static lg:translate-x-0 transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:flex lg:flex-shrink-0
+      `}>
+        <Sidebar 
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        />
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex-shrink-0">
+          <Header />
+          {/* Mobile menu button */}
+          <div className="lg:hidden absolute top-4 left-4">
             <Button
               variant="ghost"
-              size="sm"
-              className="lg:hidden"
+              size="icon"
               onClick={() => setSidebarOpen(true)}
+              className="h-8 w-8"
             >
-              <Menu className="h-6 w-6" />
+              <Menu className="w-4 h-4" />
             </Button>
-          </Header>
-          <main className="flex-1 overflow-auto">
-            {children}
-          </main>
+          </div>
         </div>
+
+        {/* Page content */}
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
       </div>
     </div>
   );

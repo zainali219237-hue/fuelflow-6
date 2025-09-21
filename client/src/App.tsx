@@ -29,7 +29,7 @@ import AgingReports from "@/pages/AgingReports";
 import Settings from "@/pages/Settings";
 import AdminPanel from "@/pages/AdminPanel";
 import NotFound from "@/pages/not-found";
-import { StationProvider } from "./contexts/StationContext";
+import { StationProvider, useStation } from "./contexts/StationContext";
 import PumpManagement from "@/pages/PumpManagement";
 import PurchaseInvoice from "@/pages/PurchaseInvoice";
 import PaymentHistory from "@/pages/PaymentHistory";
@@ -54,39 +54,18 @@ function ThemeBootstrap() {
 }
 
 // Bootstrap component to handle station currency fetch without circular imports
-function CurrencyBootstrap() {
+function CurrencyBootstrap({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const currencyContext = useCurrency();
-  const { setCurrency } = currencyContext || { setCurrency: () => {} };
+  const { loadSettings } = useStation();
 
+  // Load settings when user changes
   useEffect(() => {
-    const fetchStationCurrency = async () => {
-      if (!user?.stationId) return;
+    if (user?.stationId) {
+      loadSettings(user.stationId);
+    }
+  }, [user?.stationId, loadSettings]);
 
-      // Only fetch from server if no localStorage preference exists
-      const savedCurrency = typeof window !== 'undefined' ? localStorage.getItem('selectedCurrency') : null;
-      if (savedCurrency && savedCurrency in CURRENCY_CONFIG) {
-        return; // Use localStorage preference
-      }
-
-      try {
-        const response = await apiRequest('GET', `/api/stations/${user.stationId}`);
-        const station = await response.json();
-
-        if (station?.defaultCurrency && station.defaultCurrency in CURRENCY_CONFIG) {
-          const newCurrency = station.defaultCurrency as CurrencyCode;
-          setCurrency(newCurrency);
-        }
-      } catch (error) {
-        console.error('Failed to fetch station currency:', error);
-        // Fallback is already handled by CurrencyProvider default
-      }
-    };
-
-    fetchStationCurrency();
-  }, [user?.stationId, setCurrency]);
-
-  return null;
+  return <>{children}</>;
 }
 
 function Router() {
@@ -128,12 +107,12 @@ function App() {
       <AuthProvider>
         <CurrencyProvider>
           <StationProvider>
-            <ThemeBootstrap />
-            <CurrencyBootstrap />
             <TooltipProvider>
               <Toaster />
               <AuthGuard>
-                <Router />
+                <CurrencyBootstrap>
+                  <Router />
+                </CurrencyBootstrap>
               </AuthGuard>
             </TooltipProvider>
           </StationProvider>

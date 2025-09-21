@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,7 @@ interface Station {
 export default function AdminPanel() {
   const { user } = useAuth();
   const { toast } = useToast();
-  
+
   // Redirect if not admin
   useEffect(() => {
     if (user?.role !== 'admin') {
@@ -52,7 +51,7 @@ export default function AdminPanel() {
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'users' | 'stations' | 'system'>('users');
-  
+
   // User form state
   const [userForm, setUserForm] = useState({
     username: '',
@@ -145,26 +144,39 @@ export default function AdminPanel() {
     }
   };
 
-  const handleUpdateUser = async () => {
-    if (!editingUser) return;
-    
+  const updateUser = async (userId: string, updates: any) => {
     try {
-      const response = await apiRequest('PUT', `/api/admin/users/${editingUser.id}`, userForm);
-      if (response.ok) {
-        const updatedUser = await response.json();
-        setUsers(prev => prev.map(u => u.id === editingUser.id ? updatedUser : u));
-        setEditingUser(null);
-        setUserDialogOpen(false);
-        toast({ title: "User updated successfully" });
+      await apiRequest("PUT", `/api/admin/users/${userId}`, updates);
+      toast({
+        title: "Success",
+        description: "User updated successfully",
+      });
+
+      // If deactivating a user, notify them via a broadcast channel (for same-browser sessions)
+      if (updates.isActive === false) {
+        const broadcastChannel = new BroadcastChannel('user-status');
+        broadcastChannel.postMessage({ 
+          type: 'USER_DEACTIVATED', 
+          userId 
+        });
       }
-    } catch (error) {
-      toast({ title: "Failed to update user", variant: "destructive" });
+
+      // Refetch users
+      const response = await apiRequest("GET", "/api/admin/users");
+      const updatedUsers = await response.json();
+      setUsers(updatedUsers);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user",
+        variant: "destructive",
+      });
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user?')) return;
-    
+
     try {
       const response = await apiRequest('DELETE', `/api/admin/users/${userId}`);
       if (response.ok) {
@@ -177,29 +189,11 @@ export default function AdminPanel() {
   };
 
   const handleApproveUser = async (userId: string) => {
-    try {
-      const response = await apiRequest('PUT', `/api/admin/users/${userId}`, { isActive: true });
-      if (response.ok) {
-        const updatedUser = await response.json();
-        setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
-        toast({ title: "User approved successfully" });
-      }
-    } catch (error) {
-      toast({ title: "Failed to approve user", variant: "destructive" });
-    }
+    updateUser(userId, { isActive: true });
   };
 
   const handleRejectUser = async (userId: string) => {
-    try {
-      const response = await apiRequest('PUT', `/api/admin/users/${userId}`, { isActive: false });
-      if (response.ok) {
-        const updatedUser = await response.json();
-        setUsers(prev => prev.map(u => u.id === userId ? updatedUser : u));
-        toast({ title: "User access revoked" });
-      }
-    } catch (error) {
-      toast({ title: "Failed to update user status", variant: "destructive" });
-    }
+    updateUser(userId, { isActive: false });
   };
 
   const handleCreateStation = async () => {
@@ -366,7 +360,7 @@ export default function AdminPanel() {
                     <Button variant="outline" onClick={() => setUserDialogOpen(false)}>
                       Cancel
                     </Button>
-                    <Button onClick={editingUser ? handleUpdateUser : handleCreateUser}>
+                    <Button onClick={editingUser ? () => updateUser(editingUser.id, userForm) : handleCreateUser}>
                       {editingUser ? 'Update' : 'Create'}
                     </Button>
                   </div>

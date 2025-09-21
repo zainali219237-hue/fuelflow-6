@@ -121,9 +121,9 @@ function PaymentHistory() {
   };
 
   const handlePrint = () => {
-    if (!entityData || !payments) return;
+    if (!entity || !payments) return;
 
-    const htmlContent = generateStatementContent(entityData, payments);
+    const htmlContent = generateStatementContent(entity, payments);
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 

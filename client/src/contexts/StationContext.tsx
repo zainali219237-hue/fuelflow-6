@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/api';
@@ -110,7 +109,7 @@ export const StationProvider: React.FC<StationProviderProps> = ({ children }) =>
     if (!station || !user?.stationId) return;
 
     try {
-      const response = await apiRequest('PUT', `/api/stations/${user.stationId}`, updates);
+      const response = await apiRequest("PUT", `/api/settings/${user.stationId}`, updates);
       if (response.ok) {
         const updatedStation = await response.json();
         setStation(prev => prev ? { ...prev, ...updatedStation } : null);

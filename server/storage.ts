@@ -29,6 +29,7 @@ export interface IStorage {
   getStation(id: string): Promise<Station | undefined>;
   getStations(): Promise<Station[]>;
   createStation(station: InsertStation): Promise<Station>;
+  updateStation(id: string, station: Partial<InsertStation>): Promise<Station>;
 
   // Products
   getProducts(): Promise<Product[]>;
@@ -171,6 +172,15 @@ export class DatabaseStorage implements IStorage {
 
   async createStation(insertStation: InsertStation): Promise<Station> {
     const [station] = await this.db.insert(stations).values(insertStation).returning();
+    return station;
+  }
+
+  async updateStation(id: string, stationData: Partial<InsertStation>): Promise<Station> {
+    const [station] = await this.db.update(stations)
+      .set(stationData)
+      .where(eq(stations.id, id))
+      .returning();
+    if (!station) throw new Error("Station not found");
     return station;
   }
 

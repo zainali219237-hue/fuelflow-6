@@ -40,7 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       apiRequest("GET", "/api/auth/me")
         .then(response => response.json())
         .then(data => {
-          setUser(data.user);
+          const userData = data.user || data;
+          setUser(userData);
+          setUserStatus(userData.role === 'admin' || userData.isActive ? 'verified' : 'pending');
           setIsLoading(false);
         })
         .catch(() => {
@@ -52,6 +54,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setIsLoading(false);
     }
+
+    // Set up periodic status check for non-admin users
+    let statusInterval: NodeJS.Timeout;
+    if (token) {
+      statusInterval = setInterval(async () => {
+        try {
+          const response = await apiRequest("GET", "/api/auth/me");
+          const data = await response.json();
+          const userData = data.user || data;
+          
+          // If user was deactivated, force logout
+          if (userData.role !== 'admin' && !userData.isActive && user?.isActive) {
+            logout();
+            setUserStatus('pending');
+          } else {
+            setUser(userData);
+            setUserStatus(userData.role === 'admin' || userData.isActive ? 'verified' : 'pending');
+          }
+        } catch (error) {
+          // If auth fails, logout
+          logout();
+        }
+      }, 30000); // Check every 30 seconds
+    }
+
+    // Listen for user deactivation broadcasts
+    const broadcastChannel = new BroadcastChannel('user-status');
+    broadcastChannel.onmessage = (event) => {
+      if (event.data.type === 'USER_DEACTIVATED' && event.data.userId === user?.id) {
+        logout();
+        setUserStatus('pending');
+      }
+    };
+
+    return () => {
+      if (statusInterval) {
+        clearInterval(statusInterval);
+      }
+      broadcastChannel.close();
+    };
     
     // Only handle Firebase auth if configured
     if (!isFirebaseConfigured) {
