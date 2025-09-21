@@ -108,6 +108,7 @@ function App() {
         <CurrencyProvider>
           <StationProvider>
             <TooltipProvider>
+              <ThemeBootstrap />
               <Toaster />
               <AuthGuard>
                 <CurrencyBootstrap>

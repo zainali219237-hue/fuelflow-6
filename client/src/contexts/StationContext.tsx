@@ -28,6 +28,7 @@ interface StationContextType {
   updateStation: (station: Partial<StationProfile>) => Promise<void>;
   stationSettings: StationSettings | null;
   updateStationSettings: (settings: Partial<StationSettings>) => Promise<void>;
+  loadSettings: (stationId: string) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -109,10 +110,12 @@ export const StationProvider: React.FC<StationProviderProps> = ({ children }) =>
     if (!station || !user?.stationId) return;
 
     try {
-      const response = await apiRequest("PUT", `/api/settings/${user.stationId}`, updates);
+      const response = await apiRequest("PUT", `/api/stations/${user.stationId}`, updates);
       if (response.ok) {
         const updatedStation = await response.json();
         setStation(prev => prev ? { ...prev, ...updatedStation } : null);
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Failed to update station:', error);
@@ -136,8 +139,29 @@ export const StationProvider: React.FC<StationProviderProps> = ({ children }) =>
     await updateStation(updates);
   };
 
+  const loadSettings = async (stationId: string) => {
+    try {
+      const response = await apiRequest('GET', `/api/stations/${stationId}`);
+      if (response.ok) {
+        const stationData = await response.json();
+        setStation({
+          id: stationData.id,
+          name: stationData.name,
+          address: stationData.address || 'Station Address',
+          phone: stationData.phone || '+92-XXX-XXXXXXX',
+          email: stationData.email || 'station@fuelflow.com',
+          registrationNumber: stationData.registrationNumber || 'REG-001',
+          taxNumber: stationData.taxNumber || 'TAX-001',
+          logo: stationData.logo,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load station settings:', error);
+    }
+  };
+
   return (
-    <StationContext.Provider value={{ station, updateStation, stationSettings, updateStationSettings, isLoading }}>
+    <StationContext.Provider value={{ station, updateStation, stationSettings, updateStationSettings, loadSettings, isLoading }}>
       {children}
     </StationContext.Provider>
   );

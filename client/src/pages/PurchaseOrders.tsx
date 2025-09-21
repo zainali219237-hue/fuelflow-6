@@ -57,6 +57,7 @@ export default function PurchaseOrders() {
       stationId: user?.stationId || "",
       userId: user?.id || "",
     },
+    mode: "onChange"
   });
 
   const createPurchaseOrderMutation = useMutation({
@@ -347,7 +348,12 @@ export default function PurchaseOrders() {
                     <FormItem>
                       <FormLabel>Order Date *</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} data-testid="input-order-date" />
+                        <Input 
+                          type="date" 
+                          {...field} 
+                          data-testid="input-order-date"
+                          max="9999-12-31"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -360,7 +366,12 @@ export default function PurchaseOrders() {
                     <FormItem>
                       <FormLabel>Expected Delivery Date</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} data-testid="input-delivery-date" />
+                        <Input 
+                          type="date" 
+                          {...field} 
+                          data-testid="input-delivery-date"
+                          max="9999-12-31"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

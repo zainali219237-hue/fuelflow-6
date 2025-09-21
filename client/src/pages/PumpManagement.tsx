@@ -93,6 +93,7 @@ export default function PumpManagement() {
       operatorName: "",
       readingDate: new Date().toISOString().split('T')[0],
     },
+    mode: "onChange"
   });
 
   const { data: pumps = [], isLoading: pumpsLoading } = useQuery<Pump[]>({
@@ -564,7 +565,11 @@ export default function PumpManagement() {
                         <FormItem>
                           <FormLabel>Date *</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} />
+                            <Input 
+                              type="date" 
+                              {...field} 
+                              max="9999-12-31"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

@@ -28,21 +28,31 @@ function PaymentHistory() {
       const response = await apiRequest("GET", `/api/payments/${user?.stationId}`);
       const allPayments = await response.json();
       // Filter payments for this specific customer/supplier
-      return allPayments.filter((payment: PaymentWithDetails) => 
+      return allPayments.filter((payment: PaymentWithDetails) =>
         type === 'customer' ? payment.customerId === id : payment.supplierId === id
       );
     },
     enabled: !!user?.stationId && !!id && !!type,
   });
 
-  const { data: entity } = useQuery({
-    queryKey: [`/api/${type === 'customer' ? 'customers' : 'suppliers'}`, id],
-    queryFn: () => apiRequest("GET", `/api/${type === 'customer' ? 'customers' : 'suppliers'}/${id}`).then(res => res.json()),
-    enabled: !!id && !!type,
+  const { data: customerData } = useQuery<Customer>({
+    queryKey: ["/api/customers", id],
+    queryFn: () => apiRequest("GET", `/api/customers/${id}`).then(res => res.json()),
+    enabled: !!id && type === 'customer',
   });
 
+  const { data: supplierData } = useQuery<Supplier>({
+    queryKey: ["/api/suppliers", id],
+    queryFn: () => apiRequest("GET", `/api/suppliers/${id}`).then(res => res.json()),
+    enabled: !!id && type === 'supplier',
+  });
+
+  const entity = type === 'customer' ? customerData : supplierData;
+
   // Generate statement content
-  const generateStatementContent = (entityData: Customer | Supplier, payments: Payment[]) => {
+  const generateStatementContent = (entityData: Customer | Supplier | undefined, payments: Payment[]) => {
+    if (!entityData) return ''; // Handle case where entity data is not yet loaded
+
     const isCustomer = 'type' in entityData;
     const entityType = isCustomer ? 'Customer' : 'Supplier';
     const totalPayments = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
@@ -71,7 +81,7 @@ function PaymentHistory() {
             <h2>${entityType} Payment Statement</h2>
             <p>Generated on ${new Date().toLocaleDateString()}</p>
           </div>
-          
+
           <div class="entity-info">
             <h3>${entityType} Information</h3>
             <p><strong>Name:</strong> ${entityData.name}</p>
@@ -121,11 +131,84 @@ function PaymentHistory() {
   };
 
   const handlePrint = () => {
-    if (!entity || !payments) return;
-
-    const htmlContent = generateStatementContent(entity, payments);
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
+
+    const entityName = type === 'customer'
+      ? customerData?.name || 'N/A'
+      : supplierData?.name || 'N/A';
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Payment History - ${entityName}</title>
+          <style>
+            @page { margin: 0.5in; size: A4; }
+            body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+            .header h1 { color: #2563eb; margin: 0; }
+            .entity-info { background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+            .payments-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            .payments-table th, .payments-table td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+            .payments-table th { background: #f3f4f6; font-weight: bold; }
+            .summary { background: #f9fafb; padding: 15px; border-radius: 8px; margin-top: 20px; }
+            .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${stationSettings?.stationName || 'FuelFlow Station'}</h1>
+            <h2>${type === 'customer' ? 'Customer' : 'Supplier'} Payment Statement</h2>
+            <p>Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          <div class="entity-info">
+            <h3>${type === 'customer' ? 'Customer' : 'Supplier'} Information</h3>
+            <p><strong>Name:</strong> ${entityName}</p>
+            ${entity ? (entity.contactPhone ? `<p><strong>Phone:</strong> ${entity.contactPhone}</p>` : '') : ''}
+            ${entity ? (entity.contactEmail ? `<p><strong>Email:</strong> ${entity.contactEmail}</p>` : '') : ''}
+            ${entity ? (entity.gstNumber ? `<p><strong>GST Number:</strong> ${entity.gstNumber}</p>` : '') : ''}
+          </div>
+
+          <h3>Payment History</h3>
+          <table class="payments-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Method</th>
+                <th>Reference</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${payments.map(payment => `
+                <tr>
+                  <td>${new Date(payment.paymentDate || payment.createdAt).toLocaleDateString()}</td>
+                  <td>${formatCurrency(parseFloat(payment.amount))}</td>
+                  <td>${payment.paymentMethod}</td>
+                  <td>${payment.referenceNumber || 'N/A'}</td>
+                  <td>${payment.type}</td>
+                </tr>
+              `).join('')}
+              ${payments.length === 0 ? '<tr><td colspan="5" style="text-align: center; color: #666;">No payment history found</td></tr>' : ''}
+            </tbody>
+          </table>
+
+          <div class="summary">
+            <h4>Summary</h4>
+            <p><strong>Total Payments:</strong> ${formatCurrency(payments.reduce((sum, p) => sum + parseFloat(p.amount), 0))}</p>
+            <p><strong>Outstanding Amount:</strong> ${formatCurrency(parseFloat(entity?.outstandingAmount || '0'))}</p>
+          </div>
+
+          <div class="footer">
+            <p>This is a computer-generated statement from FuelFlow Management System</p>
+            <p>For any queries regarding this statement, please contact our accounts department</p>
+          </div>
+        </body>
+      </html>
+    `;
 
     printWindow.document.write(htmlContent);
     printWindow.document.close();

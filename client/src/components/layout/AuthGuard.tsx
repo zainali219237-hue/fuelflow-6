@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import LoginForm from "@/components/auth/LoginForm";
 import Sidebar from "@/components/layout/Sidebar";
@@ -58,7 +57,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      
+
       {/* Sidebar */}
       <div className={`
         fixed inset-y-0 left-0 z-50 lg:static lg:translate-x-0 transition-transform duration-300 ease-in-out
