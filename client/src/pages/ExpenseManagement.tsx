@@ -16,9 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { apiRequest } from "@/lib/api";
 import { formatCompactNumber } from "@/lib/utils";
-import { BarChart3, Eye, Edit, FileText, History } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
-import { format } from "date-fns";
+import { BarChart3, Eye, Edit, FileText } from "lucide-react";
 
 export default function ExpenseManagement() {
   const { user } = useAuth();
@@ -32,8 +30,6 @@ export default function ExpenseManagement() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(insertExpenseSchema),
@@ -73,53 +69,6 @@ export default function ExpenseManagement() {
     },
   });
 
-  const deleteExpenseMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/expenses/${id}`);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Expense deleted",
-        description: "Expense has been deleted successfully",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
-      setExpenseToDelete(null);
-      setOpen(false);
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to delete expense",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateExpenseMutation = useMutation({
-    mutationFn: async (data: any) => {
-      if (!editingExpense) return;
-      const response = await apiRequest("PUT", `/api/expenses/${editingExpense.id}`, data);
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Expense updated",
-        description: "Expense has been updated successfully",
-      });
-      setEditDialogOpen(false);
-      setEditingExpense(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to update expense",
-        variant: "destructive",
-      });
-    },
-  });
-
-
   const onSubmit = (data: any) => {
     // Ensure current user IDs are used in case user loaded after form initialization
     const expenseData = {
@@ -128,10 +77,6 @@ export default function ExpenseManagement() {
       userId: user?.id || data.userId,
     };
     createExpenseMutation.mutate(expenseData);
-  };
-
-  const onSubmitUpdate = (data: any) => {
-    updateExpenseMutation.mutate(data);
   };
 
   const { data: expenses = [], isLoading } = useQuery<Expense[]>({
@@ -170,35 +115,6 @@ export default function ExpenseManagement() {
     utilities: filteredExpenses.filter((e: Expense) => e.category === 'utilities').reduce((sum: number, e: Expense) => sum + parseFloat(e.amount || '0'), 0),
     maintenance: filteredExpenses.filter((e: Expense) => e.category === 'maintenance').reduce((sum: number, e: Expense) => sum + parseFloat(e.amount || '0'), 0),
     insurance: filteredExpenses.filter((e: Expense) => e.category === 'insurance').reduce((sum: number, e: Expense) => sum + parseFloat(e.amount || '0'), 0)
-  };
-
-  const confirmDelete = () => {
-    if (expenseToDelete) {
-      deleteExpenseMutation.mutate(expenseToDelete.id);
-    }
-  };
-
-  const handleEditExpense = (expense: Expense) => {
-    setEditingExpense(expense);
-    form.reset({
-      category: expense.category,
-      description: expense.description,
-      amount: expense.amount,
-      currencyCode: expense.currencyCode,
-      expenseDate: expense.expenseDate.split('T')[0],
-      receiptNumber: expense.receiptNumber || "",
-      paymentMethod: expense.paymentMethod,
-      vendorName: expense.vendorName || "",
-      isRecurring: expense.isRecurring,
-    });
-    setEditDialogOpen(true);
-    console.log("✏️ Edit expense:", expense.id);
-  };
-
-  const handleViewHistory = (expense: Expense) => {
-    setSelectedExpense(expense);
-    setHistoryDialogOpen(true);
-    console.log("📊 View expense history:", expense.id);
   };
 
   return (
@@ -389,6 +305,18 @@ export default function ExpenseManagement() {
                   </div>
                 </div>
               )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Expense Dialog */}
+          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Edit Expense</DialogTitle>
+              </DialogHeader>
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Edit functionality will be implemented in future updates</p>
+              </div>
             </DialogContent>
           </Dialog>
 
@@ -655,7 +583,7 @@ export default function ExpenseManagement() {
                     <td className="p-3 text-center text-sm">{expense.receiptNumber || 'N/A'}</td>
                     <td className="p-3 text-center">
                       <div className="flex items-center justify-center space-x-2">
-                        <button
+                        <button 
                           onClick={() => {
                             setSelectedExpense(expense);
                             setViewDialogOpen(true);
@@ -666,34 +594,25 @@ export default function ExpenseManagement() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditExpense(expense)}
+                        <button 
+                          onClick={() => {
+                            setSelectedExpense(expense);
+                            setEditDialogOpen(true);
+                          }}
                           className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
                           data-testid={`button-edit-expense-${index}`}
                           title="Edit expense"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewHistory(expense)}
-                          className="text-purple-600 hover:text-purple-800 p-1 hover:bg-purple-50 rounded"
-                          data-testid={`button-history-${index}`}
-                          title="View history"
-                        >
-                          <History className="w-4 h-4" />
-                        </button>
-                        <button
+                        <button 
                           onClick={() => {
-                            setExpenseToDelete(expense);
-                            setOpen(true);
+                            setSelectedExpense(expense);
+                            setReceiptDialogOpen(true);
                           }}
-                          className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
-                          data-testid={`button-delete-expense-${index}`}
-                          title="Delete expense"
+                          className="text-purple-600 hover:text-purple-800 p-1 hover:bg-purple-50 rounded"
+                          data-testid={`button-receipt-${index}`}
+                          title="View receipt"
                         >
                           <FileText className="w-4 h-4" />
                         </button>
@@ -712,235 +631,6 @@ export default function ExpenseManagement() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={open} onOpenChange={(isOpen) => {
-        setOpen(isOpen);
-        if (!isOpen) {
-          setExpenseToDelete(null);
-        }
-      }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center space-y-4 py-4">
-            <FileText className="w-12 h-12 text-red-500" />
-            <p className="text-lg font-medium">Are you sure you want to delete this expense?</p>
-            <p className="text-muted-foreground">This action cannot be undone.</p>
-          </div>
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={deleteExpenseMutation.isPending}>
-              {deleteExpenseMutation.isPending ? "Deleting..." : "Delete Expense"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Expense Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Edit Expense</DialogTitle>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmitUpdate)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="salary">Salary</SelectItem>
-                          <SelectItem value="utilities">Utilities</SelectItem>
-                          <SelectItem value="maintenance">Maintenance</SelectItem>
-                          <SelectItem value="insurance">Insurance</SelectItem>
-                          <SelectItem value="fuel">Fuel</SelectItem>
-                          <SelectItem value="office">Office Supplies</SelectItem>
-                          <SelectItem value="marketing">Marketing</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Amount *</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description *</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} rows={3} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="expenseDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date *</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="paymentMethod"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Payment Method *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select method" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="cash">Cash</SelectItem>
-                          <SelectItem value="card">Card</SelectItem>
-                          <SelectItem value="credit">Credit</SelectItem>
-                          <SelectItem value="fleet">Fleet</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="receiptNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Receipt Number</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="vendorName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Vendor Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  Update Expense
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      {/* History Dialog */}
-      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Expense History</DialogTitle>
-          </DialogHeader>
-          {selectedExpense && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Category</label>
-                  <p className="font-medium">{selectedExpense.category}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Amount</label>
-                  <p className="font-medium">{formatCurrency(parseFloat(selectedExpense.amount))}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Date</label>
-                  <p>{format(new Date(selectedExpense.expenseDate), 'PPP')}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Method</label>
-                  <p>{selectedExpense.paymentMethod}</p>
-                </div>
-                <div className="col-span-2">
-                  <label className="text-sm font-medium text-muted-foreground">Description</label>
-                  <p>{selectedExpense.description}</p>
-                </div>
-                {selectedExpense.vendorName && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Vendor</label>
-                    <p>{selectedExpense.vendorName}</p>
-                  </div>
-                )}
-                {selectedExpense.receiptNumber && (
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">Receipt #</label>
-                    <p>{selectedExpense.receiptNumber}</p>
-                  </div>
-                )}
-              </div>
-              <div className="pt-4 border-t">
-                <h4 className="font-medium mb-2">Transaction History</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Created:</span>
-                    <span>{format(new Date(selectedExpense.createdAt), 'PPp')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Status:</span>
-                    <Badge variant="outline">Recorded</Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
