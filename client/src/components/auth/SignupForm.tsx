@@ -7,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Fuel, ArrowLeft } from "lucide-react";
-import { apiRequest } from "@/lib/api";
-import { useNavigate } from "react-router-dom";
+import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 interface SignupFormProps {
   onBack: () => void;
@@ -25,7 +25,7 @@ export default function SignupForm({ onBack }: SignupFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [showApprovalMessage, setShowApprovalMessage] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const [, navigate] = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

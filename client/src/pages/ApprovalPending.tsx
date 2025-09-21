@@ -13,7 +13,7 @@ interface ApprovalPendingProps {
 
 export default function ApprovalPending({ userEmail, userName }: ApprovalPendingProps) {
   const { user, logout } = useAuth();
-  const [, navigate] = useLocation();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isApproved, setIsApproved] = useState(false);
 
@@ -40,7 +40,7 @@ export default function ApprovalPending({ userEmail, userName }: ApprovalPending
 
   const handleBackToLogin = () => {
     logout();
-    navigate("/login");
+    setLocation("/login");
   };
 
   const handleCheckStatus = () => {

@@ -16,7 +16,7 @@ interface PaymentWithDetails extends Payment {
   supplier?: Supplier;
 }
 
-export default function PaymentHistory() {
+function PaymentHistory() {
   const { id, type } = useParams<{ id: string; type: string }>();
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
@@ -245,3 +245,5 @@ export default function PaymentHistory() {
     </div>
   );
 }
+
+export default PaymentHistory;

@@ -114,14 +114,14 @@ export default function ExpenseManagement() {
 
   const onSubmit = (data: any) => {
     console.log("Expense form submission:", { data, user });
-    
+
     // Ensure current user IDs are used in case user loaded after form initialization
     const expenseData = {
       ...data,
       stationId: user?.stationId || data.stationId,
       userId: user?.id || data.userId,
     };
-    
+
     console.log("Processed expense data:", expenseData);
     createExpenseMutation.mutate(expenseData);
   };
@@ -416,7 +416,7 @@ export default function ExpenseManagement() {
                       </FormItem>
                     )}
                   />
-                  
+
                   <FormField
                     control={editForm.control}
                     name="description"
@@ -534,8 +534,8 @@ export default function ExpenseManagement() {
                 <DialogTitle className="flex items-center justify-between">
                   Expense Receipt
                   <div className="flex space-x-2">
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       onClick={() => {
                         if (selectedExpense) {
                           const printWindow = window.open('', '_blank');
@@ -560,7 +560,7 @@ export default function ExpenseManagement() {
                                   <p>Expense Receipt</p>
                                   <p>Receipt #${selectedExpense.receiptNumber || 'N/A'}</p>
                                 </div>
-                                
+
                                 <div class="receipt-info">
                                   <h3>Expense Details</h3>
                                   <p><strong>Description:</strong> ${selectedExpense.description}</p>
@@ -590,8 +590,8 @@ export default function ExpenseManagement() {
                     >
                       Print
                     </Button>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       variant="outline"
                       onClick={() => {
                         if (selectedExpense) {
@@ -625,7 +625,7 @@ export default function ExpenseManagement() {
                       <p className="text-muted-foreground">Expense Receipt</p>
                       <p className="font-medium">Receipt #{selectedExpense.receiptNumber || 'N/A'}</p>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-4 mb-6">
                       <div>
                         <p className="text-sm text-muted-foreground">Description</p>
@@ -648,7 +648,7 @@ export default function ExpenseManagement() {
                         <p className="font-medium">{selectedExpense.paymentMethod}</p>
                       </div>
                     </div>
-                    
+
                     <div className="text-center border-t pt-4">
                       <p className="text-2xl font-bold text-primary">
                         {formatCurrency(parseFloat(selectedExpense.amount || '0'))}
