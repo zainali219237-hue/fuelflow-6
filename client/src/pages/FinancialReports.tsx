@@ -8,6 +8,8 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { useToast } from "@/hooks/use-toast";
 import { formatCompactNumber } from "@/lib/utils";
 import { Download, Printer } from "lucide-react";
+import { globalPrintDocument } from "@/lib/printUtils";
+import { format } from "date-fns";
 
 // Helper function to format currency with compact notation
 const formatCurrencyCompact = (amount: number) => {
@@ -72,14 +74,7 @@ export default function FinancialReports() {
 
   const handlePrintReport = () => {
     const printContent = generatePrintHTML();
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-    }
+    globalPrintDocument(printContent, `Financial_Report_${reportType}_${format(new Date(), 'yyyy-MM-dd')}`);
 
     toast({
       title: "Print Prepared",

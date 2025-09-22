@@ -5,7 +5,18 @@ export interface PrintTemplate {
 }
 
 // Global print function that prints in current tab
-export const globalPrintDocument = (template: PrintTemplate) => {
+export const globalPrintDocument = (template: PrintTemplate | string, filename?: string) => {
+  // Handle both template object and direct HTML string
+  let content: string;
+  let title: string;
+  
+  if (typeof template === 'string') {
+    content = template;
+    title = filename || 'Document';
+  } else {
+    content = template.content;
+    title = template.title;
+  }
   try {
     // Create a clean print container
     const printContainer = document.createElement('div');
@@ -42,7 +53,7 @@ export const globalPrintDocument = (template: PrintTemplate) => {
           }
         }
       </style>
-      ${template.content}
+      ${content}
     `;
     
     // Remove any existing print container

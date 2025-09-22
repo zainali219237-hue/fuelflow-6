@@ -37,6 +37,13 @@ export default function CustomerManagement() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
+  // Helper function for currency formatting
+  const formatCurrency = (amount: number): string => {
+    if (!currencyConfig || !currencyConfig.symbol) {
+      return `${amount.toLocaleString()}`;
+    }
+    return `${currencyConfig.symbol}${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
   // Edit form
   const editForm = useForm({
@@ -237,7 +244,7 @@ export default function CustomerManagement() {
       type: "receivable",
       stationId: user.stationId || "default-station",
       userId: user.id,
-      currencyCode: "PKR",
+      currencyCode: "PKR", // This should ideally be dynamic based on user settings or context
     };
     recordPaymentMutation.mutate(paymentData);
   };
@@ -441,9 +448,7 @@ export default function CustomerManagement() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-2xl font-bold text-orange-600" data-testid="outstanding-total">
-              ₹{totalOutstanding.toLocaleString()}
-            </div>
+            <div className="text-2xl font-bold text-orange-600" data-testid="outstanding-total">{formatCurrency(totalOutstanding)}</div>
             <div className="text-sm text-muted-foreground">Outstanding Amount</div>
           </CardContent>
         </Card>
@@ -528,7 +533,7 @@ export default function CustomerManagement() {
                       </Badge>
                     </td>
                     <td className="p-3 text-right" data-testid={`credit-limit-${index}`}>
-                      {customer.type === 'credit' ? `₹${parseFloat(customer.creditLimit || '0').toLocaleString()}` : '-'}
+                      {customer.type === 'credit' ? formatCurrency(parseFloat(customer.creditLimit || '0')) : '-'}
                     </td>
                     <td className="p-3 text-right">
                       <span
@@ -536,7 +541,7 @@ export default function CustomerManagement() {
                         data-testid={`outstanding-${index}`}
                       >
                         {parseFloat(customer.outstandingAmount || '0') > 0
-                          ? `₹${parseFloat(customer.outstandingAmount || '0').toLocaleString()}`
+                          ? formatCurrency(parseFloat(customer.outstandingAmount || '0'))
                           : '-'}
                       </span>
                     </td>
@@ -648,11 +653,11 @@ export default function CustomerManagement() {
                 </div>
                 <div>
                   <label className="text-sm font-medium">Credit Limit</label>
-                  <p className="text-sm text-muted-foreground">₹{parseFloat(selectedCustomer.creditLimit || '0').toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">{formatCurrency(parseFloat(selectedCustomer.creditLimit || '0'))}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Outstanding</label>
-                  <p className="text-sm text-muted-foreground">₹{parseFloat(selectedCustomer.outstandingAmount || '0').toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">{formatCurrency(parseFloat(selectedCustomer.outstandingAmount || '0'))}</p>
                 </div>
               </div>
             </div>
@@ -792,7 +797,7 @@ export default function CustomerManagement() {
             <DialogTitle>Record Payment</DialogTitle>
             {selectedCustomer && (
               <p className="text-sm text-muted-foreground">
-                Recording payment for {selectedCustomer.name} (Outstanding: ₹{parseFloat(selectedCustomer.outstandingAmount || '0').toLocaleString()})
+                Recording payment for {selectedCustomer.name} (Outstanding: {formatCurrency(parseFloat(selectedCustomer.outstandingAmount || '0'))})
               </p>
             )}
           </DialogHeader>

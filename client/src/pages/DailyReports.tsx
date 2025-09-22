@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { globalPrintDocument } from "@/lib/printUtils";
 
 interface SalesByMethod {
   paymentMethod: string;

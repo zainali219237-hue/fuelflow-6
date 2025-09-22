@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { formatCompactNumber } from "@/lib/utils";
 import { RefreshCw, CreditCard, TrendingUp, TrendingDown, Printer } from "lucide-react";
+import { globalPrintDocument } from "@/lib/printUtils";
 
 export default function CashReconciliation() {
   const { user } = useAuth();
@@ -148,58 +149,32 @@ export default function CashReconciliation() {
             <RefreshCw className="mr-2 h-4 w-4" /> Start Reconciliation
           </Button>
           <Button variant="outline" onClick={() => {
-            const printWindow = window.open('', '_blank');
-            if (!printWindow) return;
-
             const htmlContent = `
-              <!DOCTYPE html>
-              <html>
-                <head>
-                  <title>Cash Reconciliation Report</title>
-                  <style>
-                    @page { margin: 0.5in; size: A4; }
-                    body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
-                    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-                    .summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
-                    .summary-item { padding: 15px; background: #f3f4f6; border-radius: 8px; }
-                    .amount { font-size: 18px; font-weight: bold; }
-                  </style>
-                </head>
-                <body>
-                  <div class="header">
-                    <h1>Cash Reconciliation Report</h1>
-                    <p>${shift.charAt(0).toUpperCase() + shift.slice(1)} Shift - ${new Date(reconciliationDate).toLocaleDateString()}</p>
-                  </div>
-                  <div class="summary">
-                    <div class="summary-item">
-                      <div>Opening Balance</div>
-                      <div class="amount">${formatCurrency(cashData.openingBalance)}</div>
-                    </div>
-                    <div class="summary-item">
-                      <div>Expected Cash</div>
-                      <div class="amount">${formatCurrency(cashData.expectedCash)}</div>
-                    </div>
-                    <div class="summary-item">
-                      <div>Actual Cash</div>
-                      <div class="amount">${formatCurrency(cashData.actualCash)}</div>
-                    </div>
-                    <div class="summary-item">
-                      <div>Difference</div>
-                      <div class="amount">${formatCurrency(Math.abs(cashData.difference))}</div>
-                    </div>
-                  </div>
-                </body>
-              </html>
+              <div class="header" style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+                <h1>Cash Reconciliation Report</h1>
+                <p>${shift.charAt(0).toUpperCase() + shift.slice(1)} Shift - ${new Date(reconciliationDate).toLocaleDateString()}</p>
+              </div>
+              <div class="summary" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px;">
+                <div class="summary-item" style="padding: 15px; background: #f3f4f6; border-radius: 8px;">
+                  <div>Opening Balance</div>
+                  <div class="amount" style="font-size: 18px; font-weight: bold;">${formatCurrency(cashData.openingBalance)}</div>
+                </div>
+                <div class="summary-item" style="padding: 15px; background: #f3f4f6; border-radius: 8px;">
+                  <div>Expected Cash</div>
+                  <div class="amount" style="font-size: 18px; font-weight: bold;">${formatCurrency(cashData.expectedCash)}</div>
+                </div>
+                <div class="summary-item" style="padding: 15px; background: #f3f4f6; border-radius: 8px;">
+                  <div>Actual Cash</div>
+                  <div class="amount" style="font-size: 18px; font-weight: bold;">${formatCurrency(cashData.actualCash)}</div>
+                </div>
+                <div class="summary-item" style="padding: 15px; background: #f3f4f6; border-radius: 8px;">
+                  <div>Difference</div>
+                  <div class="amount" style="font-size: 18px; font-weight: bold;">${formatCurrency(Math.abs(cashData.difference))}</div>
+                </div>
+              </div>
             `;
 
-            printWindow.document.write(htmlContent);
-            printWindow.document.close();
-            printWindow.onload = () => {
-              setTimeout(() => {
-                printWindow.print();
-                printWindow.close();
-              }, 500);
-            };
+            globalPrintDocument(htmlContent, `Cash_Reconciliation_${shift}_${new Date(reconciliationDate).toISOString().split('T')[0]}`);
           }} data-testid="button-print-report">
             <Printer className="mr-2 h-4 w-4" /> Print Report
           </Button>
@@ -290,7 +265,7 @@ export default function CashReconciliation() {
               {denominations.map((denom, index) => (
                 <div key={denom.value} className="grid grid-cols-4 gap-4 items-center">
                   <label className="flex items-center space-x-2">
-                        <span className="w-16 text-sm font-medium">{currencyConfig.symbol}{denom.value}</span></label>
+                        <span className="w-16 text-sm font-medium">{formatCurrency(denom.value)}</span></label>
                   <div className="text-center">×</div>
                   <Input
                     type="number"

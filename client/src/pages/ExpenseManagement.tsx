@@ -18,6 +18,7 @@ import { apiRequest } from "@/lib/api";
 import { CreditCard, Receipt, Eye, Edit, Trash2, Plus, Download, Printer } from "lucide-react";
 import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
 import { PrintActions } from "@/components/ui/print-actions";
+import { generatePrintTemplate, globalPrintDocument } from "@/lib/printUtils";
 
 const expenseSchema = z.object({
   description: z.string().min(1, "Description is required"),
@@ -82,20 +83,40 @@ export default function ExpenseManagement() {
       }
 
       const expenseData = {
-        ...data,
+        description: data.description,
+        amount: parseFloat(data.amount).toString(),
+        category: data.category,
+        paymentMethod: data.paymentMethod,
+        expenseDate: data.expenseDate,
+        receiptNumber: data.receiptNumber || "",
+        notes: data.notes || "",
         stationId: user.stationId,
         userId: user.id,
-        amount: parseFloat(data.amount).toString(),
+        currencyCode: "PKR",
       };
 
       console.log("Final expense data being sent:", expenseData);
 
       const response = await apiRequest("POST", "/api/expenses", expenseData);
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: response.statusText }));
-        throw new Error(error.message || 'Failed to create expense');
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          console.error("Failed to parse error response:", parseError);
+        }
+        throw new Error(errorMessage);
       }
-      return response.json();
+
+      let result;
+      try {
+        result = await response.json();
+      } catch (parseError) {
+        console.error("Failed to parse success response:", parseError);
+        throw new Error("Invalid response format from server");
+      }
+      return result;
     },
     onSuccess: () => {
       toast({
@@ -119,12 +140,38 @@ export default function ExpenseManagement() {
   const updateExpenseMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       const expenseData = {
-        ...data,
+        description: data.description,
         amount: parseFloat(data.amount).toString(),
+        category: data.category,
+        paymentMethod: data.paymentMethod,
+        expenseDate: data.expenseDate,
+        receiptNumber: data.receiptNumber || "",
+        notes: data.notes || "",
+        currencyCode: "PKR",
       };
+      
+      console.log("Updating expense data:", expenseData);
+      
       const response = await apiRequest("PUT", `/api/expenses/${id}`, expenseData);
-      if (!response.ok) throw new Error('Failed to update expense');
-      return response.json();
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          console.error("Failed to parse error response:", parseError);
+        }
+        throw new Error(errorMessage);
+      }
+
+      let result;
+      try {
+        result = await response.json();
+      } catch (parseError) {
+        console.error("Failed to parse success response:", parseError);
+        throw new Error("Invalid response format from server");
+      }
+      return result;
     },
     onSuccess: () => {
       toast({
@@ -205,45 +252,8 @@ export default function ExpenseManagement() {
   };
 
   const handlePrintReceipt = (expense: Expense) => {
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Expense Receipt - ${expense.receiptNumber || expense.id}</title>
-          <style>
-            @page { margin: 0.5in; size: A4; }
-            body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .header h1 { color: #2563eb; margin: 0; }
-            .expense-details { background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-            .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>FuelFlow Station</h1>
-            <h2>Expense Receipt</h2>
-            <p>Receipt #: ${expense.receiptNumber || expense.id}</p>
-          </div>
-
-          <div class="expense-details">
-            <h3>Expense Details</h3>
-            <p><strong>Description:</strong> ${expense.description}</p>
-            <p><strong>Amount:</strong> ${formatCurrency(parseFloat(expense.amount))}</p>
-            <p><strong>Category:</strong> ${expense.category}</p>
-            <p><strong>Payment Method:</strong> ${expense.paymentMethod}</p>
-            <p><strong>Date:</strong> ${new Date(expense.expenseDate).toLocaleDateString()}</p>
-            ${expense.notes ? `<p><strong>Notes:</strong> ${expense.notes}</p>` : ''}
-          </div>
-
-          <div class="footer">
-            <p>This is a computer-generated receipt from FuelFlow Management System</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    PrintActions(printContent, `Expense_Receipt_${expense.receiptNumber || expense.id}`);
+    const template = generatePrintTemplate(expense, 'expense');
+    globalPrintDocument(template);
   };
 
 
