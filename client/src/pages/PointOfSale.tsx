@@ -512,15 +512,27 @@ export default function PointOfSale() {
             <CardTitle className="text-lg">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="outline" className="w-full justify-start">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => window.location.href = '/sales-history'}
+            >
               <Receipt className="w-4 h-4 mr-2" />
               Last Transaction
             </Button>
-            <Button variant="outline" className="w-full justify-start">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => window.location.href = '/sales-history'}
+            >
               <FileText className="w-4 h-4 mr-2" />
               Print Receipt
             </Button>
-            <Button variant="outline" className="w-full justify-start">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => window.location.href = '/daily-reports'}
+            >
               <Calendar className="w-4 h-4 mr-2" />
               Day Summary
             </Button>

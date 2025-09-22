@@ -508,6 +508,14 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
+  async getPurchaseOrderItems(orderId: string): Promise<PurchaseOrderItem[]> {
+    const result = await this.db
+      .select()
+      .from(purchaseOrderItems)
+      .where(eq(purchaseOrderItems.orderId, orderId));
+    return result;
+  }
+
   async getExpenses(stationId: string): Promise<Expense[]>{
     return await this.db.select()
       .from(expenses)

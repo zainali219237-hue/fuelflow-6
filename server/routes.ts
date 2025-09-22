@@ -851,13 +851,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(order.userId);
       const station = await storage.getStation(order.stationId);
       const items = await storage.getPurchaseOrderItems(id);
+      
+      // Get products for each item
+      const itemsWithProducts = await Promise.all(
+        items.map(async (item) => {
+          const product = await storage.getProduct(item.productId);
+          return { ...item, product };
+        })
+      );
 
       const orderWithDetails = {
         ...order,
         supplier,
         user,
         station,
-        items
+        items: itemsWithProducts
       };
 
       res.json(orderWithDetails);
@@ -867,7 +875,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add individual endpoints for print functionality
+  // Print endpoints for different document types
   app.get("/api/sales/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
@@ -938,6 +946,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/expenses/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userStationId = req.user?.stationId || '';
+      const userRole = req.user?.role || '';
+
+      const { db } = require('./db');
+      const { expenses } = require('@shared/schema');
+      
+      const expense = await db.select().from(expenses).where(eq(expenses.id, id)).then((results: any[]) => results[0]);
+      if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+
+      if (userRole !== 'admin' && userStationId !== expense.stationId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(expense);
+    } catch (error) {
+      console.error('Expense fetch error:', error);
+      res.status(500).json({ message: "Failed to fetch expense" });
+    }
+  });
+
+  app.get("/api/pump-readings/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userStationId = req.user?.stationId || '';
+      const userRole = req.user?.role || '';
+
+      const { db } = require('./db');
+      const { pumpReadings, pumps } = require('@shared/schema');
+
+      const reading = await db.select().from(pumpReadings).where(eq(pumpReadings.id, id)).then((results: any[]) => results[0]);
+      if (!reading) {
+        return res.status(404).json({ message: "Pump reading not found" });
+      }
+
+      if (userRole !== 'admin' && userStationId !== reading.stationId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get pump and product details
+      const pump = await db.select().from(pumps).where(eq(pumps.id, reading.pumpId)).then((results: any[]) => results[0]);
+      const product = await storage.getProduct(reading.productId);
+
+      res.json({
+        ...reading,
+        pump,
+        product
+      });
+    } catch (error) {
+      console.error('Pump reading fetch error:', error);
+      res.status(500).json({ message: "Failed to fetch pump reading" });
+    }
+  });
+
   app.delete("/api/purchase-orders/:id", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
     try {
       const { id } = req.params;
@@ -966,9 +1032,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userStationId) {
         return res.status(400).json({ message: "User station not found." });
       }
-      const currencyConfig = await storage.getSettings(userStationId);
+      let currencyConfig = await storage.getSettings(userStationId);
       if (!currencyConfig) {
-        return res.status(400).json({ message: "Station settings not found." });
+        // Create default settings if they don't exist
+        const defaultSettings = {
+          stationId: userStationId,
+          taxEnabled: false,
+          taxRate: '0',
+          currencyCode: 'PKR' as const,
+        };
+        currencyConfig = await storage.createSettings(defaultSettings);
       }
 
       // Calculate subtotal, tax, and total

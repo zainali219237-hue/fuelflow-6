@@ -167,10 +167,10 @@ export default function InvoiceReceipt() {
                 <tbody>
                   ${transaction?.items?.map(item => `
                     <tr>
-                      <td>${item.product?.name || 'Unknown Product'}</td>
-                      <td>${parseFloat(item.quantity).toFixed(3)} ${item.product?.unit || 'L'}</td>
-                      <td>${formatAmount(parseFloat(item.unitPrice), transaction?.currencyCode || 'PKR')}</td>
-                      <td class="amount">${formatAmount(parseFloat(item.totalPrice), transaction?.currencyCode || 'PKR')}</td>
+                      <td>${item?.product?.name || 'Unknown Product'}</td>
+                      <td>${parseFloat(item?.quantity || '0').toFixed(3)} ${item?.product?.unit || 'L'}</td>
+                      <td>${formatAmount(parseFloat(item?.unitPrice || '0'), transaction?.currencyCode || 'PKR')}</td>
+                      <td class="amount">${formatAmount(parseFloat(item?.totalPrice || '0'), transaction?.currencyCode || 'PKR')}</td>
                     </tr>
                   `).join('') || ''}
                 </tbody>
@@ -484,27 +484,27 @@ export default function InvoiceReceipt() {
                   <div className="col-span-2 text-right">Unit Price</div>
                   <div className="col-span-3 text-right">Total</div>
                 </div>
-                {transaction.items.map((item, index) => (
-                  <div key={item.id} className="grid grid-cols-12 gap-4 p-4 border-b last:border-b-0" data-testid={`row-item-${index}`}>
+                {transaction.items?.map((item, index) => (
+                  <div key={item?.id || index} className="grid grid-cols-12 gap-4 p-4 border-b last:border-b-0" data-testid={`row-item-${index}`}>
                     <div className="col-span-5">
-                      <div className="font-semibold" data-testid={`text-product-name-${index}`}>{item.product.name}</div>
-                      {item.product.hsnCode && (
+                      <div className="font-semibold" data-testid={`text-product-name-${index}`}>{item?.product?.name || 'Unknown Product'}</div>
+                      {item?.product?.hsnCode && (
                         <div className="text-xs text-muted-foreground" data-testid={`text-hsn-${index}`}>
                           HSN: {item.product.hsnCode}
                         </div>
                       )}
                     </div>
                     <div className="col-span-2 text-right" data-testid={`text-quantity-${index}`}>
-                      {parseFloat(item.quantity).toFixed(3)} {item.product.unit}
+                      {parseFloat(item?.quantity || '0').toFixed(3)} {item?.product?.unit || 'L'}
                     </div>
                     <div className="col-span-2 text-right" data-testid={`text-unit-price-${index}`}>
-                      {formatAmount(parseFloat(item.unitPrice), transaction.currencyCode)}
+                      {formatAmount(parseFloat(item?.unitPrice || '0'), transaction.currencyCode)}
                     </div>
                     <div className="col-span-3 text-right font-semibold" data-testid={`text-total-price-${index}`}>
-                      {formatAmount(parseFloat(item.totalPrice), transaction.currencyCode)}
+                      {formatAmount(parseFloat(item?.totalPrice || '0'), transaction.currencyCode)}
                     </div>
                   </div>
-                ))}
+                )) || []}
               </div>
             </div>
 

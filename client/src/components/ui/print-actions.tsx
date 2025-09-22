@@ -78,8 +78,19 @@ export function PrintActions({
     setIsLoading(true);
     try {
       // Fetch the data for the document
-      const response = await fetch(`${getApiEndpoint(type)}/${id}`);
-      if (!response.ok) throw new Error('Failed to fetch document data');
+      const apiEndpoint = getApiEndpoint(type);
+      const response = await fetch(`${apiEndpoint}/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error:', errorText);
+        throw new Error('Failed to fetch document data');
+      }
       
       const data = await response.json();
       const template = generatePrintTemplate(data, type);
@@ -122,8 +133,19 @@ export function PrintActions({
     setIsLoading(true);
     try {
       // Fetch the data for the document
-      const response = await fetch(`${getApiEndpoint(type)}/${id}`);
-      if (!response.ok) throw new Error('Failed to fetch document data');
+      const apiEndpoint = getApiEndpoint(type);
+      const response = await fetch(`${apiEndpoint}/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API Error:', errorText);
+        throw new Error('Failed to fetch document data');
+      }
       
       const data = await response.json();
       const template = generatePrintTemplate(data, type);
