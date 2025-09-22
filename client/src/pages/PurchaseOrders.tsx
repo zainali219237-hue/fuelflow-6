@@ -227,6 +227,61 @@ export default function PurchaseOrders() {
   const onSubmit = (data: any) => {
     console.log("Form submitted with data:", data);
     
+    // Validate that all required fields are present
+    if (!data.orderNumber || !data.supplierId || !data.orderDate) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate that at least one item exists with valid data
+    if (!data.items || data.items.length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please add at least one item to the order",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate each item
+    for (let i = 0; i < data.items.length; i++) {
+      const item = data.items[i];
+      if (!item.productId || !item.quantity || !item.unitPrice) {
+        toast({
+          title: "Validation Error",
+          description: `Please complete all fields for item ${i + 1}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Convert to numbers and validate
+      const qty = parseFloat(item.quantity);
+      const price = parseFloat(item.unitPrice);
+      
+      if (isNaN(qty) || qty <= 0) {
+        toast({
+          title: "Validation Error",
+          description: `Invalid quantity for item ${i + 1}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (isNaN(price) || price <= 0) {
+        toast({
+          title: "Validation Error",
+          description: `Invalid unit price for item ${i + 1}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
     if (editOrderId) {
       updatePurchaseOrderMutation.mutate({ id: editOrderId, data });
     } else {

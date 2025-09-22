@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,16 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
+import { Combobox } from "@/components/ui/combobox";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/contexts/CurrencyContext";
-import { Plus, Minus, ShoppingCart, Receipt, Save, Trash2, Users, Package, CreditCard, Calculator } from "lucide-react";
-import type { Product, Customer, Tank, SalesTransaction } from "@shared/schema";
+import { Plus, Trash2, Receipt, FileText, Calendar, User } from "lucide-react";
+import type { Product, Customer, Supplier, Tank, SalesTransaction } from "@shared/schema";
 
 interface CartItem {
   productId: string;
@@ -30,8 +30,7 @@ interface CartItem {
 
 const saleFormSchema = z.object({
   customerId: z.string().min(1, "Customer is required"),
-  paymentMethod: z.enum(["cash", "card", "credit", "fleet"]),
-  notes: z.string().optional(),
+  paymentMethod: z.enum(["cash", "card", "credit"]),
 });
 
 type SaleFormData = z.infer<typeof saleFormSchema>;
@@ -40,15 +39,14 @@ export default function PointOfSale() {
   const { user } = useAuth();
   const { formatCurrency } = useCurrency();
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [productSearch, setProductSearch] = useState("");
+  const [defaultQuantity, setDefaultQuantity] = useState<string>("25");
+  const [transactionNumber] = useState(`TXN-${Math.random().toString(36).substr(2, 6).toUpperCase()}`);
 
   const form = useForm<SaleFormData>({
     resolver: zodResolver(saleFormSchema),
     defaultValues: {
       customerId: "",
       paymentMethod: "cash",
-      notes: "",
     },
   });
 
@@ -61,53 +59,59 @@ export default function PointOfSale() {
     queryKey: ["/api/customers"],
   });
 
+  const { data: suppliers = [] } = useQuery<Supplier[]>({
+    queryKey: ["/api/suppliers"],
+  });
+
   const { data: tanks = [] } = useQuery<Tank[]>({
     queryKey: ["/api/tanks"],
   });
+
+  // Combine customers and suppliers for search
+  const searchableOptions = [
+    ...customers.map(c => ({ value: c.id, label: c.name, type: 'customer' as const })),
+    ...suppliers.map(s => ({ value: s.id, label: s.name, type: 'supplier' as const }))
+  ];
 
   // Find walk-in customer and set as default
   const walkInCustomer = customers.find(c => c.type === 'walk-in') || customers[0];
 
   // Set default customer if form is empty
-  React.useEffect(() => {
+  useEffect(() => {
     if (walkInCustomer && !form.getValues('customerId')) {
       form.setValue('customerId', walkInCustomer.id);
     }
   }, [walkInCustomer, form]);
 
-  // Get product categories
-  const categories = [...new Set(products.map(p => p.category))];
-
-  // Filter products
-  const filteredProducts = products.filter(product => {
-    const matchesCategory = selectedCategory === "all" || product.category === selectedCategory;
-    const matchesSearch = product.name.toLowerCase().includes(productSearch.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Get fuel products (Petrol, Diesel)
+  const fuelProducts = products.filter(p => p.category === 'fuel');
+  const otherProducts = products.filter(p => p.category !== 'fuel');
 
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
-  const taxRate = 0; // Can be fetched from settings
+  const taxRate = 0.05; // 5% tax
   const taxAmount = subtotal * taxRate;
   const totalAmount = subtotal + taxAmount;
 
-  // Add product to cart
+  // Add product to cart with default quantity
   const addToCart = (product: Product, tank?: Tank) => {
     const existingItemIndex = cart.findIndex(item => 
       item.productId === product.id && item.tankId === tank?.id
     );
 
+    const quantity = parseFloat(defaultQuantity) || 1;
+
     if (existingItemIndex >= 0) {
-      updateQuantity(existingItemIndex, cart[existingItemIndex].quantity + 1);
+      updateQuantity(existingItemIndex, cart[existingItemIndex].quantity + quantity);
     } else {
       const newItem: CartItem = {
         productId: product.id,
         product,
         tankId: tank?.id,
         tank,
-        quantity: 1,
+        quantity,
         unitPrice: parseFloat(product.currentPrice),
-        totalPrice: parseFloat(product.currentPrice),
+        totalPrice: parseFloat(product.currentPrice) * quantity,
       };
       setCart([...cart, newItem]);
     }
@@ -145,7 +149,6 @@ export default function PointOfSale() {
     form.reset({
       customerId: walkInCustomer?.id || "",
       paymentMethod: "cash",
-      notes: "",
     });
   };
 
@@ -162,7 +165,7 @@ export default function PointOfSale() {
     onSuccess: (data) => {
       toast({
         title: "Sale completed successfully",
-        description: `Invoice ${data.invoiceNumber} created`,
+        description: `Invoice ${data.transaction.invoiceNumber} created`,
       });
       clearCart();
       queryClient.invalidateQueries({ queryKey: ["/api/sales"] });
@@ -200,17 +203,18 @@ export default function PointOfSale() {
     }
 
     const saleData = {
-      stationId: user.stationId,
-      customerId: data.customerId,
-      userId: user.id,
-      paymentMethod: data.paymentMethod,
-      currencyCode: "PKR",
-      subtotal: subtotal.toString(),
-      taxAmount: taxAmount.toString(),
-      totalAmount: totalAmount.toString(),
-      paidAmount: data.paymentMethod === "credit" ? "0" : totalAmount.toString(),
-      outstandingAmount: data.paymentMethod === "credit" ? totalAmount.toString() : "0",
-      notes: data.notes || null,
+      transaction: {
+        stationId: user.stationId,
+        customerId: data.customerId,
+        userId: user.id,
+        paymentMethod: data.paymentMethod,
+        currencyCode: "PKR",
+        subtotal: subtotal.toString(),
+        taxAmount: taxAmount.toString(),
+        totalAmount: totalAmount.toString(),
+        paidAmount: data.paymentMethod === "credit" ? "0" : totalAmount.toString(),
+        outstandingAmount: data.paymentMethod === "credit" ? totalAmount.toString() : "0",
+      },
       items: cart.map(item => ({
         productId: item.productId,
         tankId: item.tankId || null,
@@ -223,366 +227,304 @@ export default function PointOfSale() {
     createSaleMutation.mutate(saleData);
   };
 
+  const saveAsDraft = () => {
+    const draftData = {
+      id: `draft-${Date.now()}`,
+      selectedCustomerId: form.getValues('customerId'),
+      transactionItems: cart,
+      paymentMethod: form.getValues('paymentMethod'),
+      timestamp: Date.now(),
+      totalAmount: totalAmount,
+    };
+
+    // Get existing drafts
+    const existingDrafts = JSON.parse(localStorage.getItem('allPosDrafts') || '[]');
+    existingDrafts.push(draftData);
+    localStorage.setItem('allPosDrafts', JSON.stringify(existingDrafts));
+
+    toast({
+      title: "Draft saved",
+      description: "Transaction saved as draft",
+    });
+  };
+
   // Get available tanks for a product
   const getProductTanks = (productId: string) => {
     return tanks.filter(tank => tank.productId === productId && parseFloat(tank.currentStock || '0') > 0);
   };
 
   return (
-    <div className="container mx-auto p-4 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-card-foreground">Point of Sale</h1>
-          <p className="text-sm text-muted-foreground">Process fuel sales and transactions</p>
-        </div>
-        <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            onClick={clearCart}
-            disabled={cart.length === 0}
-            data-testid="button-clear-cart"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Clear Cart
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {/* Products Section */}
-        <div className="xl:col-span-2 space-y-4">
-          {/* Product Filters */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <CardTitle className="flex items-center text-lg">
-                  <Package className="w-5 h-5 mr-2" />
-                  Products
-                </CardTitle>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-                  <Input
-                    placeholder="Search products..."
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    className="w-full sm:w-48"
-                  />
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="w-full sm:w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category.charAt(0).toUpperCase() + category.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+    <div className="min-h-screen bg-gray-900 text-white p-6">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Section - New Sale Transaction */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="bg-gray-800 border-gray-700">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl text-white">New Sale Transaction</CardTitle>
+                <div className="text-right">
+                  <p className="text-sm text-gray-400">Transaction #</p>
+                  <p className="text-lg font-bold text-blue-400">{transactionNumber}</p>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {filteredProducts.map((product) => {
+            <CardContent className="space-y-6">
+              {/* Customer Selection */}
+              <div>
+                <label className="text-sm text-gray-300 mb-2 block">Customer</label>
+                <div className="flex items-center gap-3">
+                  <Form {...form}>
+                    <FormField
+                      control={form.control}
+                      name="customerId"
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormControl>
+                            <Combobox
+                              options={searchableOptions}
+                              value={field.value}
+                              onValueChange={field.onChange}
+                              placeholder="Search or select customer..."
+                              emptyMessage="No customers found"
+                              className="bg-gray-700 border-gray-600 text-white"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </Form>
+                  <Button variant="outline" size="sm" className="bg-gray-700 border-gray-600 text-white hover:bg-gray-600">
+                    + Add
+                  </Button>
+                </div>
+              </div>
+
+              {/* Default Quantity */}
+              <div>
+                <label className="text-sm text-gray-300 mb-2 block">Default Quantity (L)</label>
+                <Input
+                  value={defaultQuantity}
+                  onChange={(e) => setDefaultQuantity(e.target.value)}
+                  className="bg-gray-700 border-gray-600 text-white w-32"
+                  type="number"
+                  step="0.1"
+                />
+              </div>
+
+              {/* Fuel Products */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {fuelProducts.map((product) => {
                   const productTanks = getProductTanks(product.id);
-                  const isFuel = product.category === 'fuel';
-
                   return (
-                    <Card key={product.id} className="hover:shadow-md transition-shadow border">
-                      <CardContent className="p-3">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-medium text-sm">{product.name}</h3>
-                            <Badge variant="secondary" className="text-xs">{product.category}</Badge>
-                          </div>
-                          <p className="text-sm font-semibold text-primary">
-                            {formatCurrency(parseFloat(product.currentPrice))} / {product.unit}
-                          </p>
-
-                          {isFuel && productTanks.length > 0 ? (
-                            <div className="space-y-1">
-                              <p className="text-xs text-muted-foreground">Available Tanks:</p>
-                              {productTanks.map((tank) => (
-                                <Button
-                                  key={tank.id}
-                                  variant="outline"
-                                  size="sm"
-                                  className="w-full justify-between h-8 text-xs"
-                                  onClick={() => addToCart(product, tank)}
-                                  data-testid={`button-add-product-${product.id}-${tank.id}`}
-                                >
-                                  <span>{tank.name}</span>
-                                  <span className="text-xs text-green-600">
-                                    {parseFloat(tank.currentStock || '0').toFixed(1)}L
-                                  </span>
-                                </Button>
-                              ))}
-                            </div>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full h-8 text-xs"
-                              onClick={() => addToCart(product)}
-                              disabled={isFuel && productTanks.length === 0}
-                              data-testid={`button-add-product-${product.id}`}
-                            >
-                              <Plus className="w-3 h-3 mr-1" />
-                              Add to Cart
-                            </Button>
-                          )}
+                    <Card 
+                      key={product.id}
+                      className="bg-gray-700 border-gray-600 cursor-pointer hover:bg-gray-600 transition-colors"
+                      onClick={() => productTanks.length > 0 ? addToCart(product, productTanks[0]) : addToCart(product)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-semibold text-lg text-blue-400">
+                            {product.name}
+                          </h3>
+                          <span className="text-sm text-gray-400">{product.category}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xl font-bold text-white">
+                            {formatCurrency(parseFloat(product.currentPrice))}
+                          </span>
+                          <span className="text-sm text-gray-400">per litre</span>
                         </div>
                       </CardContent>
                     </Card>
                   );
                 })}
               </div>
+
+              {/* Other Products */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {otherProducts.map((product) => (
+                  <Card 
+                    key={product.id}
+                    className="bg-gray-700 border-gray-600 cursor-pointer hover:bg-gray-600 transition-colors"
+                    onClick={() => addToCart(product)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold text-white">
+                          {product.name}
+                        </h3>
+                        <span className="text-sm text-gray-400">{product.category}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold text-white">
+                          {formatCurrency(parseFloat(product.currentPrice))}
+                        </span>
+                        <span className="text-sm text-gray-400">per {product.unit}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Cart Items Table */}
+              {cart.length > 0 && (
+                <Card className="bg-gray-700 border-gray-600">
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-800">
+                          <tr>
+                            <th className="text-left p-3 text-gray-300">Product</th>
+                            <th className="text-center p-3 text-gray-300">Qty (L)</th>
+                            <th className="text-center p-3 text-gray-300">Rate</th>
+                            <th className="text-center p-3 text-gray-300">Amount</th>
+                            <th className="text-center p-3 text-gray-300">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {cart.map((item, index) => (
+                            <tr key={`${item.productId}-${item.tankId || 'no-tank'}`} className="border-t border-gray-600">
+                              <td className="p-3 text-white">{item.product.name}</td>
+                              <td className="p-3 text-center">
+                                <Input
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) => updateQuantity(index, parseFloat(e.target.value) || 0)}
+                                  className="bg-gray-800 border-gray-600 text-white w-20 text-center"
+                                  step="0.1"
+                                />
+                              </td>
+                              <td className="p-3 text-center">
+                                <Input
+                                  type="number"
+                                  value={item.unitPrice}
+                                  onChange={(e) => updateUnitPrice(index, parseFloat(e.target.value) || 0)}
+                                  className="bg-gray-800 border-gray-600 text-white w-24 text-center"
+                                  step="0.01"
+                                />
+                              </td>
+                              <td className="p-3 text-center text-white font-medium">
+                                {formatCurrency(item.totalPrice)}
+                              </td>
+                              <td className="p-3 text-center">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeFromCart(index)}
+                                  className="text-red-400 hover:text-red-300"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {cart.length === 0 && (
+                      <div className="p-8 text-center text-gray-400">
+                        No items added. Click on a product above to add it.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Payment Method Selection */}
+              <div className="flex gap-4">
+                <Button
+                  variant={form.watch('paymentMethod') === 'cash' ? 'default' : 'outline'}
+                  onClick={() => form.setValue('paymentMethod', 'cash')}
+                  className="flex-1"
+                >
+                  Cash Payment
+                </Button>
+                <Button
+                  variant={form.watch('paymentMethod') === 'card' ? 'default' : 'outline'}
+                  onClick={() => form.setValue('paymentMethod', 'card')}
+                  className="flex-1"
+                >
+                  Card Payment
+                </Button>
+                <Button
+                  variant={form.watch('paymentMethod') === 'credit' ? 'default' : 'outline'}
+                  onClick={() => form.setValue('paymentMethod', 'credit')}
+                  className="flex-1"
+                >
+                  Credit Sale
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Cart and Checkout Section */}
-        <div className="space-y-4">
-          {/* Customer & Payment Info */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center text-lg">
-                <Users className="w-5 h-5 mr-2" />
-                Sale Details
-              </CardTitle>
+        {/* Right Section - Transaction Summary */}
+        <div className="space-y-6">
+          <Card className="bg-gray-800 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-xl text-white">Transaction Summary</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Form {...form}>
-                <FormField
-                  control={form.control}
-                  name="customerId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm">Customer</FormLabel>
-                      <Select 
-                        onValueChange={field.onChange} 
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger data-testid="select-customer" className="h-9">
-                            <SelectValue placeholder="Select customer" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
-                              <div className="flex items-center">
-                                <span>{customer.name}</span>
-                                {customer.type !== 'walk-in' && (
-                                  <Badge variant="outline" className="ml-2 text-xs">
-                                    {customer.type}
-                                  </Badge>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            <CardContent className="space-y-4">
+              <div className="flex justify-between text-gray-300">
+                <span>Subtotal:</span>
+                <span className="text-white">{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-gray-300">
+                <span>Tax (5%):</span>
+                <span className="text-white">{formatCurrency(taxAmount)}</span>
+              </div>
+              <Separator className="bg-gray-600" />
+              <div className="flex justify-between text-lg font-bold">
+                <span>Total:</span>
+                <span className="text-blue-400">{formatCurrency(totalAmount)}</span>
+              </div>
 
-                <FormField
-                  control={form.control}
-                  name="paymentMethod"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm">Payment Method</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-payment-method" className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="cash">
-                            <div className="flex items-center">
-                              <CreditCard className="w-4 h-4 mr-2" />
-                              Cash
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="card">
-                            <div className="flex items-center">
-                              <CreditCard className="w-4 h-4 mr-2" />
-                              Card
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="credit">
-                            <div className="flex items-center">
-                              <CreditCard className="w-4 h-4 mr-2" />
-                              Credit
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="fleet">
-                            <div className="flex items-center">
-                              <CreditCard className="w-4 h-4 mr-2" />
-                              Fleet
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm">Notes (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Add sale notes..." 
-                          className="h-16 text-sm" 
-                          {...field} 
-                          data-testid="input-notes" 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </Form>
+              <div className="space-y-3 pt-4">
+                <Button
+                  onClick={form.handleSubmit(onSubmit)}
+                  disabled={cart.length === 0 || createSaleMutation.isPending || !form.watch('customerId')}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-lg"
+                >
+                  Complete Sale
+                </Button>
+                <Button
+                  onClick={saveAsDraft}
+                  variant="outline"
+                  disabled={cart.length === 0}
+                  className="w-full bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
+                >
+                  Save as Draft
+                </Button>
+                <Button
+                  onClick={clearCart}
+                  variant="outline"
+                  className="w-full bg-red-900 border-red-700 text-red-300 hover:bg-red-800"
+                >
+                  Cancel Transaction
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Cart Items */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center justify-between text-lg">
-                <div className="flex items-center">
-                  <ShoppingCart className="w-5 h-5 mr-2" />
-                  Cart ({cart.length} items)
-                </div>
-                <Badge variant="secondary">{formatCurrency(totalAmount)}</Badge>
-              </CardTitle>
+          {/* Quick Actions */}
+          <Card className="bg-gray-800 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-lg text-white">Quick Actions</CardTitle>
             </CardHeader>
-            <CardContent>
-              {cart.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">Your cart is empty</p>
-                  <p className="text-xs">Add products to get started</p>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {cart.map((item, index) => (
-                    <div key={`${item.productId}-${item.tankId || 'no-tank'}`} className="border rounded-lg p-3">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{item.product.name}</p>
-                          {item.tank && (
-                            <p className="text-xs text-muted-foreground">Tank: {item.tank.name}</p>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeFromCart(index)}
-                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                          data-testid={`button-remove-item-${index}`}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 items-center">
-                        {/* Quantity Controls */}
-                        <div className="flex items-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateQuantity(index, item.quantity - 1)}
-                            className="h-7 w-7 p-0"
-                            data-testid={`button-decrease-quantity-${index}`}
-                          >
-                            <Minus className="w-3 h-3" />
-                          </Button>
-                          <Input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateQuantity(index, parseFloat(e.target.value) || 0)}
-                            className="h-7 w-12 mx-1 text-center text-sm"
-                            min="0"
-                            step="0.1"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => updateQuantity(index, item.quantity + 1)}
-                            className="h-7 w-7 p-0"
-                            data-testid={`button-increase-quantity-${index}`}
-                          >
-                            <Plus className="w-3 h-3" />
-                          </Button>
-                        </div>
-
-                        {/* Unit Price */}
-                        <Input
-                          type="number"
-                          value={item.unitPrice}
-                          onChange={(e) => updateUnitPrice(index, parseFloat(e.target.value) || 0)}
-                          className="h-7 text-sm"
-                          min="0"
-                          step="0.01"
-                        />
-
-                        {/* Total Price */}
-                        <div className="text-right">
-                          <p className="text-sm font-medium">{formatCurrency(item.totalPrice)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {cart.length > 0 && (
-                <>
-                  <Separator className="my-3" />
-
-                  {/* Totals */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Subtotal:</span>
-                      <span data-testid="text-subtotal">{formatCurrency(subtotal)}</span>
-                    </div>
-                    {taxAmount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span>Tax:</span>
-                        <span data-testid="text-tax">{formatCurrency(taxAmount)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-semibold text-lg border-t pt-2">
-                      <span>Total:</span>
-                      <span data-testid="text-total">{formatCurrency(totalAmount)}</span>
-                    </div>
-                  </div>
-
-                  <Separator className="my-3" />
-
-                  {/* Complete Sale Button */}
-                  <Button
-                    className="w-full h-12 text-lg"
-                    onClick={form.handleSubmit(onSubmit)}
-                    disabled={cart.length === 0 || createSaleMutation.isPending || !form.watch('customerId')}
-                    data-testid="button-complete-sale"
-                  >
-                    <Receipt className="w-5 h-5 mr-2" />
-                    {createSaleMutation.isPending ? "Processing..." : `Complete Sale - ${formatCurrency(totalAmount)}`}
-                  </Button>
-                </>
-              )}
+            <CardContent className="space-y-3">
+              <Button variant="outline" className="w-full justify-start bg-gray-700 border-gray-600 text-white hover:bg-gray-600">
+                <Receipt className="w-4 h-4 mr-2" />
+                Last Transaction
+              </Button>
+              <Button variant="outline" className="w-full justify-start bg-gray-700 border-gray-600 text-white hover:bg-gray-600">
+                <FileText className="w-4 h-4 mr-2" />
+                Print Receipt
+              </Button>
+              <Button variant="outline" className="w-full justify-start bg-gray-700 border-gray-600 text-white hover:bg-gray-600">
+                <Calendar className="w-4 h-4 mr-2" />
+                Day Summary
+              </Button>
             </CardContent>
           </Card>
         </div>

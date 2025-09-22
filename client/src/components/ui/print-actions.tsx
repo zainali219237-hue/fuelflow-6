@@ -44,17 +44,17 @@ const getApiEndpoint = (type: PrintType) => {
   switch (type) {
     case 'invoice':
     case 'receipt':
-      return 'sales';
+      return '/api/sales';
     case 'purchaseOrder':
-      return 'purchase-orders';
+      return '/api/purchase-orders';
     case 'expense':
-      return 'expenses';
+      return '/api/expenses';
     case 'statement':
-      return 'payments';
+      return '/api/payments';
     case 'pumpReading':
-      return 'pump-readings';
+      return '/api/pump-readings';
     default:
-      return 'sales';
+      return '/api/sales';
   }
 };
 
@@ -78,7 +78,7 @@ export function PrintActions({
     setIsLoading(true);
     try {
       // Fetch the data for the document
-      const response = await fetch(`/api/${getApiEndpoint(type)}/${id}`);
+      const response = await fetch(`${getApiEndpoint(type)}/${id}`);
       if (!response.ok) throw new Error('Failed to fetch document data');
       
       const data = await response.json();
@@ -86,6 +86,7 @@ export function PrintActions({
       globalPrintDocument(template);
     } catch (error) {
       console.error('Print failed:', error);
+      alert('Failed to print document. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -95,7 +96,7 @@ export function PrintActions({
     setIsLoading(true);
     try {
       // Fetch the data for the document
-      const response = await fetch(`/api/${getApiEndpoint(type)}/${id}`);
+      const response = await fetch(`${getApiEndpoint(type)}/${id}`);
       if (!response.ok) throw new Error('Failed to fetch document data');
       
       const data = await response.json();
@@ -108,6 +109,7 @@ export function PrintActions({
       }
     } catch (error) {
       console.error('Download failed:', error);
+      alert('Failed to download document. Please try again.');
     } finally {
       setIsLoading(false);
     }

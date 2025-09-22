@@ -669,15 +669,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userStationId = req.user?.stationId || '';
       const userRole = req.user?.role || '';
 
-      const sale = await storage.getSalesTransactionWithItemsSecure(id, userStationId, userRole);
+      // Try to get the transaction with a simpler approach first
+      const sale = await storage.getSalesTransaction(id);
       if (!sale) {
         return res.status(404).json({ message: "Sales transaction not found" });
       }
-      res.json(sale);
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('Access denied')) {
-        return res.status(403).json({ message: error.message });
+
+      // Check access permissions
+      if (userRole !== 'admin' && userStationId !== sale.stationId) {
+        return res.status(403).json({ message: "Access denied to this transaction" });
       }
+
+      // Get additional details
+      const customer = await storage.getCustomer(sale.customerId);
+      const user = await storage.getUser(sale.userId);
+      const station = await storage.getStation(sale.stationId);
+      const items = await storage.getSalesTransactionItems(id);
+
+      const saleWithDetails = {
+        ...sale,
+        customer,
+        user,
+        station,
+        items
+      };
+
+      res.json(saleWithDetails);
+    } catch (error) {
+      console.error('Sales detail error:', error);
       res.status(500).json({ message: "Failed to fetch sales transaction details" });
     }
   });
@@ -817,16 +836,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userStationId = req.user?.stationId || '';
       const userRole = req.user?.role || '';
 
-      const order = await storage.getPurchaseOrderWithItemsSecure(id, userStationId, userRole);
+      const order = await storage.getPurchaseOrder(id);
       if (!order) {
         return res.status(404).json({ message: "Purchase order not found" });
       }
-      res.json(order);
-    } catch (error) {
-      if (error instanceof Error && error.message.includes('Access denied')) {
-        return res.status(403).json({ message: error.message });
+
+      // Check access permissions
+      if (userRole !== 'admin' && userStationId !== order.stationId) {
+        return res.status(403).json({ message: "Access denied to this purchase order" });
       }
+
+      // Get additional details
+      const supplier = await storage.getSupplier(order.supplierId);
+      const user = await storage.getUser(order.userId);
+      const station = await storage.getStation(order.stationId);
+      const items = await storage.getPurchaseOrderItems(id);
+
+      const orderWithDetails = {
+        ...order,
+        supplier,
+        user,
+        station,
+        items
+      };
+
+      res.json(orderWithDetails);
+    } catch (error) {
+      console.error('Purchase order detail error:', error);
       res.status(500).json({ message: "Failed to fetch purchase order details" });
+    }
+  });
+
+  // Add individual endpoints for print functionality
+  app.get("/api/sales/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userStationId = req.user?.stationId || '';
+      const userRole = req.user?.role || '';
+
+      const sale = await storage.getSalesTransaction(id);
+      if (!sale) {
+        return res.status(404).json({ message: "Sales transaction not found" });
+      }
+
+      if (userRole !== 'admin' && userStationId !== sale.stationId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const customer = await storage.getCustomer(sale.customerId);
+      const items = await storage.getSalesTransactionItems(id);
+      const itemsWithProducts = await Promise.all(
+        items.map(async (item) => {
+          const product = await storage.getProduct(item.productId);
+          return { ...item, product };
+        })
+      );
+
+      res.json({
+        ...sale,
+        customer,
+        items: itemsWithProducts
+      });
+    } catch (error) {
+      console.error('Sales fetch error:', error);
+      res.status(500).json({ message: "Failed to fetch sales transaction" });
+    }
+  });
+
+  app.get("/api/purchase-orders/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userStationId = req.user?.stationId || '';
+      const userRole = req.user?.role || '';
+
+      const order = await storage.getPurchaseOrder(id);
+      if (!order) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+
+      if (userRole !== 'admin' && userStationId !== order.stationId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const supplier = await storage.getSupplier(order.supplierId);
+      const items = await storage.getPurchaseOrderItems(id);
+      const itemsWithProducts = await Promise.all(
+        items.map(async (item) => {
+          const product = await storage.getProduct(item.productId);
+          return { ...item, product };
+        })
+      );
+
+      res.json({
+        ...order,
+        supplier,
+        items: itemsWithProducts
+      });
+    } catch (error) {
+      console.error('Purchase order fetch error:', error);
+      res.status(500).json({ message: "Failed to fetch purchase order" });
     }
   });
 
