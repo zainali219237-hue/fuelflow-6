@@ -4,65 +4,58 @@ export interface PrintTemplate {
   filename: string;
 }
 
-// Global print function that opens in current tab
+// Global print function that prints in current tab
 export const globalPrintDocument = (template: PrintTemplate) => {
-  // Create a hidden iframe for printing
-  const iframe = document.createElement('iframe');
-  iframe.style.position = 'absolute';
-  iframe.style.left = '-9999px';
-  iframe.style.width = '0';
-  iframe.style.height = '0';
-  iframe.style.border = 'none';
+  // Create print content in current window
+  const printContent = document.createElement('div');
+  printContent.innerHTML = `
+    <style>
+      @page { margin: 0.5in; size: A4; }
+      .print-content { 
+        font-family: Arial, sans-serif; 
+        line-height: 1.4; 
+        color: #000; 
+        margin: 0; 
+        padding: 20px; 
+        background: white;
+      }
+      @media print {
+        body { background: white !important; }
+        * { color: black !important; }
+        .print-content { display: block !important; }
+      }
+    </style>
+    <div class="print-content">${template.content}</div>
+  `;
+  printContent.style.display = 'none';
+  document.body.appendChild(printContent);
   
-  document.body.appendChild(iframe);
+  // Hide all elements except print content
+  const originalElements = document.body.children;
+  const elementsToHide = Array.from(originalElements).filter(el => el !== printContent);
   
-  const doc = iframe.contentDocument || iframe.contentWindow?.document;
-  if (!doc) {
-    document.body.removeChild(iframe);
-    return;
-  }
-
-  doc.open();
-  doc.write(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>${template.title}</title>
-        <style>
-          @page { margin: 0.5in; size: A4; }
-          body { 
-            font-family: Arial, sans-serif; 
-            line-height: 1.4; 
-            color: #000; 
-            margin: 0; 
-            padding: 20px; 
-            background: white;
-          }
-          @media print {
-            body { background: white !important; }
-            * { color: black !important; }
-          }
-        </style>
-      </head>
-      <body>
-        ${template.content}
-      </body>
-    </html>
-  `);
-  doc.close();
-
-  // Wait for content to load then print
-  iframe.onload = () => {
+  elementsToHide.forEach(el => {
+    (el as HTMLElement).style.display = 'none';
+  });
+  
+  printContent.style.display = 'block';
+  
+  // Print
+  setTimeout(() => {
+    window.print();
+    
+    // Restore original content after print
     setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
+      printContent.style.display = 'none';
+      elementsToHide.forEach(el => {
+        (el as HTMLElement).style.display = '';
+      });
       
-      // Clean up after printing
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 1000);
-    }, 500);
-  };
+      if (document.body.contains(printContent)) {
+        document.body.removeChild(printContent);
+      }
+    }, 1000);
+  }, 500);
 };
 
 export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | 'statement' | 'expense' | 'purchaseOrder' | 'pumpReading'): PrintTemplate => {

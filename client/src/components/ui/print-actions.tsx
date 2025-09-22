@@ -83,7 +83,33 @@ export function PrintActions({
       
       const data = await response.json();
       const template = generatePrintTemplate(data, type);
-      globalPrintDocument(template);
+      
+      // Create print content in current window
+      const printContent = document.createElement('div');
+      printContent.innerHTML = template.content;
+      printContent.style.display = 'none';
+      document.body.appendChild(printContent);
+      
+      // Hide all elements except print content
+      const originalElements = document.body.children;
+      const elementsToHide = Array.from(originalElements).filter(el => el !== printContent);
+      
+      elementsToHide.forEach(el => {
+        (el as HTMLElement).style.display = 'none';
+      });
+      
+      printContent.style.display = 'block';
+      
+      // Print
+      window.print();
+      
+      // Restore original content
+      printContent.style.display = 'none';
+      elementsToHide.forEach(el => {
+        (el as HTMLElement).style.display = '';
+      });
+      
+      document.body.removeChild(printContent);
     } catch (error) {
       console.error('Print failed:', error);
       alert('Failed to print document. Please try again.');

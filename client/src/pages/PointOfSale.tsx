@@ -64,13 +64,14 @@ export default function PointOfSale() {
   });
 
   const { data: tanks = [] } = useQuery<Tank[]>({
-    queryKey: ["/api/tanks"],
+    queryKey: ["/api/tanks", user?.stationId],
+    enabled: !!user?.stationId,
   });
 
   // Combine customers and suppliers for search
   const searchableOptions = [
-    ...customers.map(c => ({ value: c.id, label: c.name, type: 'customer' as const })),
-    ...suppliers.map(s => ({ value: s.id, label: s.name, type: 'supplier' as const }))
+    ...customers.map(c => ({ value: c.id, label: `${c.name} (Customer)`, type: 'customer' as const })),
+    ...suppliers.map(s => ({ value: s.id, label: `${s.name} (Supplier)`, type: 'supplier' as const }))
   ];
 
   // Find walk-in customer and set as default
@@ -254,280 +255,277 @@ export default function PointOfSale() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Section - New Sale Transaction */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl text-white">New Sale Transaction</CardTitle>
-                <div className="text-right">
-                  <p className="text-sm text-gray-400">Transaction #</p>
-                  <p className="text-lg font-bold text-blue-400">{transactionNumber}</p>
-                </div>
+    <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
+      {/* Left Section - New Sale Transaction */}
+      <div className="lg:col-span-2 space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl">New Sale Transaction</CardTitle>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Transaction #</p>
+                <p className="text-lg font-bold text-primary">{transactionNumber}</p>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Customer Selection */}
-              <div>
-                <label className="text-sm text-gray-300 mb-2 block">Customer</label>
-                <div className="flex items-center gap-3">
-                  <Form {...form}>
-                    <FormField
-                      control={form.control}
-                      name="customerId"
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormControl>
-                            <Combobox
-                              options={searchableOptions}
-                              value={field.value}
-                              onValueChange={field.onChange}
-                              placeholder="Search or select customer..."
-                              emptyMessage="No customers found"
-                              className="bg-gray-700 border-gray-600 text-white"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </Form>
-                  <Button variant="outline" size="sm" className="bg-gray-700 border-gray-600 text-white hover:bg-gray-600">
-                    + Add
-                  </Button>
-                </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Customer Selection */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">Customer</label>
+              <div className="flex items-center gap-3">
+                <Form {...form}>
+                  <FormField
+                    control={form.control}
+                    name="customerId"
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormControl>
+                          <Combobox
+                            options={searchableOptions}
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            placeholder="Search or select customer..."
+                            emptyMessage="No customers/suppliers found"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </Form>
+                <Button variant="outline" size="sm">
+                  + Add
+                </Button>
               </div>
+            </div>
 
-              {/* Default Quantity */}
-              <div>
-                <label className="text-sm text-gray-300 mb-2 block">Default Quantity (L)</label>
-                <Input
-                  value={defaultQuantity}
-                  onChange={(e) => setDefaultQuantity(e.target.value)}
-                  className="bg-gray-700 border-gray-600 text-white w-32"
-                  type="number"
-                  step="0.1"
-                />
-              </div>
+            {/* Default Quantity */}
+            <div>
+              <label className="text-sm font-medium mb-2 block">Default Quantity (L)</label>
+              <Input
+                value={defaultQuantity}
+                onChange={(e) => setDefaultQuantity(e.target.value)}
+                className="w-32"
+                type="number"
+                step="0.1"
+              />
+            </div>
 
-              {/* Fuel Products */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {fuelProducts.map((product) => {
-                  const productTanks = getProductTanks(product.id);
-                  return (
-                    <Card 
-                      key={product.id}
-                      className="bg-gray-700 border-gray-600 cursor-pointer hover:bg-gray-600 transition-colors"
-                      onClick={() => productTanks.length > 0 ? addToCart(product, productTanks[0]) : addToCart(product)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-semibold text-lg text-blue-400">
-                            {product.name}
-                          </h3>
-                          <span className="text-sm text-gray-400">{product.category}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xl font-bold text-white">
-                            {formatCurrency(parseFloat(product.currentPrice))}
-                          </span>
-                          <span className="text-sm text-gray-400">per litre</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-
-              {/* Other Products */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {otherProducts.map((product) => (
+            {/* Fuel Products */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {fuelProducts.map((product) => {
+                const productTanks = getProductTanks(product.id);
+                return (
                   <Card 
                     key={product.id}
-                    className="bg-gray-700 border-gray-600 cursor-pointer hover:bg-gray-600 transition-colors"
-                    onClick={() => addToCart(product)}
+                    className="cursor-pointer hover:bg-accent transition-colors"
+                    onClick={() => productTanks.length > 0 ? addToCart(product, productTanks[0]) : addToCart(product)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-white">
+                        <h3 className="font-semibold text-lg text-primary">
                           {product.name}
                         </h3>
-                        <span className="text-sm text-gray-400">{product.category}</span>
+                        <span className="text-sm text-muted-foreground">{product.category}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-lg font-bold text-white">
+                        <span className="text-xl font-bold">
                           {formatCurrency(parseFloat(product.currentPrice))}
                         </span>
-                        <span className="text-sm text-gray-400">per {product.unit}</span>
+                        <span className="text-sm text-muted-foreground">per litre</span>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
+                );
+              })}
+            </div>
 
-              {/* Cart Items Table */}
-              {cart.length > 0 && (
-                <Card className="bg-gray-700 border-gray-600">
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-gray-800">
-                          <tr>
-                            <th className="text-left p-3 text-gray-300">Product</th>
-                            <th className="text-center p-3 text-gray-300">Qty (L)</th>
-                            <th className="text-center p-3 text-gray-300">Rate</th>
-                            <th className="text-center p-3 text-gray-300">Amount</th>
-                            <th className="text-center p-3 text-gray-300">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {cart.map((item, index) => (
-                            <tr key={`${item.productId}-${item.tankId || 'no-tank'}`} className="border-t border-gray-600">
-                              <td className="p-3 text-white">{item.product.name}</td>
-                              <td className="p-3 text-center">
-                                <Input
-                                  type="number"
-                                  value={item.quantity}
-                                  onChange={(e) => updateQuantity(index, parseFloat(e.target.value) || 0)}
-                                  className="bg-gray-800 border-gray-600 text-white w-20 text-center"
-                                  step="0.1"
-                                />
-                              </td>
-                              <td className="p-3 text-center">
-                                <Input
-                                  type="number"
-                                  value={item.unitPrice}
-                                  onChange={(e) => updateUnitPrice(index, parseFloat(e.target.value) || 0)}
-                                  className="bg-gray-800 border-gray-600 text-white w-24 text-center"
-                                  step="0.01"
-                                />
-                              </td>
-                              <td className="p-3 text-center text-white font-medium">
-                                {formatCurrency(item.totalPrice)}
-                              </td>
-                              <td className="p-3 text-center">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeFromCart(index)}
-                                  className="text-red-400 hover:text-red-300"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+            {/* Other Products */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {otherProducts.map((product) => (
+                <Card 
+                  key={product.id}
+                  className="cursor-pointer hover:bg-accent transition-colors"
+                  onClick={() => addToCart(product)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold">
+                        {product.name}
+                      </h3>
+                      <span className="text-sm text-muted-foreground">{product.category}</span>
                     </div>
-                    {cart.length === 0 && (
-                      <div className="p-8 text-center text-gray-400">
-                        No items added. Click on a product above to add it.
-                      </div>
-                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-bold">
+                        {formatCurrency(parseFloat(product.currentPrice))}
+                      </span>
+                      <span className="text-sm text-muted-foreground">per {product.unit}</span>
+                    </div>
                   </CardContent>
                 </Card>
-              )}
+              ))}
+            </div>
 
-              {/* Payment Method Selection */}
-              <div className="flex gap-4">
-                <Button
-                  variant={form.watch('paymentMethod') === 'cash' ? 'default' : 'outline'}
-                  onClick={() => form.setValue('paymentMethod', 'cash')}
-                  className="flex-1"
-                >
-                  Cash Payment
-                </Button>
-                <Button
-                  variant={form.watch('paymentMethod') === 'card' ? 'default' : 'outline'}
-                  onClick={() => form.setValue('paymentMethod', 'card')}
-                  className="flex-1"
-                >
-                  Card Payment
-                </Button>
-                <Button
-                  variant={form.watch('paymentMethod') === 'credit' ? 'default' : 'outline'}
-                  onClick={() => form.setValue('paymentMethod', 'credit')}
-                  className="flex-1"
-                >
-                  Credit Sale
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            {/* Cart Items Table */}
+            {cart.length > 0 && (
+              <Card>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="text-left p-3 font-medium">Product</th>
+                          <th className="text-center p-3 font-medium">Qty (L)</th>
+                          <th className="text-center p-3 font-medium">Rate</th>
+                          <th className="text-center p-3 font-medium">Amount</th>
+                          <th className="text-center p-3 font-medium">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cart.map((item, index) => (
+                          <tr key={`${item.productId}-${item.tankId || 'no-tank'}`} className="border-t">
+                            <td className="p-3">{item.product.name}</td>
+                            <td className="p-3 text-center">
+                              <Input
+                                type="number"
+                                value={item.quantity}
+                                onChange={(e) => updateQuantity(index, parseFloat(e.target.value) || 0)}
+                                className="w-20 text-center"
+                                step="0.1"
+                              />
+                            </td>
+                            <td className="p-3 text-center">
+                              <Input
+                                type="number"
+                                value={item.unitPrice}
+                                onChange={(e) => updateUnitPrice(index, parseFloat(e.target.value) || 0)}
+                                className="w-24 text-center"
+                                step="0.01"
+                              />
+                            </td>
+                            <td className="p-3 text-center font-medium">
+                              {formatCurrency(item.totalPrice)}
+                            </td>
+                            <td className="p-3 text-center">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeFromCart(index)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {cart.length === 0 && (
+                    <div className="p-8 text-center text-muted-foreground">
+                      No items added. Click on a product above to add it.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
-        {/* Right Section - Transaction Summary */}
-        <div className="space-y-6">
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-xl text-white">Transaction Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between text-gray-300">
-                <span>Subtotal:</span>
-                <span className="text-white">{formatCurrency(subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-gray-300">
-                <span>Tax (5%):</span>
-                <span className="text-white">{formatCurrency(taxAmount)}</span>
-              </div>
-              <Separator className="bg-gray-600" />
-              <div className="flex justify-between text-lg font-bold">
-                <span>Total:</span>
-                <span className="text-blue-400">{formatCurrency(totalAmount)}</span>
-              </div>
-
-              <div className="space-y-3 pt-4">
-                <Button
-                  onClick={form.handleSubmit(onSubmit)}
-                  disabled={cart.length === 0 || createSaleMutation.isPending || !form.watch('customerId')}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-lg"
-                >
-                  Complete Sale
-                </Button>
-                <Button
-                  onClick={saveAsDraft}
-                  variant="outline"
-                  disabled={cart.length === 0}
-                  className="w-full bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
-                >
-                  Save as Draft
-                </Button>
-                <Button
-                  onClick={clearCart}
-                  variant="outline"
-                  className="w-full bg-red-900 border-red-700 text-red-300 hover:bg-red-800"
-                >
-                  Cancel Transaction
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-lg text-white">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start bg-gray-700 border-gray-600 text-white hover:bg-gray-600">
-                <Receipt className="w-4 h-4 mr-2" />
-                Last Transaction
+            {/* Payment Method Selection */}
+            <div className="flex gap-4">
+              <Button
+                variant={form.watch('paymentMethod') === 'cash' ? 'default' : 'outline'}
+                onClick={() => form.setValue('paymentMethod', 'cash')}
+                className="flex-1"
+              >
+                Cash Payment
               </Button>
-              <Button variant="outline" className="w-full justify-start bg-gray-700 border-gray-600 text-white hover:bg-gray-600">
-                <FileText className="w-4 h-4 mr-2" />
-                Print Receipt
+              <Button
+                variant={form.watch('paymentMethod') === 'card' ? 'default' : 'outline'}
+                onClick={() => form.setValue('paymentMethod', 'card')}
+                className="flex-1"
+              >
+                Card Payment
               </Button>
-              <Button variant="outline" className="w-full justify-start bg-gray-700 border-gray-600 text-white hover:bg-gray-600">
-                <Calendar className="w-4 h-4 mr-2" />
-                Day Summary
+              <Button
+                variant={form.watch('paymentMethod') === 'credit' ? 'default' : 'outline'}
+                onClick={() => form.setValue('paymentMethod', 'credit')}
+                className="flex-1"
+              >
+                Credit Sale
               </Button>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Right Section - Transaction Summary */}
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">Transaction Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-between text-muted-foreground">
+              <span>Subtotal:</span>
+              <span>{formatCurrency(subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>Tax (5%):</span>
+              <span>{formatCurrency(taxAmount)}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between text-lg font-bold">
+              <span>Total:</span>
+              <span className="text-primary">{formatCurrency(totalAmount)}</span>
+            </div>
+
+            <div className="space-y-3 pt-4">
+              <Button
+                onClick={form.handleSubmit(onSubmit)}
+                disabled={cart.length === 0 || createSaleMutation.isPending || !form.watch('customerId')}
+                className="w-full h-12 text-lg"
+              >
+                {createSaleMutation.isPending ? 'Processing...' : 'Complete Sale'}
+              </Button>
+              <Button
+                onClick={saveAsDraft}
+                variant="outline"
+                disabled={cart.length === 0}
+                className="w-full"
+              >
+                Save as Draft
+              </Button>
+              <Button
+                onClick={clearCart}
+                variant="outline"
+                className="w-full"
+              >
+                Cancel Transaction
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button variant="outline" className="w-full justify-start">
+              <Receipt className="w-4 h-4 mr-2" />
+              Last Transaction
+            </Button>
+            <Button variant="outline" className="w-full justify-start">
+              <FileText className="w-4 h-4 mr-2" />
+              Print Receipt
+            </Button>
+            <Button variant="outline" className="w-full justify-start">
+              <Calendar className="w-4 h-4 mr-2" />
+              Day Summary
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

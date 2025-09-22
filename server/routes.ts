@@ -75,26 +75,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = insertUserSchema.parse(req.body);
       const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-      
+
       // Check if username already exists
       const existingUser = await storage.getUserByUsername(validatedData.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
       }
-      
+
       // Admin users are automatically active, others need approval
       const isActive = validatedData.role === 'admin';
-      
+
       const userData = { 
         ...validatedData, 
         password: hashedPassword,
         isActive
       };
       const user = await storage.createUser(userData);
-      
+
       // Remove password from response
       const { password, ...safeUser } = user;
-      
+
       if (isActive) {
         res.status(201).json({ 
           user: safeUser, 
@@ -961,14 +961,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate a shorter invoice number, similar to sale invoice
       const invoiceNumber = `PUR${Date.now().toString().slice(-6)}`; // Example: PUR123456
 
-      const validatedOrder = insertPurchaseOrderSchema.parse({
-        ...order,
-        invoiceNumber: invoiceNumber
+      // Fetch currency configuration based on the station
+      const userStationId = req.user?.stationId;
+      if (!userStationId) {
+        return res.status(400).json({ message: "User station not found." });
+      }
+      const currencyConfig = await storage.getSettings(userStationId);
+      if (!currencyConfig) {
+        return res.status(400).json({ message: "Station settings not found." });
+      }
+
+      // Calculate subtotal, tax, and total
+      let subtotal = 0;
+      const processedItems = items.map((item: any) => {
+        const itemSubtotal = parseFloat(item.quantity) * parseFloat(item.unitPrice);
+        subtotal += itemSubtotal;
+        return {
+          ...item,
+          subtotal: itemSubtotal.toString()
+        };
       });
+
+      const taxRate = currencyConfig.taxEnabled ? parseFloat(currencyConfig.taxRate || '0') : 0;
+      const taxAmount = subtotal * taxRate;
+      const totalAmount = subtotal + taxAmount;
+
+      // Normalize dates to ISO timestamps
+      const orderData = {
+        orderNumber: order.orderNumber,
+        stationId: userStationId,
+        supplierId: order.supplierId,
+        userId: req.user?.id,
+        orderDate: order.orderDate instanceof Date ? order.orderDate.toISOString() : new Date(order.orderDate).toISOString(),
+        expectedDeliveryDate: order.expectedDeliveryDate ? 
+          (order.expectedDeliveryDate instanceof Date ? order.expectedDeliveryDate.toISOString() : new Date(order.expectedDeliveryDate).toISOString()) : null,
+        status: order.status,
+        currencyCode: currencyConfig.code,
+        subtotal: subtotal.toString(),
+        taxAmount: taxAmount.toString(),
+        totalAmount: totalAmount.toString(),
+        notes: order.notes || "",
+      };
+
+
+      const validatedOrder = insertPurchaseOrderSchema.parse(orderData);
       const createdOrder = await storage.createPurchaseOrder(validatedOrder);
 
       const createdItems = [];
-      for (const item of items) {
+      for (const item of processedItems) {
         const validatedItem = insertPurchaseOrderItemSchema.parse({
           ...item,
           orderId: createdOrder.id
@@ -979,7 +1019,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json({ order: createdOrder, items: createdItems });
     } catch (error) {
-      res.status(400).json({ message: "Invalid purchase order data" });
+      if (error instanceof Error && error.name === 'ZodError') {
+        console.error("Purchase order validation error:", error.message, (error as any).errors);
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: (error as any).errors
+        });
+      }
+      console.error("Purchase order creation error:", error);
+      console.error("Request body:", JSON.stringify(req.body, null, 2));
+      res.status(400).json({ message: "Invalid purchase order data", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

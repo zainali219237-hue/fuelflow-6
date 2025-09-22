@@ -394,7 +394,12 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({ id: tru
 export const insertSupplierSchema = createInsertSchema(suppliers).omit({ id: true, createdAt: true });
 export const insertSalesTransactionSchema = createInsertSchema(salesTransactions).omit({ id: true, createdAt: true });
 export const insertSalesTransactionItemSchema = createInsertSchema(salesTransactionItems).omit({ id: true, createdAt: true });
-export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({ id: true, createdAt: true });
+export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({ id: true, createdAt: true }).extend({
+  orderDate: z.coerce.date(),
+  expectedDeliveryDate: z.coerce.date().optional(),
+  actualDeliveryDate: z.coerce.date().optional(),
+  dueDate: z.coerce.date().optional(),
+});
 export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderItems).omit({ id: true, createdAt: true });
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
 export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });
