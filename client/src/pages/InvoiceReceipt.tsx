@@ -13,6 +13,7 @@ import { formatAmount } from "@/lib/currency";
 import { Printer, Download, ArrowLeft, ChevronDown, FileText, Image } from "lucide-react";
 import { Link } from "wouter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { generatePrintTemplate, globalPrintDocument, downloadAsPDF, downloadAsPNG } from "@/lib/printUtils";
 import type {
   SalesTransaction,
   SalesTransactionItem,
@@ -68,155 +69,10 @@ export default function InvoiceReceipt() {
   }, [isLoading, transaction]);
 
   const handlePrint = () => {
-    const printContent = document.getElementById('invoice-print');
-    if (!printContent) return;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Sales Invoice ${transaction?.invoiceNumber || 'Unknown'}</title>
-          <style>
-            @page { margin: 0.5in; size: A4; }
-            body { font-family: Arial, sans-serif; line-height: 1.4; color: #000; margin: 0; padding: 20px; }
-            .container { max-width: 800px; margin: 0 auto; }
-            .header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .station-info h1 { color: #2563eb; font-size: 28px; margin: 0; }
-            .station-info p { margin: 5px 0; color: #666; }
-            .invoice-title { font-size: 24px; font-weight: bold; text-align: right; }
-            .invoice-meta { text-align: right; margin-top: 10px; }
-            .invoice-meta p { margin: 5px 0; }
-            .section { margin-bottom: 30px; }
-            .section h3 { background: #f3f4f6; padding: 10px; margin: 0 0 15px 0; font-size: 16px; }
-            .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-            .detail-item { margin-bottom: 10px; }
-            .detail-label { font-weight: bold; color: #374151; }
-            .detail-value { color: #6b7280; }
-            .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            .items-table th, .items-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-            .items-table th { background: #f9fafb; font-weight: bold; }
-            .items-table .amount { text-align: right; }
-            .totals { background: #f9fafb; padding: 20px; border-radius: 8px; margin-top: 20px; }
-            .total-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-            .total-row.final { border-top: 2px solid #333; padding-top: 10px; margin-top: 15px; font-weight: bold; font-size: 18px; }
-            .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; }
-            .payment-badge { background: #10b981; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="station-info">
-                <h1>FuelFlow Station</h1>
-                <p>Sales Invoice</p>
-                <p>Generated on ${new Date().toLocaleDateString()}</p>
-              </div>
-              <div>
-                <div class="invoice-title">SALES INVOICE</div>
-                <div class="invoice-meta">
-                  <p><strong>Invoice #:</strong> ${transaction?.invoiceNumber}</p>
-                  <p><strong>Date:</strong> ${new Date(transaction?.createdAt || new Date()).toLocaleDateString()}</p>
-                  <div class="payment-badge">${transaction?.paymentMethod?.toUpperCase()}</div>
-                </div>
-              </div>
-            </div>
-
-            ${transaction?.customer ? `
-            <div class="section">
-              <h3>Customer Information</h3>
-              <div class="details-grid">
-                <div>
-                  <div class="detail-item">
-                    <div class="detail-label">Customer Name:</div>
-                    <div class="detail-value">${transaction.customer.name}</div>
-                  </div>
-                  <div class="detail-item">
-                    <div class="detail-label">Customer Type:</div>
-                    <div class="detail-value">${transaction.customer.type}</div>
-                  </div>
-                </div>
-                <div>
-                  ${transaction.customer.contactPhone ? `
-                  <div class="detail-item">
-                    <div class="detail-label">Phone:</div>
-                    <div class="detail-value">${transaction.customer.contactPhone}</div>
-                  </div>` : ''}
-                  ${transaction.customer.gstNumber ? `
-                  <div class="detail-item">
-                    <div class="detail-label">GST Number:</div>
-                    <div class="detail-value">${transaction.customer.gstNumber}</div>
-                  </div>` : ''}
-                </div>
-              </div>
-            </div>` : ''}
-
-            <div class="section">
-              <h3>Items</h3>
-              <table class="items-table">
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Quantity</th>
-                    <th>Unit Price</th>
-                    <th class="amount">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${transaction?.items?.map(item => `
-                    <tr>
-                      <td>${item?.product?.name || 'Unknown Product'}</td>
-                      <td>${parseFloat(item?.quantity || '0').toFixed(3)} ${item?.product?.unit || 'L'}</td>
-                      <td>${formatAmount(parseFloat(item?.unitPrice || '0'), transaction?.currencyCode || 'PKR')}</td>
-                      <td class="amount">${formatAmount(parseFloat(item?.totalPrice || '0'), transaction?.currencyCode || 'PKR')}</td>
-                    </tr>
-                  `).join('') || ''}
-                </tbody>
-              </table>
-            </div>
-
-            <div class="totals">
-              <div class="total-row">
-                <span>Subtotal:</span>
-                <span>${formatAmount(parseFloat(transaction?.subtotal || '0'), transaction?.currencyCode || 'PKR')}</span>
-              </div>
-              ${parseFloat(transaction?.taxAmount || '0') > 0 ? `
-              <div class="total-row">
-                <span>Tax:</span>
-                <span>${formatAmount(parseFloat(transaction?.taxAmount || '0'), transaction?.currencyCode || 'PKR')}</span>
-              </div>` : ''}
-              <div class="total-row final">
-                <span>Total Amount:</span>
-                <span>${formatAmount(parseFloat(transaction?.totalAmount || '0'), transaction?.currencyCode || 'PKR')}</span>
-              </div>
-              ${parseFloat(transaction?.outstandingAmount || '0') > 0 ? `
-              <div class="total-row" style="color: #dc2626;">
-                <span>Outstanding Amount:</span>
-                <span>${formatAmount(parseFloat(transaction?.outstandingAmount || '0'), transaction?.currencyCode || 'PKR')}</span>
-              </div>` : ''}
-            </div>
-
-            <div class="footer">
-              <p>Thank you for your business!</p>
-              <p>This is a computer-generated invoice from FuelFlow Management System</p>
-              <p>Generated on ${new Date().toLocaleString()}</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 500);
-    };
+    if (!transaction) return;
+    
+    const template = generatePrintTemplate(transaction, 'invoice');
+    globalPrintDocument(template);
   };
 
   const handleDownloadPDF = () => {

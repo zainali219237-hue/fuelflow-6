@@ -184,10 +184,45 @@ function PaymentHistory() {
                   </div>
                 </div>
               )) : (
-                <div className="text-center text-muted-foreground py-8">
-                  <div className="text-lg font-medium mb-2">No payment history found</div>
-                  <div className="text-sm">No payments have been recorded for this {type}</div>
-                </div>
+                // Sample payment records for template demonstration
+                <>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border border-border rounded-md gap-4 opacity-60">
+                    <div className="flex-1">
+                      <div className="font-medium text-lg">{formatCurrency(5000)}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(Date.now() - 86400000).toLocaleDateString()} • Cash
+                      </div>
+                      <div className="text-xs text-muted-foreground">Ref: PAY-001</div>
+                      <div className="text-xs text-muted-foreground mt-1">Partial payment received</div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge variant="outline">receivable</Badge>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(Date.now() - 86400000).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border border-border rounded-md gap-4 opacity-60">
+                    <div className="flex-1">
+                      <div className="font-medium text-lg">{formatCurrency(3000)}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(Date.now() - 172800000).toLocaleDateString()} • Card
+                      </div>
+                      <div className="text-xs text-muted-foreground">Ref: PAY-002</div>
+                      <div className="text-xs text-muted-foreground mt-1">Credit payment</div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge variant="outline">receivable</Badge>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(Date.now() - 172800000).toLocaleTimeString()}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-center text-muted-foreground py-4 text-xs">
+                    <div className="text-sm font-medium mb-2">Sample Payment Records</div>
+                    <div className="text-xs">These are sample records. Real payments will appear here once recorded.</div>
+                  </div>
+                </>
               )}
             </div>
             

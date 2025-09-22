@@ -82,8 +82,8 @@ export default function SalesHistory() {
   };
 
   const handleEditTransaction = (transactionId: string) => {
-    // Navigate to Point of Sale with pre-loaded transaction data
-    navigate(`/pos?edit=${transactionId}`);
+    // Navigate to invoice page for editing
+    navigate(`/invoice/${transactionId}?edit=true`);
   };
 
   const handleContinueDraft = (draftId: string) => {

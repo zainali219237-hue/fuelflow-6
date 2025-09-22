@@ -6,56 +6,68 @@ export interface PrintTemplate {
 
 // Global print function that prints in current tab
 export const globalPrintDocument = (template: PrintTemplate) => {
-  // Create print content in current window
-  const printContent = document.createElement('div');
-  printContent.innerHTML = `
-    <style>
-      @page { margin: 0.5in; size: A4; }
-      .print-content { 
-        font-family: Arial, sans-serif; 
-        line-height: 1.4; 
-        color: #000; 
-        margin: 0; 
-        padding: 20px; 
-        background: white;
-      }
-      @media print {
-        body { background: white !important; }
-        * { color: black !important; }
-        .print-content { display: block !important; }
-      }
-    </style>
-    <div class="print-content">${template.content}</div>
-  `;
-  printContent.style.display = 'none';
-  document.body.appendChild(printContent);
-  
-  // Hide all elements except print content
-  const originalElements = document.body.children;
-  const elementsToHide = Array.from(originalElements).filter(el => el !== printContent);
-  
-  elementsToHide.forEach(el => {
-    (el as HTMLElement).style.display = 'none';
-  });
-  
-  printContent.style.display = 'block';
-  
-  // Print
-  setTimeout(() => {
-    window.print();
+  try {
+    // Create a clean print container
+    const printContainer = document.createElement('div');
+    printContainer.id = 'global-print-container';
+    printContainer.innerHTML = `
+      <style>
+        @page { 
+          margin: 0.5in; 
+          size: A4; 
+        }
+        @media print {
+          body * { 
+            visibility: hidden; 
+          }
+          #global-print-container, #global-print-container * { 
+            visibility: visible; 
+          }
+          #global-print-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white;
+            font-family: Arial, sans-serif;
+            line-height: 1.4;
+            color: #000;
+            padding: 20px;
+            box-sizing: border-box;
+          }
+        }
+        @media screen {
+          #global-print-container {
+            display: none;
+          }
+        }
+      </style>
+      ${template.content}
+    `;
     
-    // Restore original content after print
+    // Remove any existing print container
+    const existing = document.getElementById('global-print-container');
+    if (existing) {
+      document.body.removeChild(existing);
+    }
+    
+    document.body.appendChild(printContainer);
+    
+    // Print and cleanup
     setTimeout(() => {
-      printContent.style.display = 'none';
-      elementsToHide.forEach(el => {
-        (el as HTMLElement).style.display = '';
-      });
+      window.print();
       
-      if (document.body.contains(printContent)) {
-        document.body.removeChild(printContent);
-      }
-    }, 1000);
-  }, 500);
+      setTimeout(() => {
+        if (document.body.contains(printContainer)) {
+          document.body.removeChild(printContainer);
+        }
+      }, 1000);
+    }, 200);
+    
+  } catch (error) {
+    console.error('Print failed:', error);
+    alert('Print failed. Please try again.');
+  }
 };
 
 export const generatePrintTemplate = (data: any, type: 'invoice' | 'receipt' | 'statement' | 'expense' | 'purchaseOrder' | 'pumpReading'): PrintTemplate => {

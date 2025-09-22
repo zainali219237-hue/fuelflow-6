@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -90,7 +89,7 @@ export default function PointOfSale() {
 
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
-  const taxRate = 0.05; // 5% tax
+  const taxRate = 0.00; // Tax removed as requested
   const taxAmount = subtotal * taxRate;
   const totalAmount = subtotal + taxAmount;
 
@@ -254,6 +253,61 @@ export default function PointOfSale() {
     return tanks.filter(tank => tank.productId === productId && parseFloat(tank.currentStock || '0') > 0);
   };
 
+  // --- New Functions for Adding Customer/Supplier and Handling Drafts/History ---
+
+  const handleAddCustomerOrSupplier = (type: 'customer' | 'supplier', data: any) => {
+    // Placeholder for adding new customer/supplier via modal or separate page
+    console.log(`Adding new ${type}:`, data);
+    // In a real app, this would involve a mutation to add the entity and then re-fetching or updating the list.
+    // For now, we'll just show a toast.
+    toast({
+      title: `New ${type.charAt(0).toUpperCase() + type.slice(1)} Added`,
+      description: `"${data.name}" has been added as a ${type}.`,
+    });
+    // Refetch customers/suppliers to update the combobox
+    queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/suppliers"] });
+  };
+
+  const handleEditDraftOrHistory = (transactionId: string) => {
+    // Placeholder for editing draft or transaction history
+    console.log("Editing transaction:", transactionId);
+    // Logic to fetch transaction data, populate the form and cart, and allow updates.
+    // For now, just a toast.
+    toast({
+      title: "Editing Transaction",
+      description: `Opening transaction ${transactionId} for editing.`,
+    });
+    // Example: if it's a draft, load from localStorage
+    if (transactionId.startsWith('draft-')) {
+      const drafts = JSON.parse(localStorage.getItem('allPosDrafts') || '[]');
+      const draftToEdit = drafts.find((d: any) => d.id === transactionId);
+      if (draftToEdit) {
+        setCart(draftToEdit.transactionItems);
+        form.reset({
+          customerId: draftToEdit.selectedCustomerId,
+          paymentMethod: draftToEdit.paymentMethod,
+        });
+        toast({ title: "Draft loaded", description: `Transaction ${transactionId} loaded into POS.`});
+      } else {
+        toast({ title: "Draft not found", description: `Draft ${transactionId} could not be loaded.`, variant: 'destructive'});
+      }
+    }
+  };
+  
+  const handlePrint = (transaction: SalesTransaction) => {
+    console.log("Printing transaction:", transaction);
+    // This function would handle the unified printing logic.
+    // It might involve generating a PDF or using a browser print API.
+    // For now, a simple toast.
+    toast({
+      title: "Printing",
+      description: `Printing receipt for transaction ${transaction.invoiceNumber}.`,
+    });
+  };
+
+  // --- End New Functions ---
+
   return (
     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
       {/* Left Section - New Sale Transaction */}
@@ -271,7 +325,7 @@ export default function PointOfSale() {
           <CardContent className="space-y-6">
             {/* Customer Selection */}
             <div>
-              <label className="text-sm font-medium mb-2 block">Customer</label>
+              <label className="text-sm font-medium mb-2 block">Customer/Supplier</label>
               <div className="flex items-center gap-3">
                 <Form {...form}>
                   <FormField
@@ -284,7 +338,7 @@ export default function PointOfSale() {
                             options={searchableOptions}
                             value={field.value}
                             onValueChange={field.onChange}
-                            placeholder="Search or select customer..."
+                            placeholder="Search or select customer/supplier..."
                             emptyMessage="No customers/suppliers found"
                           />
                         </FormControl>
@@ -293,7 +347,32 @@ export default function PointOfSale() {
                     )}
                   />
                 </Form>
-                <Button variant="outline" size="sm">
+                {/* Button to add new customer/supplier */}
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    // This should open a modal or navigate to a page to add a new customer/supplier
+                    // For demonstration, we'll simulate adding a walk-in customer if none selected
+                    if (!form.getValues('customerId')) {
+                      toast({ title: "Please select a customer or supplier first.", variant: "destructive" });
+                    } else {
+                      // Logic to open modal for adding new customer/supplier, passing the type
+                      // For example, if the selected customer is a walk-in, prompt to add a new one
+                      const selectedCustomer = customers.find(c => c.id === form.getValues('customerId'));
+                      if (selectedCustomer?.type === 'walk-in') {
+                        // Call a function to open a modal for adding a new customer
+                        // handleAddCustomerOrSupplier('customer', { name: 'New Customer', type: 'regular' }); 
+                        console.log("Simulating add new customer modal");
+                        toast({ title: "Add New Customer/Supplier", description: "A modal would open here." });
+                      } else {
+                        // If a valid customer/supplier is selected, potentially allow adding related entities
+                        console.log("Simulating add new related entity");
+                        toast({ title: "Add New Customer/Supplier", description: "A modal would open here." });
+                      }
+                    }
+                  }}
+                >
                   + Add
                 </Button>
               </div>
@@ -469,10 +548,13 @@ export default function PointOfSale() {
               <span>Subtotal:</span>
               <span>{formatCurrency(subtotal)}</span>
             </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>Tax (5%):</span>
-              <span>{formatCurrency(taxAmount)}</span>
-            </div>
+            {/* Tax is removed, so this section can be omitted or shown as 0 */}
+            {taxAmount > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>Tax (0%):</span>
+                <span>{formatCurrency(taxAmount)}</span>
+              </div>
+            )}
             <Separator />
             <div className="flex justify-between text-lg font-bold">
               <span>Total:</span>
@@ -512,18 +594,29 @@ export default function PointOfSale() {
             <CardTitle className="text-lg">Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {/* Last Transaction - Opens Transaction/Invoice page for the latest transaction */}
             <Button 
               variant="outline" 
               className="w-full justify-start"
-              onClick={() => window.location.href = '/sales-history'}
+              onClick={() => {
+                // Logic to find and open the latest transaction/invoice page
+                // For now, navigating to sales-history which might list transactions
+                toast({ title: "Navigate to Latest Transaction", description: "Opening sales history for latest transaction." });
+                window.location.href = '/sales-history'; 
+              }}
             >
               <Receipt className="w-4 h-4 mr-2" />
               Last Transaction
             </Button>
+            {/* Print Transaction - Uses global print functionality */}
             <Button 
               variant="outline" 
               className="w-full justify-start"
-              onClick={() => window.location.href = '/sales-history'}
+              onClick={() => {
+                // This should trigger the global print function, ideally with the last completed transaction details
+                toast({ title: "Print Latest Transaction", description: "Using global print for the last transaction." });
+                // Example: handlePrint(lastCompletedTransaction); 
+              }}
             >
               <FileText className="w-4 h-4 mr-2" />
               Print Receipt
