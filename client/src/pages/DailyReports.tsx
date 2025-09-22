@@ -50,6 +50,18 @@ export default function DailyReports() {
   const { formatCurrency } = useCurrency();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
+  // Dummy function for dynamic currency formatting, replace with actual implementation if available
+  const formatCurrencyCompact = (amount: number): string => {
+    // Assuming formatCurrency from CurrencyContext handles the symbol and formatting
+    // If formatCurrencyCompact is intended to be a separate function, its implementation would go here.
+    // For now, we'll use the provided formatCurrency and ensure it returns a string with the symbol.
+    // If formatCompactNumber is intended to be used with currency, it should be adapted.
+    // Example: return `${formatCurrency(amount)} ${getCurrencySymbol(currencyCode)}`;
+    // Using formatCurrency directly as it should handle the symbol and locale.
+    return formatCurrency(amount);
+  };
+
+
   const { data: dailyReport, isLoading, refetch } = useQuery<DailyReportData>({
     queryKey: [`/api/reports/daily/${user?.stationId}?date=${format(selectedDate, 'yyyy-MM-dd')}`],
     enabled: !!user?.stationId,
@@ -69,17 +81,17 @@ export default function DailyReports() {
   const handleExport = () => {
     // Create CSV export
     if (!dailyReport) return;
-    
+
     const csvContent = [
       ['Daily Report - ' + format(selectedDate, 'PPP')],
       [''],
       ['Sales by Payment Method'],
-      ['Method', 'Amount', 'Count', 'Currency'],
+      ['Method', 'Amount', 'Currency', 'Count'],
       ...dailyReport.salesByMethod.map(item => [
         item.paymentMethod,
         item.totalAmount,
-        item.count.toString(),
-        item.currencyCode
+        item.currencyCode,
+        item.count.toString()
       ]),
       [''],
       ['Expenses by Category'],
@@ -223,9 +235,9 @@ export default function DailyReports() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Sales</p>
-                <p className="text-3xl font-bold text-green-600" data-testid="total-sales">
-                  {formatCurrency(totalSales)}
-                </p>
+                <div className="text-3xl font-bold text-green-600" data-testid="total-sales">
+                  {formatCurrencyCompact(totalSales)}
+                </div>
                 <p className="text-sm text-muted-foreground">{totalTransactions} transactions</p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-500" />
@@ -238,9 +250,9 @@ export default function DailyReports() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Expenses</p>
-                <p className="text-3xl font-bold text-red-600" data-testid="total-expenses">
-                  {formatCurrency(totalExpenses)}
-                </p>
+                <div className="text-3xl font-bold text-red-600" data-testid="total-expenses">
+                  {formatCurrencyCompact(totalExpenses)}
+                </div>
                 <p className="text-sm text-muted-foreground">Daily operational costs</p>
               </div>
               <TrendingDown className="w-8 h-8 text-red-500" />
@@ -253,9 +265,9 @@ export default function DailyReports() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Net Profit</p>
-                <p className={`text-3xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="net-profit">
-                  {formatCurrency(netProfit)}
-                </p>
+                <div className={`text-3xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="net-profit">
+                  {formatCurrencyCompact(Math.abs(netProfit))}
+                </div>
                 <p className="text-sm text-muted-foreground">Sales - Expenses</p>
               </div>
               <DollarSign className={`w-8 h-8 ${netProfit >= 0 ? 'text-green-500' : 'text-red-500'}`} />
@@ -268,9 +280,9 @@ export default function DailyReports() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Avg Transaction</p>
-                <p className="text-3xl font-bold text-blue-600" data-testid="avg-transaction">
-                  {formatCurrency(totalTransactions > 0 ? totalSales / totalTransactions : 0)}
-                </p>
+                <div className="text-3xl font-bold text-blue-600" data-testid="avg-transaction">
+                  {formatCurrencyCompact(totalTransactions > 0 ? totalSales / totalTransactions : 0)}
+                </div>
                 <p className="text-sm text-muted-foreground">Per transaction</p>
               </div>
               <BarChart3 className="w-8 h-8 text-blue-500" />
@@ -406,7 +418,7 @@ export default function DailyReports() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Revenue:</span>
                   <span className="font-medium text-green-600" data-testid="summary-revenue">
-                    {formatAmount(totalSales)}
+                    {formatCurrencyCompact(totalSales)}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -418,7 +430,7 @@ export default function DailyReports() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Average Sale:</span>
                   <span className="font-medium" data-testid="summary-avg-sale">
-                    {formatAmount(totalTransactions > 0 ? totalSales / totalTransactions : 0)}
+                    {formatCurrencyCompact(totalTransactions > 0 ? totalSales / totalTransactions : 0)}
                   </span>
                 </div>
               </div>
@@ -436,7 +448,7 @@ export default function DailyReports() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Expenses:</span>
                   <span className="font-medium text-red-600" data-testid="summary-total-expenses">
-                    {formatAmount(totalExpenses)}
+                    {formatCurrencyCompact(totalExpenses)}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -466,7 +478,7 @@ export default function DailyReports() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Net Profit:</span>
                   <span className={`font-medium ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="summary-net-profit">
-                    {formatAmount(netProfit)}
+                    {formatCurrencyCompact(netProfit)}
                   </span>
                 </div>
                 <div className="flex justify-between">

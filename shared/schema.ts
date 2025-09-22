@@ -401,7 +401,9 @@ export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit
   dueDate: z.coerce.date().optional(),
 });
 export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderItems).omit({ id: true, createdAt: true });
-export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
+export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true }).extend({
+  expenseDate: z.coerce.date(),
+});
 export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });
 export const insertStockMovementSchema = createInsertSchema(stockMovements);
 export const insertPriceHistorySchema = createInsertSchema(priceHistory).omit({ id: true, createdAt: true });

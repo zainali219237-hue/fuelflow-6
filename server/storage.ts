@@ -90,6 +90,8 @@ export interface IStorage {
   getExpenses(stationId: string): Promise<Expense[]>;
   createExpense(expense: InsertExpense): Promise<Expense>;
   deleteExpense(id: string, stationId: string): Promise<void>;
+  deleteExpenseSecure(id: string, userStationId: string, userRole: string): Promise<void>;
+  updateExpense(id: string, data: any): Promise<Expense>;
 
   // Payments
   getPayments(stationId: string): Promise<Payment[]>;
@@ -543,6 +545,24 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       throw new Error(`Failed to delete expense: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  async deleteExpenseSecure(id: string, userStationId: string, userRole: string): Promise<void> {
+    const expense = await this.db.select().from(expenses).where(eq(expenses.id, id)).then(results => results[0]);
+    if (!expense) {
+      throw new Error('Expense not found');
+    }
+
+    if (userRole !== 'admin' && userStationId !== expense.stationId) {
+      throw new Error('Access denied to this expense');
+    }
+
+    return await this.db.delete(expenses).where(eq(expenses.id, id));
+  }
+
+  async updateExpense(id: string, data: any): Promise<Expense> {
+    const [expense] = await this.db.update(expenses).set(data).where(eq(expenses.id, id)).returning();
+    return expense;
   }
 
   async getPayments(stationId: string): Promise<Payment[]>{

@@ -289,7 +289,8 @@ export default function CashReconciliation() {
             <div className="space-y-3">
               {denominations.map((denom, index) => (
                 <div key={denom.value} className="grid grid-cols-4 gap-4 items-center">
-                  <div className="font-medium">{currencyConfig.symbol}{denom.value}</div>
+                  <label className="flex items-center space-x-2">
+                        <span className="w-16 text-sm font-medium">{currencyConfig.symbol}{denom.value}</span></label>
                   <div className="text-center">×</div>
                   <Input
                     type="number"
@@ -387,8 +388,7 @@ export default function CashReconciliation() {
               </Badge>
               {cashData.difference !== 0 && (
                 <div className={`mt-2 font-semibold ${cashData.difference > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {cashData.difference > 0 ? 'Excess: ' : 'Shortage: '}
-                  {formatCurrency(Math.abs(cashData.difference))}
+                  {formatCurrency(Math.abs(cashData.difference))} {cashData.difference >= 0 ? 'Excess' : 'Shortage'}
                 </div>
               )}
             </div>

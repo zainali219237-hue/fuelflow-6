@@ -1106,33 +1106,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Expenses routes
-  app.get("/api/expenses/:stationId", requireAuth, requireStationAccess, async (req, res) => {
+  app.get("/api/expenses", requireAuth, async (req, res) => {
     try {
-      const { stationId } = req.params;
-      const expenses = await storage.getExpenses(stationId);
+      const { stationId } = req.query;
+      if (!stationId) {
+        return res.status(400).json({ message: "Station ID is required" });
+      }
+      const expenses = await storage.getExpenses(stationId as string);
       res.json(expenses);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch expenses" });
     }
   });
 
-  app.delete("/api/expenses/:stationId/:id", requireAuth, requireRole(['admin', 'manager']), requireStationAccess, async (req, res) => {
+  app.put("/api/expenses/:id", requireAuth, async (req, res) => {
     try {
-      const { id, stationId } = req.params;
-      await storage.deleteExpense(id, stationId);
+      const { id } = req.params;
+      const expenseData = {
+        ...req.body,
+        amount: parseFloat(req.body.amount).toString(),
+        expenseDate: new Date(req.body.expenseDate).toISOString(),
+      };
+      const validatedData = insertExpenseSchema.partial().parse(expenseData);
+      const expense = await storage.updateExpense(id, validatedData);
+      res.json(expense);
+    } catch (error) {
+      console.error('Expense update error:', error);
+      res.status(400).json({ message: "Invalid expense data", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.delete("/api/expenses/:id", requireAuth, requireRole(['admin', 'manager']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userStationId = req.user?.stationId || '';
+      const userRole = req.user?.role || '';
+
+      await storage.deleteExpenseSecure(id, userStationId, userRole);
       res.json({ message: "Expense deleted successfully" });
     } catch (error) {
+      if (error instanceof Error && error.message.includes('Access denied')) {
+        return res.status(403).json({ message: error.message });
+      }
       res.status(500).json({ message: "Failed to delete expense" });
     }
   });
 
   app.post("/api/expenses", requireAuth, async (req, res) => {
     try {
-      const validatedData = insertExpenseSchema.parse(req.body);
+      console.log("Creating expense with data:", req.body);
+
+      if (!req.user?.stationId || !req.user?.id) {
+        throw new Error("User session not properly loaded");
+      }
+
+      const expenseData = {
+        ...req.body,
+        stationId: req.user.stationId,
+        userId: req.user.id,
+        amount: parseFloat(req.body.amount).toString(),
+        expenseDate: new Date(req.body.expenseDate).toISOString(),
+      };
+
+      console.log("Final expense data being sent:", expenseData);
+
+      const validatedData = insertExpenseSchema.parse(expenseData);
       const expense = await storage.createExpense(validatedData);
       res.status(201).json(expense);
     } catch (error) {
-      res.status(400).json({ message: "Invalid expense data" });
+      console.error('Expense creation error:', error);
+      if (error instanceof Error && error.name === 'ZodError') {
+        console.error("Expense validation error:", error.message, (error as any).errors);
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: (error as any).errors
+        });
+      }
+      res.status(400).json({ message: "Invalid expense data", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

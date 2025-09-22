@@ -15,7 +15,7 @@ export default function Dashboard() {
   const { formatCurrency, formatCurrencyCompact } = useCurrency();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  
+
   const { data: dashboardStats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/dashboard", user?.stationId],
     enabled: !!user?.stationId,
@@ -42,11 +42,11 @@ export default function Dashboard() {
   // Calculate chart data from dashboard stats (last 7 days)
   const generateChartData = () => {
     if (!dashboardStats || typeof dashboardStats !== 'object' || !('weeklySales' in dashboardStats)) return [];
-    
+
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const today = new Date().getDay();
     const chartData = [];
-    
+
     for (let i = 6; i >= 0; i--) {
       const dayIndex = (today - i + 7) % 7;
       const dayData = (dashboardStats as any).weeklySales?.find((d: any) => d.dayOfWeek === dayIndex);
@@ -61,7 +61,7 @@ export default function Dashboard() {
   // Calculate stock value from tanks
   const calculateStockValue = () => {
     if (!tanks.length || !products.length) return 0;
-    
+
     return tanks.reduce((total, tank) => {
       const product = products.find(p => p.id === tank.productId);
       if (product) {
@@ -133,7 +133,7 @@ export default function Dashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-green-100 text-xs sm:text-sm font-medium">Today's Sales</p>
                 <p className="text-lg sm:text-2xl lg:text-3xl font-bold truncate" data-testid="todays-sales">
-                  {formatCompactNumber(parseFloat((dashboardStats as any)?.todaysSales?.totalAmount || '0'), { currency: 'PKR' })}
+                  {formatCurrencyCompact(parseFloat((dashboardStats as any)?.todaysSales?.totalAmount || '0'))}
                 </p>
                 <p className="text-green-100 text-xs sm:text-sm">{(dashboardStats as any)?.todaysSales?.count || 0} transactions</p>
               </div>
@@ -151,7 +151,7 @@ export default function Dashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-blue-100 text-xs sm:text-sm font-medium">Monthly Revenue</p>
                 <p className="text-lg sm:text-2xl lg:text-3xl font-bold truncate" data-testid="monthly-revenue">
-                  {formatCompactNumber((dashboardStats as any)?.monthlySales?.totalAmount ? parseFloat((dashboardStats as any).monthlySales.totalAmount) : 0, { currency: 'PKR' })}
+                  {formatCurrencyCompact((dashboardStats as any)?.monthlySales?.totalAmount ? parseFloat((dashboardStats as any).monthlySales.totalAmount) : 0)}
                 </p>
                 <p className="text-blue-100 text-xs sm:text-sm">{(dashboardStats as any)?.monthlySales?.count || 0} transactions total</p>
               </div>
@@ -169,7 +169,7 @@ export default function Dashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-purple-100 text-xs sm:text-sm font-medium">Stock Value</p>
                 <p className="text-lg sm:text-2xl lg:text-3xl font-bold truncate" data-testid="stock-value">
-                  {formatCompactNumber(calculateStockValue(), { currency: 'PKR' })}
+                  {formatCurrencyCompact(calculateStockValue())}
                 </p>
                 <p className="text-purple-100 text-xs sm:text-sm">All tanks combined</p>
               </div>
@@ -187,7 +187,7 @@ export default function Dashboard() {
               <div className="flex-1 min-w-0">
                 <p className="text-orange-100 text-xs sm:text-sm font-medium">Outstanding</p>
                 <p className="text-lg sm:text-2xl lg:text-3xl font-bold truncate" data-testid="outstanding-amount">
-                  {formatCompactNumber((dashboardStats as any)?.outstanding?.totalOutstanding ? parseFloat((dashboardStats as any).outstanding.totalOutstanding) : 0, { currency: 'PKR' })}
+                  {formatCurrencyCompact((dashboardStats as any)?.outstanding?.totalOutstanding ? parseFloat((dashboardStats as any).outstanding.totalOutstanding) : 0)}
                 </p>
                 <p className="text-orange-100 text-xs sm:text-sm">Credit customers</p>
               </div>
@@ -216,7 +216,7 @@ export default function Dashboard() {
               <ShoppingCart className="w-6 h-6 text-green-600" />
               <span className="text-sm font-medium">New Sale</span>
             </Button>
-            
+
             <Button 
               variant="outline" 
               className="flex flex-col items-center gap-2 h-20"
@@ -226,7 +226,7 @@ export default function Dashboard() {
               <BarChart3 className="w-6 h-6 text-blue-600" />
               <span className="text-sm font-medium">View Reports</span>
             </Button>
-            
+
             <Button 
               variant="outline" 
               className="flex flex-col items-center gap-2 h-20"
@@ -236,7 +236,7 @@ export default function Dashboard() {
               <FileText className="w-6 h-6 text-purple-600" />
               <span className="text-sm font-medium">Stock Status</span>
             </Button>
-            
+
             <Button 
               variant="outline" 
               className="flex flex-col items-center gap-2 h-20"
@@ -246,7 +246,7 @@ export default function Dashboard() {
               <Users className="w-6 h-6 text-orange-600" />
               <span className="text-sm font-medium">Customer Payments</span>
             </Button>
-            
+
             <Button 
               variant="outline" 
               className="flex flex-col items-center gap-2 h-20"
@@ -256,7 +256,7 @@ export default function Dashboard() {
               <AlertCircle className="w-6 h-6 text-red-600" />
               <span className="text-sm font-medium">Tank Monitoring</span>
             </Button>
-            
+
             <Button 
               variant="outline" 
               className="flex flex-col items-center gap-2 h-20"
@@ -399,7 +399,7 @@ export default function Dashboard() {
                   </div>
                 );
               })}
-              
+
               {/* Overdue Customers */}
               {customers.filter(customer => parseFloat(customer.outstandingAmount || '0') > 50000).slice(0, 1).map(customer => (
                 <div key={customer.id} className="p-3 bg-red-50 border border-red-200 rounded-md">
@@ -408,13 +408,13 @@ export default function Dashboard() {
                     <div>
                       <div className="text-sm font-medium text-red-800">Payment Overdue</div>
                       <div className="text-xs text-red-600">
-                        {customer.name} - ₹{parseFloat(customer.outstandingAmount || '0').toLocaleString()} outstanding
+                        {customer.name} - {formatCurrencyCompact(parseFloat(customer.outstandingAmount || '0'))} outstanding
                       </div>
                     </div>
                   </div>
                 </div>
               ))}
-              
+
               {/* Show message if no alerts */}
               {tanks.filter(tank => parseFloat(tank.currentStock || '0') <= parseFloat(tank.minimumLevel || '500')).length === 0 && 
                customers.filter(customer => parseFloat(customer.outstandingAmount || '0') > 50000).length === 0 && (

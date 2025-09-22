@@ -65,7 +65,7 @@ export default function AgingReports() {
       : ['Order Number', 'Supplier Name', 'Order Date', 'Due Date', 'Outstanding Amount', 'Currency', 'Days Overdue', 'Status'];
 
     const rows: string[][] = [];
-    
+
     // Add data from all buckets
     Object.entries(agingReport.buckets).forEach(([bucketName, items]) => {
       items.forEach(item => {
@@ -134,7 +134,8 @@ export default function AgingReports() {
   };
 
   const formatAmount = (amount: number, currencyCode?: string) => {
-    return formatCurrency(amount);
+    // Assuming formatCurrency handles dynamic currency symbols based on currencyCode
+    return formatCurrency(amount, currencyCode);
   };
 
   const renderBucketCard = (bucketName: string, bucketData: AgingBucketData[], total: number, label: string) => {
